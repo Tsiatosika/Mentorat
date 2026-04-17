@@ -3,9 +3,14 @@ const router = express.Router();
 
 // Import des sous-routes
 const authRoutes = require('./auth.routes');
+const mentorRoutes = require('./mentor.routes');
+const mentoreRoutes = require('./mentore.routes');
+const publicRoutes = require('./public.routes');
 
-// Authentification
+router.use('/', publicRoutes);
 router.use('/auth', authRoutes);
+router.use('/mentors', mentorRoutes);
+router.use('/mentores', mentoreRoutes);
 
 // Route de test public
 router.get('/ping', (req, res) => {
@@ -16,7 +21,7 @@ router.get('/ping', (req, res) => {
   });
 });
 
-// Route de test protégée (pour tester l'authentification)
+// Route de test protégée
 router.get('/protected', require('../middlewares/auth').authenticate, (req, res) => {
   res.json({ 
     success: true, 
