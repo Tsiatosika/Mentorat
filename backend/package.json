@@ -1,0 +1,12 @@
+{
+  "name": "mentorat-backend",
+  "version": "1.0.0",
+  "description": "API Plateforme de Mentorat Académique avec Matching IA",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "author": "RAMAMONJISOA Sitrakiniaina Tsiatosika",
+  "license": "MIT"
+}
