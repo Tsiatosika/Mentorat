@@ -6,9 +6,13 @@ const authRoutes = require('./auth.routes');
 const mentorRoutes = require('./mentor.routes');
 const mentoreRoutes = require('./mentore.routes');
 const publicRoutes = require('./public.routes');
+const disponibiliteRoutes = require('./disponibilite.routes');
+const competencesRoutes = require('./competences.routes');
 
 router.use('/', publicRoutes);
 router.use('/auth', authRoutes);
+router.use('/competences', competencesRoutes);
+router.use('/disponibilites', disponibiliteRoutes);
 router.use('/mentors', mentorRoutes);
 router.use('/mentores', mentoreRoutes);
 
