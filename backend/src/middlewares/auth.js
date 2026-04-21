@@ -88,6 +88,6 @@ const authorize = (...roles) => {
     
     next();
   };
-};
+}; 
 
 module.exports = { authenticate, authorize };
