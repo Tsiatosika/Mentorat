@@ -9,13 +9,16 @@ const publicRoutes = require('./public.routes');
 const disponibiliteRoutes = require('./disponibilite.routes');
 const competencesRoutes = require('./competences.routes');
 const sessionRoutes = require('./session.routes');
-
+//const messageRoutes = require('./message.routes');
+const matchingRoutes = require('./matching.routes');
 
 router.use('/', publicRoutes);
 router.use('/auth', authRoutes);
 router.use('/competences', competencesRoutes);
 router.use('/disponibilites', disponibiliteRoutes);
 router.use('/sessions', sessionRoutes);
+//router.use('/messages', messageRoutes);
+router.use('/matching', matchingRoutes);
 router.use('/mentors', mentorRoutes);
 router.use('/mentores', mentoreRoutes);
 
