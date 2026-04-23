@@ -32,13 +32,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const savedUser = localStorage.getItem('user');
     
     if (token && savedUser) {
-      setUser(JSON.parse(savedUser));
-      // Vérifier si le token est toujours valide
-      authAPI.getMe().catch(() => {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (e) {
+        console.error('Erreur parsing user:', e);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        setUser(null);
-      });
+      }
     }
     setLoading(false);
   }, []);
