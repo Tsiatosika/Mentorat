@@ -11,7 +11,8 @@ import {
   Sparkles,
   Shield,
   Clock,
-  Video
+  Video,
+  Star
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { publicAPI } from '@/services/api';
@@ -51,7 +52,13 @@ export default function Home() {
     { icon: Shield, title: 'Sécurisé', description: 'Plateforme sécurisée et confidentielle' },
   ];
 
-  // Afficher un loader pendant le chargement
+  const getNoteDisplay = (note: any) => {
+    if (!note) return 'Nouveau';
+    const numNote = Number(note);
+    if (isNaN(numNote)) return 'Nouveau';
+    return numNote.toFixed(1);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -63,19 +70,10 @@ export default function Home() {
     );
   }
 
-  // Fonction pour afficher la note
-  const getNoteDisplay = (note: any) => {
-    if (note === null || note === undefined) return 'Nouveau';
-    const numNote = Number(note);
-    if (isNaN(numNote)) return 'Nouveau';
-    return numNote.toFixed(1);
-  };
-
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
       <div className="relative overflow-hidden bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800">
-        {/* Background image */}
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-10"
           style={{
@@ -83,51 +81,11 @@ export default function Home() {
           }}
         />
         
-        {/* Simple decorative blurs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-20 left-10 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
           <div className="absolute bottom-20 right-10 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl" />
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
         </div>
-
-        {/* Navigation */}
-        <nav className="relative z-10 bg-transparent">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center space-x-2">
-                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                  <span className="text-2xl">🎓</span>
-                </div>
-                <span className="text-xl font-bold text-white">Mentorat Académique</span>
-              </div>
-              <div className="flex items-center space-x-4">
-                {user ? (
-                  <Link 
-                    href="/dashboard" 
-                    className="px-4 py-2 rounded-lg text-white hover:bg-white/10 transition-colors"
-                  >
-                    Tableau de bord
-                  </Link>
-                ) : (
-                  <>
-                    <Link 
-                      href="/login" 
-                      className="px-4 py-2 rounded-lg text-white hover:bg-white/10 transition-colors"
-                    >
-                      Connexion
-                    </Link>
-                    <Link 
-                      href="/register" 
-                      className="px-4 py-2 rounded-lg bg-white text-indigo-600 hover:bg-gray-100 transition-colors font-medium"
-                    >
-                      Inscription gratuite
-                    </Link>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </nav>
 
         {/* Hero Content */}
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
@@ -146,23 +104,6 @@ export default function Home() {
             <p className="text-xl text-gray-200 mb-8 max-w-2xl mx-auto">
               Rejoignez notre communauté et accélérez votre apprentissage grâce à un mentorat personnalisé avec matching IA
             </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-4">
-              {!user && (
-                <Link 
-                  href="/register" 
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-white text-indigo-600 hover:bg-gray-100 transition-colors font-medium text-lg"
-                >
-                  Commencer maintenant
-                  <ArrowRight className="w-5 h-5" />
-                </Link>
-              )}
-              <Link 
-                href="/mentors" 
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-white text-white hover:bg-white/10 transition-colors font-medium text-lg"
-              >
-                Explorer les mentors
-              </Link>
-            </div>
 
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-16">
@@ -251,10 +192,8 @@ export default function Home() {
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className="text-yellow-500">★</span>
-                        <span className="font-semibold">
-                          {getNoteDisplay(mentor.note_moyenne)}
-                        </span>
+                        <Star className="w-5 h-5 text-yellow-500 fill-current" />
+                        <span className="font-semibold">{getNoteDisplay(mentor.note_moyenne)}</span>
                       </div>
                     </div>
                     <h3 className="text-xl font-semibold text-gray-900 mb-1">
@@ -271,7 +210,7 @@ export default function Home() {
                         {mentor.nb_sessions || 0} sessions
                       </span>
                     </div>
-                    <Link 
+                    <Link
                       href={`/mentors/${mentor.id}`}
                       className="block w-full text-center px-4 py-2 rounded-lg border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 transition-colors font-medium"
                     >
@@ -295,9 +234,9 @@ export default function Home() {
             Rejoignez des milliers d'étudiants qui ont déjà trouvé leur mentor idéal
           </p>
           {!user && (
-            <Link 
-              href="/register" 
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-white text-indigo-600 hover:bg-gray-100 transition-colors font-medium text-lg"
+            <Link
+              href="/register"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-white text-indigo-600 hover:bg-gray-100 transition-colors font-medium text-lg shadow-lg"
             >
               Inscription gratuite
               <ArrowRight className="w-5 h-5" />
