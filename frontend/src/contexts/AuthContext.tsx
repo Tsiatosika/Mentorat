@@ -2,7 +2,9 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '@/types';
-import { authAPI } from '@/services/api';
+import api from '@/services/api';
+import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 
 interface AuthContextType {
   user: User | null;
@@ -26,6 +28,7 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -44,20 +47,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await authAPI.login({ email, mot_de_passe: password });
-    if (response.data.success) {
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      setUser(response.data.user);
+    try {
+      const response = await api.post('/auth/login', { 
+        email, 
+        mot_de_passe: password 
+      });
+      
+      if (response.data.success) {
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        setUser(response.data.user);
+      } else {
+        throw new Error(response.data.message || 'Erreur de connexion');
+      }
+    } catch (error: any) {
+      console.error('Login error:', error);
+      throw error;
     }
   };
 
   const register = async (data: any) => {
-    const response = await authAPI.register(data);
-    if (response.data.success) {
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      setUser(response.data.user);
+    try {
+      const response = await api.post('/auth/register', {
+        nom: data.nom,
+        prenom: data.prenom,
+        email: data.email,
+        mot_de_passe: data.mot_de_passe,
+        role: data.role
+      });
+      
+      if (response.data.success) {
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        setUser(response.data.user);
+      } else {
+        throw new Error(response.data.message || 'Erreur d\'inscription');
+      }
+    } catch (error: any) {
+      console.error('Register error:', error);
+      throw error;
     }
   };
 
@@ -65,6 +93,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
+    router.push('/');
+    toast.success('Déconnexion réussie');
   };
 
   const updateUser = (updatedUser: User) => {

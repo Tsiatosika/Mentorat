@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Home, Users, Calendar, MessageCircle, FileText, LogOut, Menu, X, LayoutDashboard } from 'lucide-react';
+import { Home, Users, Calendar, MessageCircle, FileText, LogOut, Menu, X, LayoutDashboard, UserCircle } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Navbar() {
@@ -11,18 +11,17 @@ export default function Navbar() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Navigation pour tous les utilisateurs
   const publicNavItems = [
     { href: '/', label: 'Accueil', icon: Home },
     { href: '/mentors', label: 'Mentors', icon: Users },
   ];
 
-  // Navigation pour utilisateur connecté
   const privateNavItems = user ? [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/sessions', label: 'Sessions', icon: Calendar },
     { href: '/chat', label: 'Chat', icon: MessageCircle },
     { href: '/reports', label: 'Rapports', icon: FileText },
+    { href: '/profile', label: 'Profil', icon: UserCircle },
   ] : [];
 
   const navItems = [...publicNavItems, ...privateNavItems];
@@ -33,7 +32,6 @@ export default function Navbar() {
     <nav className="bg-white shadow-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo - à gauche */}
           <Link href="/" className="flex items-center space-x-2 shrink-0">
             <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
               <span className="text-lg">🎓</span>
@@ -41,7 +39,6 @@ export default function Navbar() {
             <span className="font-bold text-lg text-gray-800">Mentorat</span>
           </Link>
 
-          {/* Navigation Links - desktop */}
           <div className="hidden md:flex items-center space-x-1">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -65,7 +62,6 @@ export default function Navbar() {
             })}
           </div>
 
-          {/* Boutons - à droite */}
           <div className="flex items-center space-x-3">
             {user ? (
               <div className="hidden md:flex items-center space-x-3">
@@ -107,7 +103,6 @@ export default function Navbar() {
               </div>
             )}
 
-            {/* Mobile menu button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100"
@@ -117,7 +112,6 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile menu */}
         {mobileMenuOpen && (
           <div className="md:hidden py-3 border-t border-gray-100">
             {navItems.map((item) => {

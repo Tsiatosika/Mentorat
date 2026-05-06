@@ -1,63 +1,130 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff, UserPlus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { register, user } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
+    nom: '',
+    prenom: '',
     email: '',
     mot_de_passe: '',
+    role: 'mentore',
   });
+
+  useEffect(() => {
+    if (user) {
+      router.push('/dashboard');
+    }
+  }, [user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.email || !formData.mot_de_passe) {
+    if (!formData.nom || !formData.prenom || !formData.email || !formData.mot_de_passe) {
       toast.error('Veuillez remplir tous les champs');
+      return;
+    }
+
+    if (formData.mot_de_passe.length < 8) {
+      toast.error('Le mot de passe doit contenir au moins 8 caractères');
+      return;
+    }
+
+    // Validation email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast.error('Email invalide');
       return;
     }
 
     setLoading(true);
     try {
-      await login(formData.email, formData.mot_de_passe);
-      toast.success('Connexion réussie !');
+      // Envoyer exactement les champs attendus par le backend
+      const registerData = {
+        nom: formData.nom,
+        prenom: formData.prenom,
+        email: formData.email,
+        mot_de_passe: formData.mot_de_passe,
+        role: formData.role
+      };
+      
+      console.log('Envoi des données:', registerData);
+      await register(registerData);
+      toast.success('Inscription réussie !');
       router.push('/dashboard');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erreur de connexion');
+      console.error('Erreur complète:', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.errors?.[0]?.msg || 'Erreur lors de l\'inscription';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 flex items-center justify-center px-4 py-8">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 right-10 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl" />
+      </div>
+
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 relative z-10">
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
             <span className="text-4xl">🎓</span>
           </div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Bienvenue</h2>
-          <p className="text-gray-600">Connectez-vous à votre compte</p>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Inscription</h2>
+          <p className="text-gray-600">Créez votre compte gratuitement</p>
         </div>
 
         <form onSubmit={handleSubmit}>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Nom</label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Dupont"
+                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                  value={formData.nom}
+                  onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Jean"
+                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                  value={formData.prenom}
+                  onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="email"
-                placeholder="votre@email.com"
+                placeholder="jean@exemple.com"
                 className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -66,15 +133,13 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Mot de passe
-            </label>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Mot de passe</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type={showPassword ? 'text' : 'password'}
-                placeholder="••••••••"
+                placeholder="•••••••• (8 caractères min)"
                 className="w-full pl-10 pr-12 py-3 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                 value={formData.mot_de_passe}
                 onChange={(e) => setFormData({ ...formData, mot_de_passe: e.target.value })}
@@ -90,6 +155,34 @@ export default function LoginPage() {
             </div>
           </div>
 
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Je suis</label>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, role: 'mentore' })}
+                className={`py-3 rounded-lg border-2 transition-all ${
+                  formData.role === 'mentore'
+                    ? 'border-indigo-600 bg-indigo-50 text-indigo-600'
+                    : 'border-gray-300 text-gray-600 hover:border-indigo-300'
+                }`}
+              >
+                👨‍🎓 Mentoré
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, role: 'mentor' })}
+                className={`py-3 rounded-lg border-2 transition-all ${
+                  formData.role === 'mentor'
+                    ? 'border-indigo-600 bg-indigo-50 text-indigo-600'
+                    : 'border-gray-300 text-gray-600 hover:border-indigo-300'
+                }`}
+              >
+                👨‍🏫 Mentor
+              </button>
+            </div>
+          </div>
+
           <button
             type="submit"
             disabled={loading}
@@ -99,8 +192,8 @@ export default function LoginPage() {
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
-                <LogIn className="w-5 h-5" />
-                Se connecter
+                <UserPlus className="w-5 h-5" />
+                S'inscrire
               </>
             )}
           </button>
@@ -117,21 +210,20 @@ export default function LoginPage() {
 
         <div className="text-center">
           <p className="text-sm text-gray-600">
-            Pas encore de compte ?{' '}
-            <Link href="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
-              Inscrivez-vous gratuitement
+            Déjà un compte ?{' '}
+            <Link href="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
+              Connectez-vous
             </Link>
           </p>
         </div>
 
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
           <p className="text-xs text-gray-500 text-center mb-2">
-            🔐 Comptes de démonstration
+            📝 Test d&apos;inscription
           </p>
-          <div className="text-xs text-gray-600 space-y-1">
-            <p>👨‍🏫 Mentor: faneva@test.mg / Password123</p>
-            <p>👨‍🎓 Mentoré: miora@test.mg / Password123</p>
-          </div>
+          <p className="text-xs text-gray-400 text-center">
+            Utilisez un email unique comme test@exemple.com
+          </p>
         </div>
       </div>
     </div>
