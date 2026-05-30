@@ -15,13 +15,17 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  console.log(`📡 ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
   return config;
 });
 
-// Intercepteur pour gérer les erreurs
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log(`✅ ${response.status} ${response.config.url}`);
+    return response;
+  },
   (error) => {
+    console.error(`❌ Erreur ${error.response?.status}: ${error.response?.config?.url}`);
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -39,18 +43,18 @@ export const authAPI = {
   logout: () => api.post('/auth/logout'),
 };
 
-// Mentor
+// Mentor - ROUTES CORRIGÉES
 export const mentorAPI = {
-  getProfile: () => api.get('/mentors/profile'),
-  updateProfile: (data: any) => api.put('/mentors/profile', data),
+  getProfile: () => api.get('/mentors/profile/me'),
+  updateProfile: (data: any) => api.put('/mentors/profile/me', data),
   addCompetence: (data: any) => api.post('/mentors/competences', data),
   removeCompetence: (competenceId: string) => api.delete(`/mentors/competences/${competenceId}`),
 };
 
-// Mentoré
+// Mentoré - ROUTES CORRIGÉES
 export const mentoreAPI = {
-  getProfile: () => api.get('/mentores/profile'),
-  updateProfile: (data: any) => api.put('/mentores/profile', data),
+  getProfile: () => api.get('/mentores/profile/me'),
+  updateProfile: (data: any) => api.put('/mentores/profile/me', data),
   getProgression: () => api.get('/mentores/progression'),
 };
 

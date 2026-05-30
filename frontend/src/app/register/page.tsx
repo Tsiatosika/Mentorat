@@ -20,7 +20,6 @@ export default function RegisterPage() {
     role: 'mentore',
   });
 
-  // Rediriger si déjà connecté
   useEffect(() => {
     if (user) {
       router.push('/dashboard');
@@ -40,13 +39,25 @@ export default function RegisterPage() {
       return;
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast.error('Email invalide');
+      return;
+    }
+
     setLoading(true);
     try {
-      await register(formData);
+      await register({
+        nom: formData.nom,
+        prenom: formData.prenom,
+        email: formData.email,
+        mot_de_passe: formData.mot_de_passe,
+        role: formData.role
+      });
       toast.success('Inscription réussie !');
       router.push('/dashboard');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erreur d\'inscription');
+      toast.error(error.response?.data?.message || 'Erreur lors de l\'inscription');
     } finally {
       setLoading(false);
     }
@@ -72,57 +83,47 @@ export default function RegisterPage() {
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Nom</label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Dupont"
-                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                  value={formData.nom}
-                  onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
-                  required
-                />
-              </div>
+              <input
+                type="text"
+                placeholder="Dupont"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                value={formData.nom}
+                onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                required
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Jean"
-                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                  value={formData.prenom}
-                  onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
-                type="email"
-                placeholder="jean@exemple.com"
-                className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                type="text"
+                placeholder="Jean"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                value={formData.prenom}
+                onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
                 required
               />
             </div>
           </div>
 
           <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <input
+              type="email"
+              placeholder="jean@exemple.com"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              required
+            />
+          </div>
+
+          <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">Mot de passe</label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 placeholder="•••••••• (8 caractères min)"
-                className="w-full pl-10 pr-12 py-3 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                className="w-full pr-12 py-3 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                 value={formData.mot_de_passe}
                 onChange={(e) => setFormData({ ...formData, mot_de_passe: e.target.value })}
                 required
@@ -193,7 +194,7 @@ export default function RegisterPage() {
         <div className="text-center">
           <p className="text-sm text-gray-600">
             Déjà un compte ?{' '}
-            <Link href="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
+            <Link href="/login" className="font-medium text-indigo-600 hover:text-indigo-500 underline">
               Connectez-vous
             </Link>
           </p>

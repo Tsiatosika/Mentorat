@@ -37,9 +37,9 @@ export default function ChatListPage() {
     try {
       const response = await sessionAPI.getAll();
       const allSessions = response.data.sessions || [];
-      // Filtrer les sessions confirmées ou en cours (où le chat est actif)
+      // Sessions où le chat peut être actif
       const activeSessions = allSessions.filter(
-        (s: Session) => s.statut === 'confirmee' || s.statut === 'en_cours'
+        (s: Session) => s.statut === 'confirmee' || s.statut === 'en_cours' || s.statut === 'terminee'
       );
       setSessions(activeSessions);
     } catch (error) {
@@ -76,7 +76,6 @@ export default function ChatListPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
         <div className="max-w-7xl mx-auto px-4 py-8">
           <h1 className="text-2xl font-bold">Messagerie</h1>
@@ -90,13 +89,10 @@ export default function ChatListPage() {
             <MessageCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Aucune conversation</h3>
             <p className="text-gray-500">
-              Vous n'avez pas encore de sessions actives. Les discussions apparaîtront ici une fois vos sessions confirmées.
+              Vous n'avez pas encore de sessions actives.
             </p>
             {user?.role === 'mentore' && (
-              <Link
-                href="/mentors"
-                className="inline-block mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
-              >
+              <Link href="/mentors" className="inline-block mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg">
                 Trouver un mentor
               </Link>
             )}
@@ -107,7 +103,7 @@ export default function ChatListPage() {
               <Link
                 key={session.id}
                 href={`/chat/${session.id}`}
-                className="block bg-white rounded-xl shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5"
+                className="block bg-white rounded-xl shadow-md hover:shadow-lg transition-all"
               >
                 <div className="p-5 flex items-center justify-between">
                   <div className="flex items-center gap-4">
@@ -116,9 +112,7 @@ export default function ChatListPage() {
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-900">{session.sujet}</h3>
-                      <p className="text-sm text-gray-500">
-                        avec {getOtherPerson(session)}
-                      </p>
+                      <p className="text-sm text-gray-500">avec {getOtherPerson(session)}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <Clock className="w-3 h-3 text-gray-400" />
                         <span className="text-xs text-gray-400">{formatDate(session.date_debut)}</span>
@@ -127,7 +121,9 @@ export default function ChatListPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                    <span className="text-xs text-green-600">Actif</span>
+                    <span className="text-xs text-green-600">
+                      {session.statut === 'confirmee' ? 'Confirmée' : session.statut === 'en_cours' ? 'En cours' : 'Terminée'}
+                    </span>
                   </div>
                 </div>
               </Link>

@@ -28,6 +28,10 @@ export default function Navbar() {
 
   const isActive = (href: string) => pathname === href;
 
+  const handleLogout = () => {
+    logout(); // La redirection est déjà gérée dans logout()
+  };
+
   return (
     <nav className="bg-white shadow-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -79,7 +83,7 @@ export default function Navbar() {
                   </span>
                 </div>
                 <button
-                  onClick={logout}
+                  onClick={handleLogout}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
@@ -136,7 +140,7 @@ export default function Navbar() {
             {user ? (
               <button
                 onClick={() => {
-                  logout();
+                  handleLogout();
                   setMobileMenuOpen(false);
                 }}
                 className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm text-red-600 hover:bg-red-50 mt-2"
@@ -145,18 +149,18 @@ export default function Navbar() {
                 Déconnexion
               </button>
             ) : (
-              <div className="flex flex-col gap-2 px-4 pt-2">
+              <div className="flex gap-2 px-4 pt-2">
                 <Link
                   href="/login"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-2 rounded-lg text-center text-gray-600 hover:bg-gray-100"
+                  className="flex-1 px-4 py-2 rounded-lg text-center text-gray-600 hover:bg-gray-100"
                 >
                   Connexion
                 </Link>
                 <Link
                   href="/register"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-2 rounded-lg text-center bg-indigo-600 text-white"
+                  className="flex-1 px-4 py-2 rounded-lg text-center bg-indigo-600 text-white"
                 >
                   Inscription
                 </Link>

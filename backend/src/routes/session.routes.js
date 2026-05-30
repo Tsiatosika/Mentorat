@@ -12,10 +12,10 @@ router.post('/', sessionController.createSession);
 router.get('/:id', sessionController.getSessionById);
 
 // Actions sur une session
-router.put('/:id/confirm', sessionController.confirmSession);  // Mentor uniquement
-router.put('/:id/cancel', sessionController.cancelSession);    // Mentor ou mentoré
-router.put('/:id/start', sessionController.startSession);      // Mentor uniquement
-router.put('/:id/complete', sessionController.completeSession); // Mentor ou mentoré
-router.put('/:id/visio', sessionController.addVisioLink);      // Mentor uniquement
+router.put('/:id/confirm', sessionController.confirmSession);
+router.put('/:id/cancel', sessionController.cancelSession);
+router.put('/:id/start', sessionController.startSession);
+router.put('/:id/complete', sessionController.completeSession);
+router.put('/:id/visio', sessionController.addVisioLink);
 
 module.exports = router;

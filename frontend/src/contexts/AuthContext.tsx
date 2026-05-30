@@ -36,7 +36,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     if (token && savedUser) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
       } catch (e) {
         console.error('Erreur parsing user:', e);
         localStorage.removeItem('token');
@@ -57,11 +58,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
         setUser(response.data.user);
+        toast.success('Connexion réussie');
       } else {
         throw new Error(response.data.message || 'Erreur de connexion');
       }
     } catch (error: any) {
       console.error('Login error:', error);
+      toast.error(error.response?.data?.message || 'Erreur de connexion');
       throw error;
     }
   };
@@ -80,11 +83,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
         setUser(response.data.user);
+        toast.success('Inscription réussie');
       } else {
         throw new Error(response.data.message || 'Erreur d\'inscription');
       }
     } catch (error: any) {
       console.error('Register error:', error);
+      toast.error(error.response?.data?.message || 'Erreur d\'inscription');
       throw error;
     }
   };

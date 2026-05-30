@@ -12,6 +12,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [profile, setProfile] = useState<any>(null);
   const [formData, setFormData] = useState({
     bio: '',
     domaine: '',
@@ -32,33 +33,41 @@ export default function ProfilePage() {
 
   const fetchProfile = async () => {
     try {
-      if (user.role === 'mentor') {
+      console.log('📊 Rôle utilisateur:', user?.role);
+      
+      if (user?.role === 'mentor') {
+        console.log('📊 Appel API /mentors/profile/me');
         const response = await mentorAPI.getProfile();
-        const profile = response.data.profile;
+        console.log('✅ Réponse:', response.data);
+        const profileData = response.data.profile;
+        setProfile(profileData);
         setFormData({
-          bio: profile.bio || '',
-          domaine: profile.domaine || '',
+          bio: profileData.bio || '',
+          domaine: profileData.domaine || '',
           niveau_etude: '',
           objectifs: '',
           objectifs_tags: '',
-          annees_experience: profile.annees_experience || 0,
-          disponible: profile.disponible,
+          annees_experience: profileData.annees_experience || 0,
+          disponible: profileData.disponible,
         });
       } else {
+        console.log('📊 Appel API /mentores/profile/me');
         const response = await mentoreAPI.getProfile();
-        const profile = response.data.profile;
+        console.log('✅ Réponse:', response.data);
+        const profileData = response.data.profile;
+        setProfile(profileData);
         setFormData({
           bio: '',
-          domaine: profile.domaine || '',
-          niveau_etude: profile.niveau_etude || '',
-          objectifs: profile.objectifs || '',
-          objectifs_tags: profile.objectifs_tags?.join(', ') || '',
+          domaine: profileData.domaine || '',
+          niveau_etude: profileData.niveau_etude || '',
+          objectifs: profileData.objectifs || '',
+          objectifs_tags: profileData.objectifs_tags?.join(', ') || '',
           annees_experience: 0,
           disponible: true,
         });
       }
-    } catch (error) {
-      console.error('Erreur:', error);
+    } catch (error: any) {
+      console.error('❌ Erreur chargement profil:', error);
       toast.error('Erreur lors du chargement du profil');
     } finally {
       setLoading(false);
@@ -85,7 +94,9 @@ export default function ProfilePage() {
         });
       }
       toast.success('Profil mis à jour avec succès');
+      fetchProfile();
     } catch (error) {
+      console.error('Erreur mise à jour:', error);
       toast.error('Erreur lors de la mise à jour');
     } finally {
       setSaving(false);
@@ -113,7 +124,6 @@ export default function ProfilePage() {
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-md p-6">
-          {/* Informations de base */}
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <User className="w-5 h-5 text-indigo-600" />
@@ -141,7 +151,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Profil spécifique */}
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               {isMentor ? <Briefcase className="w-5 h-5 text-indigo-600" /> : <BookOpen className="w-5 h-5 text-indigo-600" />}
