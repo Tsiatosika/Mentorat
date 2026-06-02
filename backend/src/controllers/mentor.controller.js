@@ -1,12 +1,21 @@
+// src/controllers/mentor.controller.js
+const axios  = require('axios');
 const { query } = require('../config/db');
+
+const IA_URL = process.env.IA_SERVICE_URL || 'http://localhost:8001';
+
+// ── Helper : déclenche le recalcul IA en arrière-plan (non bloquant) ─────────
+function triggerIARecalcul(mentoreIds = null) {
+  axios.post(`${IA_URL}/api/matching/recalculer`, { mentore_ids: mentoreIds })
+    .then(() => console.log('[IA] Recalcul déclenché'))
+    .catch(err => console.warn('[IA] Recalcul échoué (non bloquant):', err.message));
+}
 
 // ============================================
 // OBTENIR LE PROFIL MENTOR (connecté)
 // ============================================
 const getProfile = async (req, res, next) => {
   try {
-    console.log('🔍 getProfile - userId:', req.user.id);
-    
     const result = await query(
       `SELECT pm.*, u.nom, u.prenom, u.email, u.photo_url
        FROM profils_mentor pm
@@ -16,116 +25,92 @@ const getProfile = async (req, res, next) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Profil mentor non trouvé'
-      });
+      return res.status(404).json({ success: false, message: 'Profil mentor non trouvé' });
     }
 
-    res.json({
-      success: true,
-      profile: result.rows[0]
-    });
+    return res.json({ success: true, profile: result.rows[0] });
   } catch (error) {
-    console.error('❌ Erreur getProfile:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors du chargement du profil',
-      error: error.message
-    });
+    next(error);
   }
 };
 
 // ============================================
 // METTRE À JOUR LE PROFIL MENTOR
+// CORRECTION 4 : déclenche recalcul IA global
+// car les compétences/domaine du mentor
+// affectent TOUS les scores des mentorés
 // ============================================
 const updateProfile = async (req, res, next) => {
   const { bio, domaine, annees_experience, disponible } = req.body;
 
   try {
     const result = await query(
-      `UPDATE profils_mentor 
-       SET bio = COALESCE($1, bio),
-           domaine = COALESCE($2, domaine),
+      `UPDATE profils_mentor
+       SET bio               = COALESCE($1, bio),
+           domaine           = COALESCE($2, domaine),
            annees_experience = COALESCE($3, annees_experience),
-           disponible = COALESCE($4, disponible),
-           updated_at = NOW()
+           disponible        = COALESCE($4, disponible),
+           updated_at        = NOW()
        WHERE utilisateur_id = $5
        RETURNING *`,
       [bio, domaine, annees_experience, disponible, req.user.id]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Profil mentor non trouvé'
-      });
+      return res.status(404).json({ success: false, message: 'Profil mentor non trouvé' });
     }
 
-    res.json({
+    // Recalcul global car ce mentor apparaît dans les scores de tous les mentorés
+    triggerIARecalcul(null);
+
+    return res.json({
       success: true,
       message: 'Profil mis à jour avec succès',
       profile: result.rows[0]
     });
   } catch (error) {
-    console.error('❌ Erreur updateProfile:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors de la mise à jour',
-      error: error.message
-    });
+    next(error);
   }
 };
 
 // ============================================
 // AJOUTER UNE COMPÉTENCE
+// CORRECTION 4 (suite) : recalcul après ajout
 // ============================================
 const addCompetence = async (req, res, next) => {
   const { competence_id, niveau } = req.body;
 
   if (!competence_id) {
-    return res.status(400).json({
-      success: false,
-      message: 'competence_id est requis'
-    });
+    return res.status(400).json({ success: false, message: 'competence_id est requis' });
   }
 
   try {
     const mentorResult = await query(
-      'SELECT id FROM profils_mentor WHERE utilisateur_id = $1',
-      [req.user.id]
+      'SELECT id FROM profils_mentor WHERE utilisateur_id = $1', [req.user.id]
     );
 
     if (mentorResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Profil mentor non trouvé'
-      });
+      return res.status(404).json({ success: false, message: 'Profil mentor non trouvé' });
     }
-
-    const mentorId = mentorResult.rows[0].id;
 
     const result = await query(
       `INSERT INTO mentor_competences (mentor_id, competence_id, niveau)
        VALUES ($1, $2, $3)
-       ON CONFLICT (mentor_id, competence_id) 
-       DO UPDATE SET niveau = $3
+       ON CONFLICT (mentor_id, competence_id) DO UPDATE SET niveau = $3
        RETURNING *`,
-      [mentorId, competence_id, niveau || 'intermediaire']
+      [mentorResult.rows[0].id, competence_id, niveau || 'intermediaire']
     );
 
-    res.status(201).json({
+    // Recalcul global
+    triggerIARecalcul(null);
+
+    return res.status(201).json({
       success: true,
       message: 'Compétence ajoutée avec succès',
       competence: result.rows[0]
     });
   } catch (error) {
-    console.error('❌ Erreur addCompetence:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors de l\'ajout',
-      error: error.message
-    });
+    next(error);
   }
 };
 
@@ -137,112 +122,100 @@ const removeCompetence = async (req, res, next) => {
 
   try {
     const mentorResult = await query(
-      'SELECT id FROM profils_mentor WHERE utilisateur_id = $1',
-      [req.user.id]
+      'SELECT id FROM profils_mentor WHERE utilisateur_id = $1', [req.user.id]
     );
 
     if (mentorResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Profil mentor non trouvé'
-      });
+      return res.status(404).json({ success: false, message: 'Profil mentor non trouvé' });
     }
-
-    const mentorId = mentorResult.rows[0].id;
 
     const result = await query(
       'DELETE FROM mentor_competences WHERE mentor_id = $1 AND competence_id = $2',
-      [mentorId, competence_id]
+      [mentorResult.rows[0].id, competence_id]
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Compétence non trouvée pour ce mentor'
-      });
+      return res.status(404).json({ success: false, message: 'Compétence non trouvée' });
     }
 
-    res.json({
-      success: true,
-      message: 'Compétence supprimée avec succès'
-    });
+    // Recalcul global
+    triggerIARecalcul(null);
+
+    return res.json({ success: true, message: 'Compétence supprimée avec succès' });
   } catch (error) {
-    console.error('❌ Erreur removeCompetence:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors de la suppression',
-      error: error.message
-    });
+    next(error);
   }
 };
 
 // ============================================
 // RECHERCHER DES MENTORS (PUBLIC)
+// CORRECTION 5 : pagination avec COUNT réel
 // ============================================
 const searchMentors = async (req, res, next) => {
   const { domaine, competence, search, disponible, page = 1, limit = 10 } = req.query;
   const offset = (page - 1) * limit;
 
   try {
-    let queryText = `
-      SELECT DISTINCT
-        u.id, u.nom, u.prenom, u.email, u.photo_url,
-        pm.id as profil_id, pm.bio, pm.domaine, 
-        pm.annees_experience, pm.note_moyenne, pm.nb_sessions, pm.disponible,
-        ARRAY_AGG(DISTINCT c.nom) FILTER (WHERE c.nom IS NOT NULL) as competences
-      FROM utilisateurs u
-      JOIN profils_mentor pm ON pm.utilisateur_id = u.id
-      LEFT JOIN mentor_competences mc ON mc.mentor_id = pm.id
-      LEFT JOIN competences c ON c.id = mc.competence_id
-      WHERE u.role = 'mentor' AND u.actif = true
-    `;
-
-    const params = [];
-    let paramIndex = 1;
+    const conditions = [`u.role = 'mentor'`, `u.actif = true`];
+    const params     = [];
+    let   idx        = 1;
 
     if (domaine) {
-      queryText += ` AND pm.domaine ILIKE $${paramIndex}`;
-      params.push(`%${domaine}%`);
-      paramIndex++;
+      conditions.push(`pm.domaine ILIKE $${idx}`);
+      params.push(`%${domaine}%`); idx++;
     }
-
     if (competence) {
-      queryText += ` AND c.nom ILIKE $${paramIndex}`;
-      params.push(`%${competence}%`);
-      paramIndex++;
+      conditions.push(`c.nom ILIKE $${idx}`);
+      params.push(`%${competence}%`); idx++;
     }
-
     if (search) {
-      queryText += ` AND (u.nom ILIKE $${paramIndex} OR u.prenom ILIKE $${paramIndex} OR pm.bio ILIKE $${paramIndex})`;
-      params.push(`%${search}%`);
-      paramIndex++;
+      conditions.push(`(u.nom ILIKE $${idx} OR u.prenom ILIKE $${idx} OR pm.bio ILIKE $${idx})`);
+      params.push(`%${search}%`); idx++;
     }
+    if (disponible === 'true') conditions.push(`pm.disponible = true`);
 
-    if (disponible === 'true') {
-      queryText += ` AND pm.disponible = true`;
-    }
+    const where = `WHERE ${conditions.join(' AND ')}`;
 
-    queryText += ` GROUP BY u.id, pm.id ORDER BY pm.note_moyenne DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(limit, offset);
+    // Requête COUNT pour la pagination réelle
+    const countResult = await query(
+      `SELECT COUNT(DISTINCT u.id) as total
+       FROM utilisateurs u
+       JOIN profils_mentor pm ON pm.utilisateur_id = u.id
+       LEFT JOIN mentor_competences mc ON mc.mentor_id = pm.id
+       LEFT JOIN competences c         ON c.id = mc.competence_id
+       ${where}`,
+      params
+    );
 
-    const result = await query(queryText, params);
+    // Requête principale
+    const dataResult = await query(
+      `SELECT DISTINCT
+         u.id, u.nom, u.prenom, u.email, u.photo_url,
+         pm.id as profil_id, pm.bio, pm.domaine,
+         pm.annees_experience, pm.note_moyenne, pm.nb_sessions, pm.disponible,
+         ARRAY_AGG(DISTINCT c.nom) FILTER (WHERE c.nom IS NOT NULL) as competences
+       FROM utilisateurs u
+       JOIN profils_mentor pm ON pm.utilisateur_id = u.id
+       LEFT JOIN mentor_competences mc ON mc.mentor_id = pm.id
+       LEFT JOIN competences c         ON c.id = mc.competence_id
+       ${where}
+       GROUP BY u.id, pm.id
+       ORDER BY pm.note_moyenne DESC
+       LIMIT $${idx} OFFSET $${idx + 1}`,
+      [...params, limit, offset]
+    );
 
-    res.json({
+    return res.json({
       success: true,
-      data: result.rows,
+      data: dataResult.rows,
       pagination: {
-        page: parseInt(page),
+        page:  parseInt(page),
         limit: parseInt(limit),
-        total: result.rows.length
+        total: parseInt(countResult.rows[0].total)  // ← total réel
       }
     });
   } catch (error) {
-    console.error('❌ Erreur searchMentors:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors de la recherche',
-      error: error.message
-    });
+    next(error);
   }
 };
 
@@ -251,44 +224,34 @@ const searchMentors = async (req, res, next) => {
 // ============================================
 const getMentorById = async (req, res, next) => {
   const { id } = req.params;
-  
+
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    return res.status(400).json({
-      success: false,
-      message: 'ID mentor invalide'
-    });
+    return res.status(400).json({ success: false, message: 'ID mentor invalide' });
   }
 
   try {
     const result = await query(
       `SELECT u.id, u.nom, u.prenom, u.email, u.photo_url,
               pm.id as profil_id, pm.bio, pm.domaine,
-              pm.annees_experience, pm.note_moyenne, pm.nb_sessions, pm.disponible
+              pm.annees_experience, pm.note_moyenne, pm.nb_sessions, pm.disponible,
+              ARRAY_AGG(DISTINCT c.nom) FILTER (WHERE c.nom IS NOT NULL) as competences
        FROM utilisateurs u
-       JOIN profils_mentor pm ON pm.utilisateur_id = u.id
-       WHERE u.id = $1 AND u.role = 'mentor' AND u.actif = true`,
+       JOIN profils_mentor pm      ON pm.utilisateur_id = u.id
+       LEFT JOIN mentor_competences mc ON mc.mentor_id = pm.id
+       LEFT JOIN competences c         ON c.id = mc.competence_id
+       WHERE u.id = $1 AND u.role = 'mentor' AND u.actif = true
+       GROUP BY u.id, pm.id`,
       [id]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Mentor non trouvé'
-      });
+      return res.status(404).json({ success: false, message: 'Mentor non trouvé' });
     }
 
-    res.json({
-      success: true,
-      mentor: result.rows[0]
-    });
+    return res.json({ success: true, mentor: result.rows[0] });
   } catch (error) {
-    console.error('❌ Erreur getMentorById:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors du chargement',
-      error: error.message
-    });
+    next(error);
   }
 };
 
