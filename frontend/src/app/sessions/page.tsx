@@ -3,7 +3,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Calendar, Clock, Video, CheckCircle, XCircle, Clock as ClockIcon, MessageCircle, FileText } from 'lucide-react';
+import {
+  Calendar, Clock, Video, CheckCircle, XCircle,
+  MessageCircle, FileText, Play, Star
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { sessionAPI } from '@/services/api';
 import toast from 'react-hot-toast';
@@ -20,22 +23,99 @@ interface Session {
   mentor_prenom?: string;
   mentore_nom?: string;
   mentore_prenom?: string;
-  note_du_mentor?: number;
-  note_du_mentore?: number;
+  note_du_mentor?: number | null;
+  note_du_mentore?: number | null;
+  notes_mentor?: string;
+  notes_mentore?: string;
+}
+
+// CORRECTION 6 : modal d'évaluation pour terminer une session
+function EvaluationModal({
+  sessionId,
+  onClose,
+  onSuccess,
+}: {
+  sessionId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [note, setNote]   = useState(5);
+  const [notes, setNotes] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    try {
+      const res = await sessionAPI.complete(sessionId, { note, notes });
+      const msg = res.data.terminee
+        ? 'Session terminée ! Rapport en cours de génération.'
+        : 'Note enregistrée. En attente de l\'autre participant.';
+      toast.success(msg);
+      onSuccess();
+      onClose();
+    } catch {
+      toast.error('Erreur lors de l\'évaluation');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Évaluer la session</h2>
+
+        {/* Étoiles */}
+        <div className="mb-4">
+          <label className="text-sm text-gray-600 mb-2 block">Note</label>
+          <div className="flex gap-2">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button key={n} onClick={() => setNote(n)}>
+                <Star className={`w-8 h-8 transition-colors ${
+                  n <= note ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'
+                }`} />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Commentaire */}
+        <div className="mb-6">
+          <label className="text-sm text-gray-600 mb-1 block">Commentaire (optionnel)</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Votre retour sur cette session..."
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none"
+            rows={3}
+          />
+        </div>
+
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+            Annuler
+          </button>
+          <button onClick={handleSubmit} disabled={loading}
+            className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60">
+            {loading ? 'Envoi...' : 'Valider'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function SessionsPage() {
   const { user } = useAuth();
-  const router = useRouter();
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('tous');
+  const router   = useRouter();
+  const [sessions,      setSessions]      = useState<Session[]>([]);
+  const [loading,       setLoading]       = useState(true);
+  const [filter,        setFilter]        = useState('tous');
+  const [evalSessionId, setEvalSessionId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) {
-      router.push('/login');
-      return;
-    }
+    if (!user) { router.push('/login'); return; }
     fetchSessions();
   }, [user, router]);
 
@@ -43,78 +123,64 @@ export default function SessionsPage() {
     try {
       const response = await sessionAPI.getAll();
       setSessions(response.data.sessions || []);
-    } catch (error) {
-      console.error('Erreur:', error);
+    } catch {
       toast.error('Erreur lors du chargement des sessions');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCancel = async (sessionId: string) => {
-    if (confirm('Êtes-vous sûr de vouloir annuler cette session ?')) {
-      try {
-        await sessionAPI.cancel(sessionId);
-        toast.success('Session annulée');
-        fetchSessions();
-      } catch (error) {
-        toast.error('Erreur lors de l\'annulation');
-      }
+  const handleCancel = async (id: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir annuler cette session ?')) return;
+    try {
+      await sessionAPI.cancel(id);
+      toast.success('Session annulée');
+      fetchSessions();
+    } catch {
+      toast.error('Erreur lors de l\'annulation');
     }
   };
 
-  const handleConfirm = async (sessionId: string) => {
+  const handleConfirm = async (id: string) => {
     try {
-      await sessionAPI.confirm(sessionId);
-      toast.success('Session confirmée');
+      await sessionAPI.confirm(id);
+      toast.success('Session confirmée !');
       fetchSessions();
-    } catch (error) {
+    } catch {
       toast.error('Erreur lors de la confirmation');
     }
   };
 
-  const handleStart = async (sessionId: string) => {
+  const handleStart = async (id: string) => {
     try {
-      await sessionAPI.start(sessionId);
-      toast.success('Session démarrée');
+      await sessionAPI.start(id);
+      toast.success('Session démarrée !');
       fetchSessions();
-    } catch (error) {
+    } catch {
       toast.error('Erreur lors du démarrage');
     }
   };
 
   const getStatutBadge = (statut: string) => {
-    const badges = {
-      en_attente: 'bg-yellow-100 text-yellow-800',
-      confirmee: 'bg-blue-100 text-blue-800',
-      en_cours: 'bg-green-100 text-green-800',
-      terminee: 'bg-gray-100 text-gray-800',
-      annulee: 'bg-red-100 text-red-800',
+    const map: Record<string, { cls: string; label: string }> = {
+      en_attente: { cls: 'bg-yellow-100 text-yellow-800', label: 'En attente' },
+      confirmee:  { cls: 'bg-blue-100   text-blue-800',   label: 'Confirmée'  },
+      en_cours:   { cls: 'bg-green-100  text-green-800',  label: 'En cours'   },
+      terminee:   { cls: 'bg-gray-100   text-gray-800',   label: 'Terminée'   },
+      annulee:    { cls: 'bg-red-100    text-red-800',    label: 'Annulée'    },
     };
-    const labels = {
-      en_attente: 'En attente',
-      confirmee: 'Confirmée',
-      en_cours: 'En cours',
-      terminee: 'Terminée',
-      annulee: 'Annulée',
-    };
-    return { className: badges[statut as keyof typeof badges] || 'bg-gray-100', label: labels[statut as keyof typeof labels] || statut };
+    return map[statut] ?? { cls: 'bg-gray-100 text-gray-800', label: statut };
   };
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+  const formatDate = (date: string) =>
+    new Date(date).toLocaleDateString('fr-FR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
     });
-  };
 
-  const filteredSessions = sessions.filter(session => {
-    if (filter === 'tous') return true;
-    return session.statut === filter;
-  });
+  const filteredSessions = sessions.filter(
+    (s) => filter === 'tous' || s.statut === filter
+  );
 
   if (loading) {
     return (
@@ -126,23 +192,27 @@ export default function SessionsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {evalSessionId && (
+        <EvaluationModal
+          sessionId={evalSessionId}
+          onClose={() => setEvalSessionId(null)}
+          onSuccess={fetchSessions}
+        />
+      )}
+
       {/* Header */}
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold">Mes sessions</h1>
-              <p className="text-indigo-100 mt-1">Gérez toutes vos sessions de mentorat</p>
-            </div>
-            {user?.role === 'mentore' && (
-              <Link
-                href="/mentors"
-                className="bg-white text-indigo-600 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
-              >
-                + Nouvelle session
-              </Link>
-            )}
+        <div className="max-w-7xl mx-auto px-4 py-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">Mes sessions</h1>
+            <p className="text-indigo-100 mt-1">Gérez toutes vos sessions de mentorat</p>
           </div>
+          {user?.role === 'mentore' && (
+            <Link href="/mentors"
+              className="bg-white text-indigo-600 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
+              + Nouvelle session
+            </Link>
+          )}
         </div>
       </div>
 
@@ -150,44 +220,39 @@ export default function SessionsPage() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex flex-wrap gap-2">
           {[
-            { value: 'tous', label: 'Toutes' },
-            { value: 'en_attente', label: 'En attente' },
-            { value: 'confirmee', label: 'Confirmées' },
-            { value: 'en_cours', label: 'En cours' },
-            { value: 'terminee', label: 'Terminées' },
-            { value: 'annulee', label: 'Annulées' },
+            { value: 'tous',       label: 'Toutes'      },
+            { value: 'en_attente', label: 'En attente'  },
+            { value: 'confirmee',  label: 'Confirmées'  },
+            { value: 'en_cours',   label: 'En cours'    },
+            { value: 'terminee',   label: 'Terminées'   },
+            { value: 'annulee',    label: 'Annulées'    },
           ].map((f) => (
-            <button
-              key={f.value}
-              onClick={() => setFilter(f.value)}
+            <button key={f.value} onClick={() => setFilter(f.value)}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 filter === f.value
                   ? 'bg-indigo-600 text-white'
                   : 'bg-white text-gray-700 hover:bg-gray-100'
-              }`}
-            >
+              }`}>
               {f.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Liste des sessions */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      {/* Liste */}
+      <div className="max-w-7xl mx-auto px-4 pb-8">
         {filteredSessions.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-md p-12 text-center">
             <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">Aucune session</h3>
             <p className="text-gray-500">
-              {user?.role === 'mentore' 
+              {user?.role === 'mentore'
                 ? 'Vous n\'avez pas encore de sessions. Commencez par réserver un mentor !'
-                : 'Vous n\'avez pas encore de sessions. Attendez qu\'un mentoré vous contacte.'}
+                : 'Attendez qu\'un mentoré vous contacte.'}
             </p>
             {user?.role === 'mentore' && (
-              <Link
-                href="/mentors"
-                className="inline-block mt-4 bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700"
-              >
+              <Link href="/mentors"
+                className="inline-block mt-4 bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
                 Explorer les mentors
               </Link>
             )}
@@ -195,93 +260,102 @@ export default function SessionsPage() {
         ) : (
           <div className="space-y-4">
             {filteredSessions.map((session) => {
-              const badge = getStatutBadge(session.statut);
+              const badge    = getStatutBadge(session.statut);
               const isMentor = user?.role === 'mentor';
-              const otherPerson = isMentor 
-                ? `${session.mentore_prenom || ''} ${session.mentore_nom || ''}`
-                : `${session.mentor_prenom || ''} ${session.mentor_nom || ''}`;
-              
+              const other    = isMentor
+                ? `${session.mentore_prenom ?? ''} ${session.mentore_nom ?? ''}`.trim()
+                : `${session.mentor_prenom  ?? ''} ${session.mentor_nom  ?? ''}`.trim();
+
+              // CORRECTION 7 : afficher si l'utilisateur a déjà noté ou non
+              const dejaNote = isMentor
+                ? session.note_du_mentore != null
+                : session.note_du_mentor  != null;
+
               return (
-                <div key={session.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+                <div key={session.id}
+                  className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                   <div className="p-6">
                     <div className="flex flex-wrap justify-between items-start gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${badge.className}`}>
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${badge.cls}`}>
                             {badge.label}
                           </span>
-                          <span className="text-sm text-gray-500">
-                            Avec {otherPerson}
-                          </span>
+                          {other && (
+                            <span className="text-sm text-gray-500">Avec {other}</span>
+                          )}
                         </div>
                         <h3 className="text-lg font-semibold text-gray-900 mb-2">{session.sujet}</h3>
                         <div className="flex flex-wrap gap-4 text-sm text-gray-500">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            {formatDate(session.date_debut)}
-                          </div>
-                          <div className="flex items-center gap-1">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-4 h-4" /> {formatDate(session.date_debut)}
+                          </span>
+                          <span className="flex items-center gap-1">
                             <Clock className="w-4 h-4" />
-                            Durée: {Math.round((new Date(session.date_fin).getTime() - new Date(session.date_debut).getTime()) / 60000)} min
-                          </div>
+                            {Math.round(
+                              (new Date(session.date_fin).getTime() - new Date(session.date_debut).getTime()) / 60000
+                            )} min
+                          </span>
                         </div>
                         {session.description && (
                           <p className="text-gray-600 text-sm mt-3 line-clamp-2">{session.description}</p>
                         )}
+                        {/* Indication évaluation */}
+                        {session.statut === 'en_cours' && (
+                          <p className="text-xs mt-2 text-indigo-600">
+                            {dejaNote ? '✓ Vous avez déjà évalué cette session' : 'Évaluation en attente'}
+                          </p>
+                        )}
                       </div>
+
+                      {/* Actions */}
                       <div className="flex flex-wrap gap-2">
                         {session.statut === 'en_attente' && isMentor && (
-                          <button
-                            onClick={() => handleConfirm(session.id)}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                            Confirmer
+                          <button onClick={() => handleConfirm(session.id)}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm">
+                            <CheckCircle className="w-4 h-4" /> Confirmer
                           </button>
                         )}
+
                         {(session.statut === 'en_attente' || session.statut === 'confirmee') && (
-                          <button
-                            onClick={() => handleCancel(session.id)}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                          >
-                            <XCircle className="w-4 h-4" />
-                            Annuler
+                          <button onClick={() => handleCancel(session.id)}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm">
+                            <XCircle className="w-4 h-4" /> Annuler
                           </button>
                         )}
+
                         {session.statut === 'confirmee' && isMentor && (
-                          <button
-                            onClick={() => handleStart(session.id)}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                          >
-                            <Play className="w-4 h-4" />
-                            Démarrer
+                          <button onClick={() => handleStart(session.id)}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                            <Play className="w-4 h-4" /> Démarrer
                           </button>
                         )}
-                        <Link
-                          href={`/chat/${session.id}`}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                        >
-                          <MessageCircle className="w-4 h-4" />
-                          Chat
+
+                        {/* CORRECTION 8 : bouton terminer/évaluer si session en_cours et pas encore noté */}
+                        {session.statut === 'en_cours' && !dejaNote && (
+                          <button onClick={() => setEvalSessionId(session.id)}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm">
+                            <Star className="w-4 h-4" /> Évaluer
+                          </button>
+                        )}
+
+                        <Link href={`/chat/${session.id}`}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm">
+                          <MessageCircle className="w-4 h-4" /> Chat
                         </Link>
+
                         {session.statut === 'terminee' && (
-                          <Link
-                            href={`/reports/${session.id}`}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                          >
-                            <FileText className="w-4 h-4" />
-                            Rapport
+                          <Link href={`/reports/${session.id}`}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm">
+                            <FileText className="w-4 h-4" /> Rapport
                           </Link>
                         )}
-                        {session.lien_visio && (session.statut === 'confirmee' || session.statut === 'en_cours') && (
-                          <a
-                            href={session.lien_visio}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                          >
-                            <Video className="w-4 h-4" />
-                            Visio
+
+                        {session.lien_visio &&
+                          (session.statut === 'confirmee' || session.statut === 'en_cours') && (
+                          <a href={session.lien_visio} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm">
+                            <Video className="w-4 h-4" /> Visio
                           </a>
                         )}
                       </div>
@@ -296,11 +370,3 @@ export default function SessionsPage() {
     </div>
   );
 }
-
-// Composant Play pour le bouton démarrer
-const Play = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-);

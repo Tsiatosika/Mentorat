@@ -89,15 +89,19 @@ export const messageAPI = {
   getUnreadCount: () => api.get('/messages/unread/count'),
 };
 
-// ── Matching IA ───────────────────────────────────────────────────────────────
-// CORRECTION : POST (pas GET) car le backend attend un body JSON
 export const matchingAPI = {
   getRecommendations: (forceRecalc = false) =>
-    api.post('/matching/recommendations', { force_recalc: forceRecalc }),
+    api.get('/matching/recommendations', {
+      params: { force_recalc: forceRecalc }
+    }),
+
   getTopMentors: (limit = 6) =>
     api.get('/matching/top-mentors', { params: { limit } }),
+
   recalculateAll: (mentoreIds?: string[]) =>
-    api.post('/matching/recalculate-all', { mentore_ids: mentoreIds || null }),
+    api.post('/matching/recalculate-all', {
+      mentore_ids: mentoreIds || null
+    }),
 };
 
 // ── Rapports ──────────────────────────────────────────────────────────────────
