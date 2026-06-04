@@ -2,75 +2,114 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Mail, Briefcase, BookOpen, Target, Save } from 'lucide-react';
+import { User, Briefcase, BookOpen, Save, Upload, Tag, Plus, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { mentorAPI, mentoreAPI } from '@/services/api';
+import { mentorAPI, mentoreAPI, uploadAPI, BACKEND_URL } from '@/services/api';
 import toast from 'react-hot-toast';
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [saving,  setSaving]  = useState(false);
   const [profile, setProfile] = useState<any>(null);
+  const [tagInput, setTagInput] = useState('');
+
   const [formData, setFormData] = useState({
-    bio: '',
-    domaine: '',
-    niveau_etude: '',
-    objectifs: '',
-    objectifs_tags: '',
+    bio:               '',
+    domaine:           '',
+    niveau_etude:      '',
+    objectifs:         '',
+    objectifs_tags:    [] as string[],
     annees_experience: 0,
-    disponible: true,
+    disponible:        true,
   });
 
+  // ── Helper URL photo ───────────────────────────────────────────────────────
+  const getPhotoUrl = (url: string) =>
+    url.startsWith('http') ? url : `${BACKEND_URL}${url}`;
+
   useEffect(() => {
-    if (!user) {
-      router.push('/login');
-      return;
-    }
+    if (!user) { router.push('/login'); return; }
     fetchProfile();
   }, [user, router]);
 
   const fetchProfile = async () => {
     try {
-      console.log('📊 Rôle utilisateur:', user?.role);
-      
       if (user?.role === 'mentor') {
-        console.log('📊 Appel API /mentors/profile/me');
-        const response = await mentorAPI.getProfile();
-        console.log('✅ Réponse:', response.data);
-        const profileData = response.data.profile;
-        setProfile(profileData);
+        const res = await mentorAPI.getProfile();
+        const p   = res.data.profile;
+        setProfile(p);
         setFormData({
-          bio: profileData.bio || '',
-          domaine: profileData.domaine || '',
-          niveau_etude: '',
-          objectifs: '',
-          objectifs_tags: '',
-          annees_experience: profileData.annees_experience || 0,
-          disponible: profileData.disponible,
+          bio:               p.bio              || '',
+          domaine:           p.domaine           || '',
+          niveau_etude:      '',
+          objectifs:         '',
+          objectifs_tags:    [],
+          annees_experience: p.annees_experience || 0,
+          disponible:        p.disponible ?? true,
         });
       } else {
-        console.log('📊 Appel API /mentores/profile/me');
-        const response = await mentoreAPI.getProfile();
-        console.log('✅ Réponse:', response.data);
-        const profileData = response.data.profile;
-        setProfile(profileData);
+        const res = await mentoreAPI.getProfile();
+        const p   = res.data.profile;
+        setProfile(p);
         setFormData({
-          bio: '',
-          domaine: profileData.domaine || '',
-          niveau_etude: profileData.niveau_etude || '',
-          objectifs: profileData.objectifs || '',
-          objectifs_tags: profileData.objectifs_tags?.join(', ') || '',
+          bio:               '',
+          domaine:           p.domaine      || '',
+          niveau_etude:      p.niveau_etude || '',
+          objectifs:         p.objectifs    || '',
+          objectifs_tags:    Array.isArray(p.objectifs_tags) ? p.objectifs_tags.filter(Boolean) : [],
           annees_experience: 0,
-          disponible: true,
+          disponible:        true,
         });
       }
-    } catch (error: any) {
-      console.error('❌ Erreur chargement profil:', error);
+    } catch {
       toast.error('Erreur lors du chargement du profil');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const addTag = () => {
+    const tag = tagInput.trim().toLowerCase();
+    if (!tag) return;
+    if (formData.objectifs_tags.includes(tag)) { toast.error('Ce tag existe déjà'); return; }
+    setFormData(prev => ({ ...prev, objectifs_tags: [...prev.objectifs_tags, tag] }));
+    setTagInput('');
+  };
+
+  const removeTag = (tag: string) => {
+    setFormData(prev => ({ ...prev, objectifs_tags: prev.objectifs_tags.filter(t => t !== tag) }));
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') { e.preventDefault(); addTag(); }
+    if (e.key === ',')     { e.preventDefault(); addTag(); }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error('Photo trop lourde (max 5 Mo)'); return; }
+    try {
+      const res = await uploadAPI.photo(file);
+      updateUser({ photo_url: res.data.url });
+      toast.success('Photo mise à jour');
+    } catch {
+      toast.error("Erreur lors de l'upload de la photo");
+    }
+  };
+
+  const handleCVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error('CV trop lourd (max 5 Mo)'); return; }
+    try {
+      await uploadAPI.cv(file);
+      toast.success('CV uploadé avec succès');
+      fetchProfile();
+    } catch {
+      toast.error("Erreur lors de l'upload du CV");
     }
   };
 
@@ -80,23 +119,22 @@ export default function ProfilePage() {
     try {
       if (user?.role === 'mentor') {
         await mentorAPI.updateProfile({
-          bio: formData.bio,
-          domaine: formData.domaine,
+          bio:               formData.bio,
+          domaine:           formData.domaine,
           annees_experience: formData.annees_experience,
-          disponible: formData.disponible,
+          disponible:        formData.disponible,
         });
       } else {
         await mentoreAPI.updateProfile({
-          domaine: formData.domaine,
-          niveau_etude: formData.niveau_etude,
-          objectifs: formData.objectifs,
-          objectifs_tags: formData.objectifs_tags.split(',').map(tag => tag.trim()),
+          domaine:        formData.domaine,
+          niveau_etude:   formData.niveau_etude,
+          objectifs:      formData.objectifs,
+          objectifs_tags: formData.objectifs_tags,
         });
       }
-      toast.success('Profil mis à jour avec succès');
+      toast.success('Profil mis à jour — les recommandations IA vont se recalculer');
       fetchProfile();
-    } catch (error) {
-      console.error('Erreur mise à jour:', error);
+    } catch {
       toast.error('Erreur lors de la mise à jour');
     } finally {
       setSaving(false);
@@ -122,131 +160,176 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-md p-6">
-          <div className="mb-6">
+      <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
+
+        {/* Carte photo */}
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <User className="w-5 h-5 text-indigo-600" /> Photo de profil
+          </h2>
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0">
+              {user?.photo_url
+                ? <img src={getPhotoUrl(user.photo_url)} alt="" className="w-full h-full object-cover" />
+                : <span className="text-xl font-bold text-white">{user?.prenom?.[0]}{user?.nom?.[0]}</span>
+              }
+            </div>
+            <label className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-indigo-300 rounded-lg cursor-pointer hover:border-indigo-500 transition-colors text-sm text-indigo-600">
+              <Upload className="w-4 h-4" />
+              Changer la photo
+              <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={handlePhotoUpload} />
+            </label>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+
+          {/* Informations personnelles */}
+          <div className="bg-white rounded-xl shadow-md p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <User className="w-5 h-5 text-indigo-600" />
-              Informations personnelles
+              <User className="w-5 h-5 text-indigo-600" /> Informations personnelles
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
-                <input
-                  type="text"
-                  value={`${user?.nom} ${user?.prenom}`}
-                  disabled
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nom complet</label>
+                <input disabled value={`${user?.prenom} ${user?.nom}`}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={user?.email || ''}
-                  disabled
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                />
+                <input disabled value={user?.email || ''}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500" />
               </div>
             </div>
           </div>
 
-          <div className="mb-6">
+          {/* Profil spécifique au rôle */}
+          <div className="bg-white rounded-xl shadow-md p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              {isMentor ? <Briefcase className="w-5 h-5 text-indigo-600" /> : <BookOpen className="w-5 h-5 text-indigo-600" />}
-              {isMentor ? 'Informations professionnelles' : 'Parcours académique'}
+              {isMentor
+                ? <><Briefcase className="w-5 h-5 text-indigo-600" /> Informations professionnelles</>
+                : <><BookOpen className="w-5 h-5 text-indigo-600" /> Parcours académique</>
+              }
             </h2>
+
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Domaine</label>
+                <input type="text" placeholder="Ex: Informatique, Marketing, Design..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  value={formData.domaine}
+                  onChange={(e) => setFormData({ ...formData, domaine: e.target.value })}
+                />
+              </div>
+
               {isMentor ? (
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Biographie</label>
-                    <textarea
+                    <textarea rows={4} placeholder="Présentez votre parcours et votre expertise..."
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
                       value={formData.bio}
                       onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                      rows={4}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="Présentez-vous..."
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Années d'expérience</label>
-                    <input
-                      type="number"
-                      value={formData.annees_experience}
-                      onChange={(e) => setFormData({ ...formData, annees_experience: parseInt(e.target.value) })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={formData.disponible}
-                        onChange={(e) => setFormData({ ...formData, disponible: e.target.checked })}
-                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Années d'expérience</label>
+                      <input type="number" min={0} max={50}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        value={formData.annees_experience}
+                        onChange={(e) => setFormData({ ...formData, annees_experience: parseInt(e.target.value) || 0 })}
                       />
-                      <span className="text-sm text-gray-700">Disponible pour mentorat</span>
-                    </label>
+                    </div>
+                    <div className="flex items-center">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <div
+                          className={`relative w-11 h-6 rounded-full transition-colors ${formData.disponible ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                          onClick={() => setFormData(prev => ({ ...prev, disponible: !prev.disponible }))}>
+                          <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${formData.disponible ? 'translate-x-5' : ''}`} />
+                        </div>
+                        <span className="text-sm text-gray-700">
+                          {formData.disponible ? 'Disponible pour mentorat' : 'Indisponible'}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">CV (PDF)</label>
+                    <div className="flex items-center gap-3">
+                      {profile?.cv_url && (
+                        <a href={getPhotoUrl(profile.cv_url)} target="_blank" rel="noopener noreferrer"
+                          className="text-sm text-indigo-600 hover:underline">
+                          Voir le CV actuel
+                        </a>
+                      )}
+                      <label className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-indigo-300 rounded-lg cursor-pointer hover:border-indigo-500 transition-colors text-sm text-indigo-600">
+                        <Upload className="w-4 h-4" />
+                        {profile?.cv_url ? 'Remplacer le CV' : 'Uploader le CV'}
+                        <input type="file" accept="application/pdf" className="hidden" onChange={handleCVUpload} />
+                      </label>
+                    </div>
                   </div>
                 </>
               ) : (
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Niveau d'étude</label>
-                    <input
-                      type="text"
+                    <input type="text" placeholder="Ex: Licence 3, Master 2, Doctorat..."
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       value={formData.niveau_etude}
                       onChange={(e) => setFormData({ ...formData, niveau_etude: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="Ex: Master 2, Licence 3..."
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Objectifs</label>
-                    <textarea
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Objectifs d'apprentissage</label>
+                    <textarea rows={3} placeholder="Décrivez vos objectifs d'apprentissage..."
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
                       value={formData.objectifs}
                       onChange={(e) => setFormData({ ...formData, objectifs: e.target.value })}
-                      rows={3}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="Décrivez vos objectifs d'apprentissage..."
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Mots-clés (séparés par des virgules)
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                      <Tag className="w-4 h-4" /> Mots-clés pour le matching IA
                     </label>
-                    <input
-                      type="text"
-                      value={formData.objectifs_tags}
-                      onChange={(e) => setFormData({ ...formData, objectifs_tags: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="Ex: python, data science, IA"
-                    />
+                    <p className="text-xs text-gray-400 mb-2">Ces mots-clés sont utilisés par l'algorithme IA pour trouver les meilleurs mentors.</p>
+                    {formData.objectifs_tags.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {formData.objectifs_tags.map((tag) => (
+                          <span key={tag} className="flex items-center gap-1 bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-sm">
+                            {tag}
+                            <button type="button" onClick={() => removeTag(tag)} className="hover:text-red-500 transition-colors">
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <input type="text" placeholder="Ex: python, machine learning..."
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={handleTagKeyDown}
+                      />
+                      <button type="button" onClick={addTag}
+                        className="px-3 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors">
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">Appuyez sur Entrée ou , pour ajouter un tag</p>
                   </div>
                 </>
               )}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Domaine</label>
-                <input
-                  type="text"
-                  value={formData.domaine}
-                  onChange={(e) => setFormData({ ...formData, domaine: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Ex: Informatique, Marketing, Design..."
-                />
-              </div>
             </div>
           </div>
 
           <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
-            >
+            <button type="submit" disabled={saving}
+              className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 font-medium">
               <Save className="w-4 h-4" />
-              {saving ? 'Enregistrement...' : 'Enregistrer'}
+              {saving ? 'Enregistrement...' : 'Enregistrer les modifications'}
             </button>
           </div>
         </form>

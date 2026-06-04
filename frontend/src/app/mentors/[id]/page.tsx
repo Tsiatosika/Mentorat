@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, Clock, Users, Star, MessageCircle, Award, FileText } from 'lucide-react';
-import { publicAPI, disponibiliteAPI, competenceAPI } from '@/services/api';
+import { ArrowLeft, Calendar, Clock, Users, Star, MessageCircle, Award } from 'lucide-react';
+import { publicAPI, disponibiliteAPI, BACKEND_URL } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface MentorDetail {
@@ -29,12 +29,6 @@ interface Disponibilite {
   heure_fin: string;
 }
 
-interface Competence {
-  id: string;
-  nom: string;
-  niveau: string;
-}
-
 const JOURS: Record<string, string> = {
   lundi: 'Lundi', mardi: 'Mardi', mercredi: 'Mercredi',
   jeudi: 'Jeudi', vendredi: 'Vendredi', samedi: 'Samedi', dimanche: 'Dimanche',
@@ -43,40 +37,35 @@ const JOURS: Record<string, string> = {
 const ORDRE_JOURS = ['lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche'];
 
 export default function MentorDetailPage() {
-  const params     = useParams();
-  const { user }   = useAuth();
-  const mentorId   = params.id as string;
+  const params   = useParams();
+  const { user } = useAuth();
+  const mentorId = params.id as string;
 
   const [mentor,         setMentor]         = useState<MentorDetail | null>(null);
   const [disponibilites, setDisponibilites] = useState<Disponibilite[]>([]);
-  const [competences,    setCompetences]    = useState<Competence[]>([]);
   const [loading,        setLoading]        = useState(true);
+
+  const getPhotoUrl = (url: string) =>
+    url.startsWith('http') ? url : `${BACKEND_URL}${url}`;
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        // CORRECTION 1 : charger mentor + compétences + dispos en parallèle
-        const [mentorRes, dispoRes, compRes] = await Promise.allSettled([
+        const [mentorRes, dispoRes] = await Promise.allSettled([
           publicAPI.getMentorById(mentorId),
           disponibiliteAPI.getByMentor(mentorId),
-          competenceAPI.getAll().then((r) => ({ data: { competences: [] } })), // fallback
-          // Si vous avez un endpoint /competences/mentor/:id, utilisez-le ici
         ]);
 
         if (mentorRes.status === 'fulfilled') {
           setMentor(mentorRes.value.data.mentor);
         }
         if (dispoRes.status === 'fulfilled') {
-          // Trier par ordre de la semaine
           const sorted = (dispoRes.value.data.disponibilites || []).sort(
             (a: Disponibilite, b: Disponibilite) =>
               ORDRE_JOURS.indexOf(a.jour_semaine) - ORDRE_JOURS.indexOf(b.jour_semaine)
           );
           setDisponibilites(sorted);
         }
-
-        // CORRECTION 2 : les compétences sont déjà dans le profil mentor (tableau de strings)
-        // Elles sont dans mentor.competences depuis getMentorById
       } catch {
         console.error('Erreur chargement profil mentor');
       } finally {
@@ -132,7 +121,7 @@ export default function MentorDetailPage() {
             <div className="flex flex-wrap items-center gap-6">
               <div className="w-24 h-24 rounded-full overflow-hidden bg-white/20 flex items-center justify-center flex-shrink-0">
                 {mentor.photo_url
-                  ? <img src={mentor.photo_url} alt="" className="w-full h-full object-cover" />
+                  ? <img src={getPhotoUrl(mentor.photo_url)} alt="" className="w-full h-full object-cover" />
                   : <span className="text-4xl font-bold text-white">{mentor.prenom?.[0]}{mentor.nom?.[0]}</span>
                 }
               </div>
@@ -166,7 +155,6 @@ export default function MentorDetailPage() {
 
               {/* Colonne gauche */}
               <div className="lg:col-span-2 space-y-6">
-                {/* Bio */}
                 <section>
                   <h2 className="text-xl font-semibold text-gray-900 mb-3">À propos</h2>
                   <p className="text-gray-600 leading-relaxed">
@@ -174,7 +162,6 @@ export default function MentorDetailPage() {
                   </p>
                 </section>
 
-                {/* Compétences — depuis mentor.competences (array de strings) */}
                 {mentor.competences?.length > 0 && (
                   <section>
                     <h2 className="text-xl font-semibold text-gray-900 mb-3">Compétences</h2>
@@ -220,8 +207,8 @@ export default function MentorDetailPage() {
                   <div className="space-y-2 text-sm">
                     {[
                       ['Sessions réalisées', mentor.nb_sessions ?? 0],
-                      ['Note moyenne', `${getNoteDisplay(mentor.note_moyenne)}/5`],
-                      ['Expérience', `${mentor.annees_experience ?? 0} ans`],
+                      ['Note moyenne',       `${getNoteDisplay(mentor.note_moyenne)}/5`],
+                      ['Expérience',         `${mentor.annees_experience ?? 0} ans`],
                     ].map(([label, value]) => (
                       <div key={label as string} className="flex justify-between">
                         <span className="text-gray-500">{label}</span>
@@ -236,7 +223,6 @@ export default function MentorDetailPage() {
                   <h2 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
                     <MessageCircle className="w-5 h-5 text-indigo-600" /> Réserver
                   </h2>
-                  {/* CORRECTION 3 : montrer le bouton seulement aux mentorés connectés */}
                   {!user ? (
                     <Link href="/login"
                       className="block w-full text-center bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors text-sm">

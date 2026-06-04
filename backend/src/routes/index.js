@@ -9,6 +9,7 @@ const matchingRoutes     = require('./matching.routes');
 const rapportRoutes      = require('./rapport.routes');
 const competencesRoutes  = require('./competences.routes');
 const disponibiliteRoutes = require('./disponibilite.routes');
+const uploadRoutes        = require('./upload.routes');         
 
 const mentorController  = require('../controllers/mentor.controller');
 const mentoreController = require('../controllers/mentore.controller');
@@ -21,10 +22,8 @@ router.use('/matching',       matchingRoutes);
 router.use('/rapports',       rapportRoutes);
 router.use('/competences',    competencesRoutes);
 router.use('/disponibilites', disponibiliteRoutes);
+router.use('/upload',         uploadRoutes);
 
-// ── MENTORS ──────────────────────────────────────────────────────────────────
-// ⚠️  CORRECTION 1 : /profile/me AVANT /:id sinon Express interprète
-//    "profile" comme un :id et ne trouve jamais la bonne route
 
 router.get('/mentors/profile/me',
   authenticate, authorize('mentor'),

@@ -5,37 +5,38 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Home, Users, Calendar, MessageCircle, FileText, LogOut, Menu, X, LayoutDashboard, UserCircle } from 'lucide-react';
 import { useState } from 'react';
+import { BACKEND_URL } from '@/services/api';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const getPhotoUrl = (url: string) =>
+    url.startsWith('http') ? url : `${BACKEND_URL}${url}`;
+
   const publicNavItems = [
-    { href: '/', label: 'Accueil', icon: Home },
+    { href: '/',        label: 'Accueil', icon: Home },
     { href: '/mentors', label: 'Mentors', icon: Users },
   ];
 
   const privateNavItems = user ? [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/sessions', label: 'Sessions', icon: Calendar },
-    { href: '/chat', label: 'Chat', icon: MessageCircle },
-    { href: '/reports', label: 'Rapports', icon: FileText },
-    { href: '/profile', label: 'Profil', icon: UserCircle },
+    { href: '/sessions',  label: 'Sessions',  icon: Calendar },
+    { href: '/chat',      label: 'Chat',       icon: MessageCircle },
+    { href: '/reports',   label: 'Rapports',   icon: FileText },
+    { href: '/profile',   label: 'Profil',     icon: UserCircle },
   ] : [];
 
   const navItems = [...publicNavItems, ...privateNavItems];
-
   const isActive = (href: string) => pathname === href;
-
-  const handleLogout = () => {
-    logout(); // La redirection est déjà gérée dans logout()
-  };
+  const handleLogout = () => logout();
 
   return (
     <nav className="bg-white shadow-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
+
           <Link href="/" className="flex items-center space-x-2 shrink-0">
             <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
               <span className="text-lg">🎓</span>
@@ -48,15 +49,10 @@ export default function Navbar() {
               const Icon = item.icon;
               const active = isActive(item.href);
               return (
-                <Link
-                  key={item.href}
-                  href={item.href}
+                <Link key={item.href} href={item.href}
                   className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                    active
-                      ? 'bg-indigo-50 text-indigo-600'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                  }`}
-                >
+                    active ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`}>
                   <span className="flex items-center gap-2">
                     <Icon className="w-4 h-4" />
                     {item.label}
@@ -70,47 +66,39 @@ export default function Navbar() {
             {user ? (
               <div className="hidden md:flex items-center space-x-3">
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full">
-                  <div className="w-6 h-6 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center">
-                    <span className="text-xs font-bold text-white">
-                      {user.prenom?.[0]}{user.nom?.[0]}
-                    </span>
+                  {/* Avatar avec photo */}
+                  <div className="w-6 h-6 rounded-full overflow-hidden bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0">
+                    {user.photo_url
+                      ? <img src={getPhotoUrl(user.photo_url)} alt="" className="w-full h-full object-cover" />
+                      : <span className="text-xs font-bold text-white">{user.prenom?.[0]}{user.nom?.[0]}</span>
+                    }
                   </div>
-                  <span className="text-sm text-gray-700">
-                    {user.prenom} {user.nom}
-                  </span>
+                  <span className="text-sm text-gray-700">{user.prenom} {user.nom}</span>
                   <span className="text-xs text-gray-400">
                     ({user.role === 'mentor' ? 'Mentor' : 'Mentoré'})
                   </span>
                 </div>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors"
-                >
+                <button onClick={handleLogout}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors">
                   <LogOut className="w-4 h-4" />
                   Déconnexion
                 </button>
               </div>
             ) : (
               <div className="flex items-center space-x-2">
-                <Link
-                  href="/login"
-                  className="px-4 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors"
-                >
+                <Link href="/login"
+                  className="px-4 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors">
                   Connexion
                 </Link>
-                <Link
-                  href="/register"
-                  className="px-4 py-2 rounded-lg text-sm bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors"
-                >
+                <Link href="/register"
+                  className="px-4 py-2 rounded-lg text-sm bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors">
                   Inscription
                 </Link>
               </div>
             )}
 
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100"
-            >
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100">
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
@@ -122,46 +110,30 @@ export default function Navbar() {
               const Icon = item.icon;
               const active = isActive(item.href);
               return (
-                <Link
-                  key={item.href}
-                  href={item.href}
+                <Link key={item.href} href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm ${
-                    active
-                      ? 'bg-indigo-50 text-indigo-600 font-medium'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
+                    active ? 'bg-indigo-50 text-indigo-600 font-medium' : 'text-gray-600 hover:bg-gray-100'
+                  }`}>
                   <Icon className="w-5 h-5" />
                   {item.label}
                 </Link>
               );
             })}
             {user ? (
-              <button
-                onClick={() => {
-                  handleLogout();
-                  setMobileMenuOpen(false);
-                }}
-                className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm text-red-600 hover:bg-red-50 mt-2"
-              >
+              <button onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm text-red-600 hover:bg-red-50 mt-2">
                 <LogOut className="w-5 h-5" />
                 Déconnexion
               </button>
             ) : (
               <div className="flex gap-2 px-4 pt-2">
-                <Link
-                  href="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex-1 px-4 py-2 rounded-lg text-center text-gray-600 hover:bg-gray-100"
-                >
+                <Link href="/login" onClick={() => setMobileMenuOpen(false)}
+                  className="flex-1 px-4 py-2 rounded-lg text-center text-gray-600 hover:bg-gray-100">
                   Connexion
                 </Link>
-                <Link
-                  href="/register"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex-1 px-4 py-2 rounded-lg text-center bg-indigo-600 text-white"
-                >
+                <Link href="/register" onClick={() => setMobileMenuOpen(false)}
+                  className="flex-1 px-4 py-2 rounded-lg text-center bg-indigo-600 text-white">
                   Inscription
                 </Link>
               </div>
