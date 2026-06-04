@@ -24,23 +24,16 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
   // Routes publiques
   const publicRoutes = ['/', '/login', '/register', '/mentors'];
   
-  // Vérifier si la route actuelle est publique
   const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith('/mentors/');
-  
-  // Routes protégées
   const protectedRoutes = ['/dashboard', '/sessions', '/chat', '/reports', '/profile', '/matching'];
   const isProtectedRoute = protectedRoutes.some(route => pathname === route || pathname.startsWith(route + '/'));
 
   useEffect(() => {
     if (!loading) {
-      // Si route protégée et pas d'utilisateur connecté
       if (isProtectedRoute && !user) {
-        // Sauvegarder la page pour rediriger après connexion
         sessionStorage.setItem('redirectAfterLogin', pathname);
         router.push('/login');
       }
-      
-      // Si déjà connecté sur page login/register
       if (user && (pathname === '/login' || pathname === '/register')) {
         const redirectTo = sessionStorage.getItem('redirectAfterLogin') || '/dashboard';
         sessionStorage.removeItem('redirectAfterLogin');
@@ -49,7 +42,6 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, pathname, router, isProtectedRoute]);
 
-  // Afficher un loader pendant le chargement
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -69,19 +61,16 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  const hideNavbarPages = ['/login', '/register'];
-  const showNavbar = !hideNavbarPages.includes(pathname);
-
+  // La navbar s'affiche sur TOUTES les pages (plus de masquage)
   return (
     <html lang="fr" className={inter.className}>
       <body className="antialiased">
         <AuthProvider>
+          <Navbar />
           <RouteGuard>
-            {showNavbar && <Navbar />}
             {children}
-            <Toaster position="top-right" />
           </RouteGuard>
+          <Toaster position="top-right" />
         </AuthProvider>
       </body>
     </html>
