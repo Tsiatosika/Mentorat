@@ -6,28 +6,32 @@ import { User, Briefcase, BookOpen, Save, Upload, Tag, Plus, X } from 'lucide-re
 import { useAuth } from '@/contexts/AuthContext';
 import { mentorAPI, mentoreAPI, uploadAPI, BACKEND_URL } from '@/services/api';
 import toast from 'react-hot-toast';
+import Image from 'next/image';
 
 export default function ProfilePage() {
   const { user, updateUser } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [saving,  setSaving]  = useState(false);
+  const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [tagInput, setTagInput] = useState('');
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
-    bio:               '',
-    domaine:           '',
-    niveau_etude:      '',
-    objectifs:         '',
-    objectifs_tags:    [] as string[],
+    bio: '',
+    domaine: '',
+    niveau_etude: '',
+    objectifs: '',
+    objectifs_tags: [] as string[],
     annees_experience: 0,
-    disponible:        true,
+    disponible: true,
   });
 
-  // ── Helper URL photo ───────────────────────────────────────────────────────
-  const getPhotoUrl = (url: string) =>
-    url.startsWith('http') ? url : `${BACKEND_URL}${url}`;
+  const getPhotoUrl = (url: string | null) => {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    return `${BACKEND_URL}${url}`;
+  };
 
   useEffect(() => {
     if (!user) { router.push('/login'); return; }
@@ -35,35 +39,53 @@ export default function ProfilePage() {
   }, [user, router]);
 
   const fetchProfile = async () => {
+    setLoading(true);
     try {
       if (user?.role === 'mentor') {
         const res = await mentorAPI.getProfile();
-        const p   = res.data.profile;
+        const p = res.data.profile;
         setProfile(p);
+        // Mettre à jour la photo depuis le profil
+        const newPhotoUrl = p.photo_url || user?.photo_url || null;
+        setPhotoUrl(newPhotoUrl);
+        
+        // Synchroniser le contexte si nécessaire
+        if (newPhotoUrl !== user?.photo_url) {
+          updateUser({ ...user, photo_url: newPhotoUrl });
+        }
+        
         setFormData({
-          bio:               p.bio              || '',
-          domaine:           p.domaine           || '',
-          niveau_etude:      '',
-          objectifs:         '',
-          objectifs_tags:    [],
+          bio: p.bio || '',
+          domaine: p.domaine || '',
+          niveau_etude: '',
+          objectifs: '',
+          objectifs_tags: [],
           annees_experience: p.annees_experience || 0,
-          disponible:        p.disponible ?? true,
+          disponible: p.disponible ?? true,
         });
       } else {
         const res = await mentoreAPI.getProfile();
-        const p   = res.data.profile;
+        const p = res.data.profile;
         setProfile(p);
+        const newPhotoUrl = p.photo_url || user?.photo_url || null;
+        setPhotoUrl(newPhotoUrl);
+        
+        if (newPhotoUrl !== user?.photo_url) {
+          updateUser({ ...user, photo_url: newPhotoUrl });
+        }
+        
         setFormData({
-          bio:               '',
-          domaine:           p.domaine      || '',
-          niveau_etude:      p.niveau_etude || '',
-          objectifs:         p.objectifs    || '',
-          objectifs_tags:    Array.isArray(p.objectifs_tags) ? p.objectifs_tags.filter(Boolean) : [],
+          bio: '',
+          domaine: p.domaine || '',
+          niveau_etude: p.niveau_etude || '',
+          objectifs: p.objectifs || '',
+          objectifs_tags: Array.isArray(p.objectifs_tags) ? p.objectifs_tags.filter(Boolean) : [],
           annees_experience: 0,
-          disponible:        true,
+          disponible: true,
         });
       }
-    } catch {
+    } catch (error) {
+      console.error('Erreur chargement profil:', error);
       toast.error('Erreur lors du chargement du profil');
     } finally {
       setLoading(false);
@@ -84,18 +106,36 @@ export default function ProfilePage() {
 
   const handleTagKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') { e.preventDefault(); addTag(); }
-    if (e.key === ',')     { e.preventDefault(); addTag(); }
+    if (e.key === ',') { e.preventDefault(); addTag(); }
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error('Photo trop lourde (max 5 Mo)'); return; }
+    
+    if (!file.type.startsWith('image/')) {
+      toast.error('Veuillez sélectionner une image');
+      return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Photo trop lourde (max 5 Mo)');
+      return;
+    }
+    
     try {
       const res = await uploadAPI.photo(file);
-      updateUser({ photo_url: res.data.url });
-      toast.success('Photo mise à jour');
-    } catch {
+      if (res.data.success) {
+        const newPhotoUrl = res.data.url;
+        setPhotoUrl(newPhotoUrl);
+        // Mettre à jour le contexte
+        updateUser({ ...user, photo_url: newPhotoUrl });
+        toast.success('Photo mise à jour');
+        // Recharger le profil pour être sûr
+        await fetchProfile();
+      }
+    } catch (error) {
+      console.error('Erreur upload:', error);
       toast.error("Erreur lors de l'upload de la photo");
     }
   };
@@ -103,7 +143,14 @@ export default function ProfilePage() {
   const handleCVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error('CV trop lourd (max 5 Mo)'); return; }
+    if (file.type !== 'application/pdf') {
+      toast.error('Veuillez sélectionner un fichier PDF');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('CV trop lourd (max 5 Mo)');
+      return;
+    }
     try {
       await uploadAPI.cv(file);
       toast.success('CV uploadé avec succès');
@@ -119,16 +166,16 @@ export default function ProfilePage() {
     try {
       if (user?.role === 'mentor') {
         await mentorAPI.updateProfile({
-          bio:               formData.bio,
-          domaine:           formData.domaine,
+          bio: formData.bio,
+          domaine: formData.domaine,
           annees_experience: formData.annees_experience,
-          disponible:        formData.disponible,
+          disponible: formData.disponible,
         });
       } else {
         await mentoreAPI.updateProfile({
-          domaine:        formData.domaine,
-          niveau_etude:   formData.niveau_etude,
-          objectifs:      formData.objectifs,
+          domaine: formData.domaine,
+          niveau_etude: formData.niveau_etude,
+          objectifs: formData.objectifs,
           objectifs_tags: formData.objectifs_tags,
         });
       }
@@ -150,6 +197,7 @@ export default function ProfilePage() {
   }
 
   const isMentor = user?.role === 'mentor';
+  const displayPhotoUrl = getPhotoUrl(photoUrl || user?.photo_url || null);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -168,17 +216,30 @@ export default function ProfilePage() {
             <User className="w-5 h-5 text-indigo-600" /> Photo de profil
           </h2>
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0">
-              {user?.photo_url
-                ? <img src={getPhotoUrl(user.photo_url)} alt="" className="w-full h-full object-cover" />
-                : <span className="text-xl font-bold text-white">{user?.prenom?.[0]}{user?.nom?.[0]}</span>
-              }
+            <div className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0">
+              {displayPhotoUrl ? (
+                <img 
+                  src={displayPhotoUrl} 
+                  alt="Photo de profil" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Si l'image ne charge pas, afficher les initiales
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.parentElement!.innerHTML = `<span class="text-2xl font-bold text-white">${user?.prenom?.[0]}${user?.nom?.[0]}</span>`;
+                  }}
+                />
+              ) : (
+                <span className="text-2xl font-bold text-white">{user?.prenom?.[0]}{user?.nom?.[0]}</span>
+              )}
             </div>
-            <label className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-indigo-300 rounded-lg cursor-pointer hover:border-indigo-500 transition-colors text-sm text-indigo-600">
-              <Upload className="w-4 h-4" />
-              Changer la photo
-              <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={handlePhotoUpload} />
-            </label>
+            <div className="flex-1">
+              <label className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-indigo-300 rounded-lg cursor-pointer hover:border-indigo-500 transition-colors text-sm text-indigo-600 w-fit">
+                <Upload className="w-4 h-4" />
+                Changer la photo
+                <input type="file" accept="image/jpeg,image/png,image/jpg" className="hidden" onChange={handlePhotoUpload} />
+              </label>
+              <p className="text-xs text-gray-400 mt-2">Formats acceptés : JPG, PNG (max 5 Mo)</p>
+            </div>
           </div>
         </div>
 
@@ -256,7 +317,7 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">CV (PDF)</label>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                       {profile?.cv_url && (
                         <a href={getPhotoUrl(profile.cv_url)} target="_blank" rel="noopener noreferrer"
                           className="text-sm text-indigo-600 hover:underline">
