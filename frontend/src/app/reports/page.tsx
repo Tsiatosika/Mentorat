@@ -2,214 +2,170 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, Download, Calendar, User, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { sessionAPI, rapportAPI } from '@/services/api';
+import Topbar from '@/components/layout/Topbar';
 import toast from 'react-hot-toast';
 
 interface Session {
-  id: string;
-  sujet: string;
-  date_debut: string;
-  statut: string;
-  mentor_nom?: string;
-  mentor_prenom?: string;
-  mentore_nom?: string;
-  mentore_prenom?: string;
+  id: string; sujet: string; date_debut: string; statut: string;
+  mentor_nom?: string; mentor_prenom?: string; mentore_nom?: string; mentore_prenom?: string;
 }
 
 export default function ReportsPage() {
   const { user }  = useAuth();
   const router    = useRouter();
-  const [sessions,   setSessions]   = useState<Session[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [generating, setGenerating] = useState<string | null>(null);
-  const [downloading,setDownloading]= useState<string | null>(null);
+  const [sessions,    setSessions]    = useState<Session[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [generating,  setGenerating]  = useState<string | null>(null);
+  const [downloading, setDownloading] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) { router.push('/login'); return; }
-    fetchSessions();
-  }, [user, router]);
+    load();
+  }, [user]);
 
-  const fetchSessions = async () => {
-    try {
-      const response = await sessionAPI.getAll({ statut: 'terminee' });
-      setSessions(response.data.sessions || []);
-    } catch {
-      toast.error('Erreur lors du chargement');
-    } finally {
-      setLoading(false);
-    }
+  const load = async () => {
+    try { const r = await sessionAPI.getAll({ statut: 'terminee' }); setSessions(r.data.sessions || []); }
+    catch { toast.error('Erreur chargement'); }
+    finally { setLoading(false); }
   };
 
-  // CORRECTION 1 : générer d'abord, puis télécharger en blob
-  // window.open() ne fonctionne pas pour les fichiers protégés par auth
-  const handleGenerate = async (sessionId: string) => {
-    setGenerating(sessionId);
-    try {
-      await rapportAPI.generateSession(sessionId);
-      toast.success('Rapport généré !');
-      // Enchaîner le téléchargement
-      await handleDownload(sessionId);
-    } catch {
-      toast.error('Erreur lors de la génération du rapport');
-    } finally {
-      setGenerating(null);
-    }
+  const handleGenerate = async (id: string) => {
+    setGenerating(id);
+    try { await rapportAPI.generateSession(id); toast.success('Rapport généré !'); await handleDownload(id); }
+    catch { toast.error('Erreur génération'); }
+    finally { setGenerating(null); }
   };
 
-  // CORRECTION 2 : téléchargement PDF via blob (responseType: 'blob' dans api.ts)
-  const handleDownload = async (sessionId: string) => {
-    setDownloading(sessionId);
+  const handleDownload = async (id: string) => {
+    setDownloading(id);
     try {
-      const response = await rapportAPI.downloadSession(sessionId);
-      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const r    = await rapportAPI.downloadSession(id);
+      const blob = new Blob([r.data], { type: 'application/pdf' });
       const url  = window.URL.createObjectURL(blob);
       const a    = document.createElement('a');
-      a.href     = url;
-      a.download = `rapport_session_${sessionId}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      a.href = url; a.download = `rapport_${id}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
       window.URL.revokeObjectURL(url);
-    } catch {
-      // Si le rapport n'existe pas encore → générer d'abord
-      toast.error('Rapport non disponible. Cliquez sur "Générer".');
-    } finally {
-      setDownloading(null);
-    }
+    } catch { toast.error('Rapport non disponible. Cliquez sur Générer.'); }
+    finally { setDownloading(null); }
   };
 
-  // CORRECTION 3 : rapport de progression (mentoré uniquement)
-  const handleProgressionReport = async () => {
+  const handleProgression = async () => {
     setGenerating('progression');
     try {
-      const response = await rapportAPI.generateProgression();
-      if (response.data.rapport?.url) {
-        // Même logique blob
-        const dl = await rapportAPI.downloadSession('progression'); // non utilisé
+      const r = await rapportAPI.generateProgression();
+      if (r.data.rapport?.url) {
         toast.success('Rapport de progression généré !');
-        window.open(
-          `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${response.data.rapport.url}`,
-          '_blank'
-        );
+        window.open(`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${r.data.rapport.url}`, '_blank');
       }
-    } catch {
-      toast.error('Erreur lors de la génération du rapport de progression');
-    } finally {
-      setGenerating(null);
-    }
+    } catch { toast.error('Erreur'); }
+    finally { setGenerating(null); }
   };
 
-  const formatDate = (date: string) =>
-    new Date(date).toLocaleDateString('fr-FR', {
-      day: '2-digit', month: '2-digit', year: 'numeric',
-    });
+  const fmt = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
-  const getOtherPerson = (session: Session) =>
-    user?.role === 'mentor'
-      ? `${session.mentore_prenom ?? ''} ${session.mentore_nom ?? ''}`.trim()
-      : `${session.mentor_prenom  ?? ''} ${session.mentor_nom  ?? ''}`.trim();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  const other = (s: Session) => user?.role === 'mentor'
+    ? `${s.mentore_prenom ?? ''} ${s.mentore_nom ?? ''}`.trim()
+    : `${s.mentor_prenom  ?? ''} ${s.mentor_nom  ?? ''}`.trim();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 py-8 flex justify-between items-center flex-wrap gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Mes rapports</h1>
-            <p className="text-indigo-100 mt-1">Téléchargez les rapports de vos sessions terminées</p>
-          </div>
-          {/* CORRECTION 3 : bouton rapport de progression pour les mentorés */}
-          {user?.role === 'mentore' && (
-            <button
-              onClick={handleProgressionReport}
-              disabled={generating === 'progression'}
-              className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors disabled:opacity-60"
-            >
-              <RefreshCw className={`w-4 h-4 ${generating === 'progression' ? 'animate-spin' : ''}`} />
-              Rapport de progression global
-            </button>
-          )}
-        </div>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <Topbar title="Mes rapports" icon="ti-file-text"
+        action={user?.role === 'mentore' ? (
+          <button onClick={handleProgression} disabled={generating === 'progression'}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: '#F5F7FB', border: '0.5px solid #E5EAF2', borderRadius: '8px', color: '#1E3A5F', fontSize: '13px', cursor: 'pointer' }}>
+            <i className={`ti ti-refresh${generating === 'progression' ? ' animate-spin' : ''}`} style={{ fontSize: '15px' }} aria-hidden="true" />
+            Rapport de progression
+          </button>
+        ) : undefined}
+      />
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {sessions.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-md p-12 text-center">
-            <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Aucun rapport disponible</h3>
-            <p className="text-gray-500">
-              Les rapports apparaîtront ici une fois que vous aurez terminé des sessions.
-            </p>
+      <main style={{ flex: 1, padding: '24px' }}>
+
+        {loading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
+            <div style={{ width: '36px', height: '36px', border: '3px solid #3B82F6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+          </div>
+        ) : sessions.length === 0 ? (
+          <div style={{ background: '#fff', borderRadius: '14px', border: '0.5px solid #E5EAF2', padding: '60px 24px', textAlign: 'center' }}>
+            <div style={{ width: '64px', height: '64px', background: '#F5F7FB', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <i className="ti ti-file-off" style={{ fontSize: '32px', color: '#E5EAF2' }} aria-hidden="true" />
+            </div>
+            <p style={{ fontSize: '15px', fontWeight: 600, color: '#1E3A5F' }}>Aucun rapport disponible</p>
+            <p style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '6px' }}>Les rapports apparaîtront ici une fois que vous aurez terminé des sessions.</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {sessions.map((session) => (
-              <div key={session.id} className="bg-white rounded-xl shadow-md overflow-hidden">
-                <div className="p-5">
-                  <div className="flex flex-wrap justify-between items-center gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <FileText className="w-5 h-5 text-indigo-600" />
-                        <h3 className="font-semibold text-gray-900">{session.sujet}</h3>
-                      </div>
-                      <div className="flex flex-wrap gap-4 text-sm text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          {formatDate(session.date_debut)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <User className="w-4 h-4" />
-                          avec {getOtherPerson(session)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      {/* Générer + télécharger en une étape */}
-                      <button
-                        onClick={() => handleGenerate(session.id)}
-                        disabled={generating === session.id || downloading === session.id}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm"
-                      >
-                        {generating === session.id ? (
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <Download className="w-4 h-4" />
-                        )}
-                        {generating === session.id ? 'Génération...' : 'Générer et télécharger'}
-                      </button>
-
-                      {/* Télécharger directement si déjà généré */}
-                      <button
-                        onClick={() => handleDownload(session.id)}
-                        disabled={downloading === session.id}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 text-sm"
-                      >
-                        {downloading === session.id ? (
-                          <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <Download className="w-4 h-4" />
-                        )}
-                        Retélécharger
-                      </button>
-                    </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {/* Stats summary */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px', marginBottom: '8px' }}>
+              {[
+                { label: 'Sessions terminées', val: sessions.length, icon: 'ti-circle-check', bg: '#F0FDF4', color: '#22C55E' },
+                { label: 'Rapports disponibles', val: sessions.length, icon: 'ti-file-text', bg: '#EFF6FF', color: '#3B82F6' },
+                { label: 'Ce mois-ci', val: sessions.filter(s => new Date(s.date_debut).getMonth() === new Date().getMonth()).length, icon: 'ti-calendar', bg: '#FFFBEB', color: '#F59E0B' },
+              ].map((s, i) => (
+                <div key={i} style={{ background: '#fff', borderRadius: '12px', border: '0.5px solid #E5EAF2', padding: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <i className={`ti ${s.icon}`} style={{ fontSize: '20px', color: s.color }} aria-hidden="true" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '22px', fontWeight: 600, color: '#1E3A5F', lineHeight: 1 }}>{s.val}</div>
+                    <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '3px' }}>{s.label}</div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+
+            {/* Reports list */}
+            {sessions.map(s => {
+              const o = other(s);
+              const initO = o.split(' ').map((w: string) => w[0] ?? '').join('').slice(0, 2).toUpperCase();
+
+              return (
+                <div key={s.id} style={{ background: '#fff', borderRadius: '14px', border: '0.5px solid #E5EAF2', padding: '18px 20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <i className="ti ti-file-text" style={{ fontSize: '22px', color: '#22C55E' }} aria-hidden="true" />
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: '#1E3A5F', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.sujet}</div>
+                    <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '12px', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <i className="ti ti-calendar" style={{ fontSize: '13px' }} aria-hidden="true" /> {fmt(s.date_debut)}
+                      </span>
+                      {o && (
+                        <span style={{ fontSize: '12px', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <i className="ti ti-user" style={{ fontSize: '13px' }} aria-hidden="true" /> Avec {o}
+                        </span>
+                      )}
+                      <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '20px', background: '#F0FDF4', color: '#166534' }}>Terminée</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                    <button onClick={() => handleGenerate(s.id)} disabled={generating === s.id || downloading === s.id}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#3B82F6', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', opacity: generating === s.id || downloading === s.id ? 0.6 : 1 }}>
+                      {generating === s.id
+                        ? <div style={{ width: '14px', height: '14px', border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                        : <i className="ti ti-download" style={{ fontSize: '15px' }} aria-hidden="true" />}
+                      {generating === s.id ? 'Génération...' : 'Générer'}
+                    </button>
+                    <button onClick={() => handleDownload(s.id)} disabled={downloading === s.id}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: '#F5F7FB', color: '#1E3A5F', border: '0.5px solid #E5EAF2', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', opacity: downloading === s.id ? 0.6 : 1 }}>
+                      {downloading === s.id
+                        ? <div style={{ width: '14px', height: '14px', border: '2px solid #1E3A5F', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                        : <i className="ti ti-download" style={{ fontSize: '15px' }} aria-hidden="true" />}
+                      Retélécharger
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

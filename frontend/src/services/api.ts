@@ -62,14 +62,15 @@ export const competenceAPI = {
   getById: (id: string)  => api.get(`/competences/${id}`),
 };
 
+// SESSION API - ROUTES CORRIGÉES
 export const sessionAPI = {
   getAll:   (params?: any)               => api.get('/sessions', { params }),
   getById:  (id: string)                 => api.get(`/sessions/${id}`),
   create:   (data: any)                  => api.post('/sessions', data),
-  confirm:  (id: string)                 => api.put(`/sessions/${id}/confirmer`),
-  cancel:   (id: string, raison?: string) => api.put(`/sessions/${id}/annuler`, { raison }),
-  start:    (id: string)                 => api.put(`/sessions/${id}/demarrer`),
-  complete: (id: string, data: any)      => api.put(`/sessions/${id}/terminer`, data),
+  confirm:  (id: string)                 => api.put(`/sessions/${id}/confirm`),    // ← confirm (pas confirmer)
+  cancel:   (id: string, raison?: string) => api.put(`/sessions/${id}/cancel`, { raison }),  // ← cancel (pas annuler)
+  start:    (id: string)                 => api.put(`/sessions/${id}/start`),      // ← start (pas demarrer)
+  complete: (id: string, data: any)      => api.put(`/sessions/${id}/complete`, data), // ← complete (pas terminer)
   addVisio: (id: string, lien: string)   => api.put(`/sessions/${id}/visio`, { lien_visio: lien }),
 };
 

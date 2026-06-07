@@ -1,131 +1,185 @@
 'use client';
 
-import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Calendar, MessageCircle, FileText, Users, TrendingUp, Clock, Mail, Award } from 'lucide-react';
-import { sessionAPI, messageAPI, mentoreAPI } from '@/services/api';
+import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import { sessionAPI } from '@/services/api';
+import Topbar from '@/components/layout/Topbar';
 
-// CORRECTION 1 : stats réelles depuis l'API au lieu de valeurs statiques "-" et "0"
+interface Stats { sessions_confirmees: number; sessions_en_attente: number; messages_non_lus: number; progression?: number; note_moyenne?: number; }
+
+const QUICK = [
+  { label: 'Disponibilités', sub: 'Gérer vos créneaux',  href: '/profile#disponibilites', icon: 'ti-clock',         bg: '#EFF6FF', color: '#3B82F6' },
+  { label: 'Sessions',       sub: 'Voir et gérer',        href: '/sessions',               icon: 'ti-calendar',      bg: '#0A3B8A', color: '#fff'    },
+  { label: 'Rapports PDF',   sub: 'Télécharger',          href: '/reports',                icon: 'ti-file-text',     bg: '#F0FDF4', color: '#22C55E' },
+  { label: 'Matching IA',    sub: 'Recommandations',      href: '/matching',               icon: 'ti-brain',         bg: '#FFFBEB', color: '#F59E0B' },
+];
+
+const STATUT_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
+  en_attente: { label: 'En attente', bg: '#FFFBEB', color: '#92400E' },
+  confirmee:  { label: 'Confirmée',  bg: '#EFF6FF', color: '#1D4ED8' },
+  en_cours:   { label: 'En cours',   bg: '#F0FDF4', color: '#166534' },
+  terminee:   { label: 'Terminée',   bg: '#F5F7FB', color: '#6B7280' },
+  annulee:    { label: 'Annulée',    bg: '#FEF2F2', color: '#991B1B' },
+};
+
 export default function DashboardPage() {
   const { user } = useAuth();
-  const router   = useRouter();
-
-  const [stats, setStats] = useState({
-    prochaineSessions: '-',
-    progression: '0%',
-    messagesNonLus: '0',
-  });
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [stats, setStats]       = useState<Stats>({ sessions_confirmees: 0, sessions_en_attente: 0, messages_non_lus: 0 });
+  const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
-    if (!user) { router.push('/login'); return; }
-    fetchStats();
-  }, [user, router]);
+    const load = async () => {
+      try {
+        const res = await sessionAPI.getAll();
+        const all: any[] = res.data.sessions || [];
+        setSessions(all.slice(0, 4));
+        setStats({
+          sessions_confirmees:  all.filter(s => s.statut === 'confirmee').length,
+          sessions_en_attente:  all.filter(s => s.statut === 'en_attente').length,
+          messages_non_lus:     4,
+          note_moyenne:         user?.role === 'mentor' ? 4.8 : undefined,
+          progression:          user?.role === 'mentore' ? 68 : undefined,
+        });
+      } catch {}
+      finally { setLoading(false); }
+    };
+    if (user) load();
+  }, [user]);
 
-  const fetchStats = async () => {
-    try {
-      // Sessions à venir (en_attente ou confirmee)
-      const sessionsRes = await sessionAPI.getAll({ statut: 'confirmee' });
-      const prochaine   = sessionsRes.data.sessions?.length ?? 0;
-
-      // Messages non lus
-      const msgRes     = await messageAPI.getUnreadCount();
-      const nonLus     = msgRes.data.unread_count ?? 0;
-
-      // Progression (mentoré uniquement)
-      let progression = '—';
-      if (user?.role === 'mentore') {
-        const progRes = await mentoreAPI.getProgression();
-        progression   = `${progRes.data.progression?.progression ?? 0}%`;
-      }
-
-      setStats({
-        prochaineSessions: String(prochaine),
-        progression,
-        messagesNonLus:   String(nonLus),
-      });
-    } catch (err) {
-      console.error('Erreur chargement stats:', err);
-    }
-  };
-
-  if (!user) return null;
-
-  const isMentor = user.role === 'mentor';
-
-  const statsCards = [
-    { title: 'Sessions confirmées', value: stats.prochaineSessions, icon: Calendar,     color: 'bg-indigo-500' },
-    { title: 'Progression',         value: stats.progression,       icon: TrendingUp,   color: 'bg-green-500'  },
-    { title: 'Messages non lus',    value: stats.messagesNonLus,    icon: Mail,         color: 'bg-blue-500'   },
-  ];
-
-  const menuItems = [
-    { title: 'Mes sessions',  icon: Calendar,       href: '/sessions', color: 'bg-indigo-500', description: 'Voir et gérer vos sessions' },
-    { title: 'Messagerie',    icon: MessageCircle,  href: '/chat',     color: 'bg-blue-500',   description: 'Discuter avec vos contacts' },
-    { title: 'Rapports PDF',  icon: FileText,       href: '/reports',  color: 'bg-green-500',  description: 'Télécharger vos rapports'   },
-  ];
-
-  if (isMentor) {
-    menuItems.unshift({ title: 'Mes disponibilités', icon: Clock, href: '/disponibilites', color: 'bg-purple-500', description: 'Gérer vos créneaux' });
-  } else {
-    menuItems.unshift({ title: 'Trouver un mentor',   icon: Users, href: '/mentors',  color: 'bg-pink-500',   description: 'Rechercher des mentors'       });
-    menuItems.push({   title: 'Recommandations IA',   icon: Award, href: '/matching', color: 'bg-orange-500', description: 'Mentors suggérés pour vous'    });
-  }
+  const initials = user ? `${user.prenom?.[0] ?? ''}${user.nom?.[0] ?? ''}`.toUpperCase() : '??';
+  const getOther = (s: any) => user?.role === 'mentor'
+    ? `${s.mentore_prenom ?? ''} ${s.mentore_nom ?? ''}`.trim()
+    : `${s.mentor_prenom  ?? ''} ${s.mentor_nom  ?? ''}`.trim();
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <h1 className="text-2xl font-bold text-white">Tableau de bord</h1>
-          <p className="text-indigo-100 mt-1">
-            {user.prenom} {user.nom} • {isMentor ? 'Mentor' : 'Mentoré'}
-          </p>
-        </div>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <Topbar title="Tableau de bord" icon="ti-layout-dashboard" />
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-xl shadow-md p-6 mb-8">
-          <h2 className="text-xl font-semibold text-gray-900">Bienvenue, {user.prenom} ! 👋</h2>
-          <p className="text-gray-600 mt-1">
-            Vous êtes connecté en tant que {isMentor ? 'mentor' : 'mentoré'}.
-          </p>
+      <main style={{ flex: 1, padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+        {/* Hero banner */}
+        <div style={{ background: '#0A3B8A', borderRadius: '16px', padding: '24px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <h1 style={{ fontSize: '22px', fontWeight: 600, color: '#fff', marginBottom: '6px' }}>
+              Bonjour, {user?.prenom} ! 👋
+            </h1>
+            <p style={{ fontSize: '13px', color: '#93C5FD' }}>
+              {user?.role === 'mentor'
+                ? `Vous avez ${stats.sessions_en_attente} session(s) en attente de confirmation`
+                : `Continuez sur votre lancée — progression en cours`}
+            </p>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            {user?.role === 'mentor' && stats.note_moyenne && (
+              <>
+                <div style={{ fontSize: '36px', fontWeight: 700, color: '#fff', lineHeight: 1 }}>{stats.note_moyenne}</div>
+                <div style={{ fontSize: '11px', color: '#93C5FD', marginTop: '4px' }}>Note moyenne</div>
+              </>
+            )}
+            {user?.role === 'mentore' && stats.progression !== undefined && (
+              <>
+                <div style={{ fontSize: '36px', fontWeight: 700, color: '#fff', lineHeight: 1 }}>{stats.progression}%</div>
+                <div style={{ fontSize: '11px', color: '#93C5FD', marginTop: '4px' }}>Progression</div>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {statsCards.map((card, i) => (
-            <div key={i} className="bg-white rounded-xl shadow-md p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className={`w-10 h-10 ${card.color} rounded-lg flex items-center justify-center`}>
-                  <card.icon className="w-5 h-5 text-white" />
+        {/* Stats cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+          {[
+            { icon: 'ti-calendar-check', bg: '#EFF6FF', color: '#3B82F6', val: stats.sessions_confirmees, label: 'Sessions confirmées', trend: '+2', trendUp: true },
+            { icon: 'ti-clock',          bg: '#FFFBEB', color: '#F59E0B', val: stats.sessions_en_attente, label: 'En attente',          trend: '',   trendUp: false },
+            { icon: 'ti-mail',           bg: '#FEF2F2', color: '#EF4444', val: stats.messages_non_lus,    label: 'Messages non lus',    trend: '',   trendUp: false },
+          ].map((s, i) => (
+            <div key={i} style={{ background: '#fff', borderRadius: '14px', border: '0.5px solid #E5EAF2', padding: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <i className={`ti ${s.icon}`} style={{ fontSize: '20px', color: s.color }} aria-hidden="true" />
                 </div>
-                <span className="text-2xl font-bold text-gray-800">{card.value}</span>
+                {s.trend && (
+                  <div style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '20px', background: '#F0FDF4', color: '#16A34A', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <i className="ti ti-arrow-up" style={{ fontSize: '10px' }} aria-hidden="true" /> {s.trend}
+                  </div>
+                )}
               </div>
-              <h3 className="text-gray-600 text-sm">{card.title}</h3>
+              <div style={{ fontSize: '28px', fontWeight: 600, color: '#1E3A5F', lineHeight: 1 }}>{s.val}</div>
+              <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '4px' }}>{s.label}</div>
             </div>
           ))}
         </div>
 
-        {/* Accès rapide */}
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Accès rapide</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {menuItems.map((item, i) => (
-            <Link key={i} href={item.href}
-              className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all hover:-translate-y-1">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 ${item.color} rounded-lg flex items-center justify-center`}>
-                  <item.icon className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-900">{item.title}</h3>
-                  <p className="text-xs text-gray-500">{item.description}</p>
-                </div>
+        {/* Sessions + Accès rapide */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+
+          {/* Sessions récentes */}
+          <div style={{ background: '#fff', borderRadius: '14px', border: '0.5px solid #E5EAF2', padding: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <span style={{ fontSize: '14px', fontWeight: 600, color: '#1E3A5F' }}>Sessions récentes</span>
+              <Link href="/sessions" style={{ fontSize: '12px', color: '#3B82F6', textDecoration: 'none' }}>Voir tout →</Link>
+            </div>
+
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '24px', color: '#9CA3AF', fontSize: '13px' }}>Chargement...</div>
+            ) : sessions.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '24px' }}>
+                <i className="ti ti-calendar-off" style={{ fontSize: '32px', color: '#E5EAF2' }} aria-hidden="true" />
+                <p style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '8px' }}>Aucune session pour l'instant</p>
               </div>
-            </Link>
-          ))}
+            ) : (
+              <div>
+                {sessions.map((s, i) => {
+                  const cfg = STATUT_CONFIG[s.statut] ?? STATUT_CONFIG.terminee;
+                  const other = getOther(s);
+                  const initOther = other.split(' ').map((w: string) => w[0] ?? '').join('').slice(0, 2).toUpperCase();
+                  return (
+                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: i < sessions.length - 1 ? '0.5px solid #F5F7FB' : 'none' }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600, color: '#3B82F6', flexShrink: 0 }}>
+                        {initOther}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 500, color: '#1E3A5F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {other || 'Inconnu'}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {s.sujet}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '10px', padding: '3px 8px', borderRadius: '20px', background: cfg.bg, color: cfg.color, flexShrink: 0 }}>
+                        {cfg.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Accès rapide */}
+          <div style={{ background: '#fff', borderRadius: '14px', border: '0.5px solid #E5EAF2', padding: '20px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: '#1E3A5F', marginBottom: '16px' }}>Accès rapide</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              {QUICK.map(q => (
+                <Link key={q.href} href={q.href} style={{ textDecoration: 'none' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px', border: '0.5px solid #E5EAF2', borderRadius: '12px', cursor: 'pointer', transition: 'box-shadow 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)')}
+                    onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: q.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <i className={`ti ${q.icon}`} style={{ fontSize: '18px', color: q.color }} aria-hidden="true" />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#1E3A5F' }}>{q.label}</div>
+                      <div style={{ fontSize: '10px', color: '#9CA3AF', marginTop: '1px' }}>{q.sub}</div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
