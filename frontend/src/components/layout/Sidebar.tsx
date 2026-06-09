@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
+import { NotificationBell } from './NotificationBell';
 
 // Icônes Tabler
 const icons = {
@@ -27,8 +28,8 @@ const menuItems = [
   { label: 'Accueil',    href: '/',          icon: icons.home },
   { label: 'Dashboard',  href: '/dashboard', icon: icons.dashboard },
   { label: 'Mentors',    href: '/mentors',   icon: icons.users },
-  { label: 'Sessions',   href: '/sessions',  icon: icons.calendar, badge: 'sessions' },
-  { label: 'Chat',       href: '/chat',      icon: icons.message, badge: 'messages' },
+  { label: 'Sessions',   href: '/sessions',  icon: icons.calendar },
+  { label: 'Chat',       href: '/chat',      icon: icons.message },
   { label: 'Rapports',   href: '/reports',   icon: icons.file },
 ];
 
@@ -37,7 +38,6 @@ const toolItems = [
   { label: 'Mon profil',  href: '/profile',  icon: icons.user },
 ];
 
-// Stocker l'état du collapse dans localStorage
 const getInitialCollapsed = () => {
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('sidebar-collapsed');
@@ -72,7 +72,6 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Sidebar */}
       <aside style={{
         width: sidebarWidth,
         minHeight: '100vh',
@@ -140,6 +139,11 @@ export default function Sidebar() {
           </button>
         </div>
 
+        {/* Cloche de notification */}
+        <div style={{ padding: collapsed ? '12px' : '16px 20px', display: 'flex', justifyContent: collapsed ? 'center' : 'flex-start' }}>
+          <NotificationBell collapsed={collapsed} />
+        </div>
+
         {/* Navigation principale */}
         <div style={{ padding: collapsed ? '16px 8px' : '20px 12px', flex: 1 }}>
           {!collapsed && (
@@ -169,51 +173,9 @@ export default function Sidebar() {
                   transition: 'all 0.2s',
                   background: active ? 'rgba(59, 130, 246, 0.9)' : 'transparent',
                   color: active ? '#fff' : 'rgba(255,255,255,0.7)',
-                  position: 'relative',
-                }}
-                onMouseEnter={e => {
-                  if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
-                }}
-                onMouseLeave={e => {
-                  if (!active) e.currentTarget.style.background = 'transparent';
                 }}>
                   <i className={`ti ${item.icon}`} style={{ fontSize: '18px', flexShrink: 0 }} aria-hidden="true" />
-                  {!collapsed && (
-                    <>
-                      <span style={{ fontSize: '13px', fontWeight: 500, flex: 1 }}>{item.label}</span>
-                      {item.badge === 'messages' && (
-                        <span style={{
-                          background: '#EF4444',
-                          color: '#fff',
-                          fontSize: '10px',
-                          padding: '2px 8px',
-                          borderRadius: '20px',
-                          fontWeight: 600,
-                        }}>3</span>
-                      )}
-                      {item.badge === 'sessions' && (
-                        <span style={{
-                          background: '#F59E0B',
-                          color: '#fff',
-                          fontSize: '10px',
-                          padding: '2px 8px',
-                          borderRadius: '20px',
-                          fontWeight: 600,
-                        }}>2</span>
-                      )}
-                    </>
-                  )}
-                  {collapsed && item.badge && (
-                    <span style={{
-                      position: 'absolute',
-                      top: '6px',
-                      right: '6px',
-                      width: '8px',
-                      height: '8px',
-                      background: '#EF4444',
-                      borderRadius: '50%',
-                    }} />
-                  )}
+                  {!collapsed && <span style={{ fontSize: '13px', fontWeight: 500 }}>{item.label}</span>}
                 </div>
               </Link>
             );
@@ -332,10 +294,7 @@ export default function Sidebar() {
                   color: '#F87171',
                   fontSize: '12px',
                   fontWeight: 500,
-                  transition: 'all 0.2s',
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.25)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'}
               >
                 <i className={`ti ${icons.logout}`} style={{ fontSize: '14px' }} aria-hidden="true" />
               </button>
@@ -356,10 +315,7 @@ export default function Sidebar() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#F87171',
-                transition: 'all 0.2s',
               }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.25)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'}
             >
               <i className={`ti ${icons.logout}`} style={{ fontSize: '18px' }} aria-hidden="true" />
             </button>
@@ -367,7 +323,6 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      {/* Overlay pour mobile quand sidebar est ouverte */}
       {!collapsed && window.innerWidth < 768 && (
         <div
           onClick={toggleSidebar}

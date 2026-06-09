@@ -1,4 +1,3 @@
-// src/routes/index.js
 const express = require('express');
 const router = express.Router();
 
@@ -9,7 +8,9 @@ const matchingRoutes     = require('./matching.routes');
 const rapportRoutes      = require('./rapport.routes');
 const competencesRoutes  = require('./competences.routes');
 const disponibiliteRoutes = require('./disponibilite.routes');
-const uploadRoutes        = require('./upload.routes');         
+const uploadRoutes        = require('./upload.routes');      
+const notificationRoutes = require('./notification.routes');
+
 
 const mentorController  = require('../controllers/mentor.controller');
 const mentoreController = require('../controllers/mentore.controller');
@@ -23,6 +24,8 @@ router.use('/rapports',       rapportRoutes);
 router.use('/competences',    competencesRoutes);
 router.use('/disponibilites', disponibiliteRoutes);
 router.use('/upload',         uploadRoutes);
+router.use('/notifications', notificationRoutes);
+
 
 
 router.get('/mentors/profile/me',

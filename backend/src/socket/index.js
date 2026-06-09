@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { query } = require('../config/db');
+const { createNotification } = require('../controllers/notification.controller');
 
 // Stockage des utilisateurs connectés (userId -> socketId)
 const connectedUsers = new Map();
@@ -14,9 +15,8 @@ const authenticateSocket = async (socket, next) => {
     
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Vérifier que l'utilisateur existe
     const result = await query(
-      'SELECT id, email, role, actif FROM utilisateurs WHERE id = $1',
+      'SELECT id, email, role, actif, prenom, nom FROM utilisateurs WHERE id = $1',
       [decoded.userId]
     );
     
@@ -27,10 +27,11 @@ const authenticateSocket = async (socket, next) => {
     socket.user = {
       id: result.rows[0].id,
       email: result.rows[0].email,
-      role: result.rows[0].role
+      role: result.rows[0].role,
+      prenom: result.rows[0].prenom,
+      nom: result.rows[0].nom
     };
     
-    // Stocker la connexion
     connectedUsers.set(socket.user.id, socket.id);
     
     next();
@@ -49,35 +50,42 @@ const sendMessage = async (io, socket, data) => {
   }
   
   try {
-    // Vérifier que l'utilisateur a accès à cette session
     let hasAccess = false;
     let otherUserId = null;
+    let otherUserPrenom = '';
+    let otherUserNom = '';
     
     if (socket.user.role === 'mentor') {
       const result = await query(
-        `SELECT s.*, pme.utilisateur_id as mentore_user_id
+        `SELECT pme.utilisateur_id as other_id, u.prenom, u.nom
          FROM sessions s
          JOIN profils_mentor pm ON pm.id = s.mentor_id
          JOIN profils_mentore pme ON pme.id = s.mentore_id
+         JOIN utilisateurs u ON u.id = pme.utilisateur_id
          WHERE s.id = $1 AND pm.utilisateur_id = $2`,
         [session_id, socket.user.id]
       );
       hasAccess = result.rows.length > 0;
       if (hasAccess) {
-        otherUserId = result.rows[0].mentore_user_id;
+        otherUserId = result.rows[0].other_id;
+        otherUserPrenom = result.rows[0].prenom;
+        otherUserNom = result.rows[0].nom;
       }
     } else {
       const result = await query(
-        `SELECT s.*, pm.utilisateur_id as mentor_user_id
+        `SELECT pm.utilisateur_id as other_id, u.prenom, u.nom
          FROM sessions s
          JOIN profils_mentore pme ON pme.id = s.mentore_id
          JOIN profils_mentor pm ON pm.id = s.mentor_id
+         JOIN utilisateurs u ON u.id = pm.utilisateur_id
          WHERE s.id = $1 AND pme.utilisateur_id = $2`,
         [session_id, socket.user.id]
       );
       hasAccess = result.rows.length > 0;
       if (hasAccess) {
-        otherUserId = result.rows[0].mentor_user_id;
+        otherUserId = result.rows[0].other_id;
+        otherUserPrenom = result.rows[0].prenom;
+        otherUserNom = result.rows[0].nom;
       }
     }
     
@@ -86,7 +94,7 @@ const sendMessage = async (io, socket, data) => {
       return;
     }
     
-    // Sauvegarder le message en base de données
+    // Sauvegarder le message
     const result = await query(
       `INSERT INTO messages (session_id, expediteur_id, contenu, type_message, fichier_url)
        VALUES ($1, $2, $3, $4, $5)
@@ -97,57 +105,28 @@ const sendMessage = async (io, socket, data) => {
     const message = result.rows[0];
     message.expediteur_nom = `${socket.user.prenom} ${socket.user.nom}`;
     
-    // Émettre le message à l'expéditeur
     socket.emit('message_sent', { success: true, message });
     
-    // Émettre le message au destinataire s'il est connecté
     if (otherUserId && connectedUsers.has(otherUserId)) {
       const otherSocketId = connectedUsers.get(otherUserId);
       io.to(otherSocketId).emit('new_message', message);
     }
     
-    // Créer une notification pour le destinataire
-    await query(
-      `INSERT INTO notifications (utilisateur_id, type, titre, message, lien)
-       VALUES ($1, 'nouveau_message', 'Nouveau message', 
-               '${socket.user.prenom} ${socket.user.nom} vous a envoyé un message', 
-               '/sessions/${session_id}')`,
-      [otherUserId]
-    );
+    // CRÉER UNE NOTIFICATION POUR LE DESTINATAIRE
+    if (otherUserId) {
+      await createNotification(
+        otherUserId,
+        'nouveau_message',
+        'Nouveau message',
+        `${socket.user.prenom} ${socket.user.nom} vous a envoyé un message`,
+        `/chat/${session_id}`
+      );
+      console.log(`📧 Notification envoyée à ${otherUserPrenom} ${otherUserNom}`);
+    }
     
   } catch (error) {
     console.error('Send message error:', error);
     socket.emit('error', { message: 'Erreur lors de l\'envoi du message' });
-  }
-};
-
-const markAsRead = async (socket, data) => {
-  const { message_id, session_id } = data;
-  
-  try {
-    await query(
-      `UPDATE messages 
-       SET lu = true, lu_le = NOW()
-       WHERE id = $1 AND session_id = $2 AND expediteur_id != $3`,
-      [message_id, session_id, socket.user.id]
-    );
-    
-    // Notifier l'expéditeur que son message a été lu
-    const result = await query(
-      `SELECT expediteur_id FROM messages WHERE id = $1`,
-      [message_id]
-    );
-    
-    if (result.rows.length > 0) {
-      const expediteurId = result.rows[0].expediteur_id;
-      if (connectedUsers.has(expediteurId)) {
-        const expediteurSocketId = connectedUsers.get(expediteurId);
-        socket.to(expediteurSocketId).emit('message_read', { message_id, session_id });
-      }
-    }
-    
-  } catch (error) {
-    console.error('Mark as read error:', error);
   }
 };
 
@@ -156,7 +135,6 @@ const getHistory = async (socket, data) => {
   const offset = (page - 1) * limit;
   
   try {
-    // Vérifier l'accès
     let hasAccess = false;
     
     if (socket.user.role === 'mentor') {
@@ -189,24 +167,15 @@ const getHistory = async (socket, data) => {
        FROM messages m
        JOIN utilisateurs u ON u.id = m.expediteur_id
        WHERE m.session_id = $1
-       ORDER BY m.envoye_le DESC
+       ORDER BY m.envoye_le ASC
        LIMIT $2 OFFSET $3`,
       [session_id, limit, offset]
     );
     
-    const totalResult = await query(
-      'SELECT COUNT(*) FROM messages WHERE session_id = $1',
-      [session_id]
-    );
-    
     socket.emit('history', {
       success: true,
-      messages: result.rows.reverse(),
-      pagination: {
-        page,
-        limit,
-        total: parseInt(totalResult.rows[0].count)
-      }
+      messages: result.rows,
+      pagination: { page, limit, total: result.rows.length }
     });
     
   } catch (error) {
@@ -219,7 +188,6 @@ const typing = async (io, socket, data) => {
   const { session_id, is_typing } = data;
   
   try {
-    // Trouver l'autre participant de la session
     let otherUserId = null;
     
     if (socket.user.role === 'mentor') {
@@ -231,9 +199,7 @@ const typing = async (io, socket, data) => {
          WHERE s.id = $1 AND pm.utilisateur_id = $2`,
         [session_id, socket.user.id]
       );
-      if (result.rows.length > 0) {
-        otherUserId = result.rows[0].other_id;
-      }
+      if (result.rows.length > 0) otherUserId = result.rows[0].other_id;
     } else {
       const result = await query(
         `SELECT pm.utilisateur_id as other_id
@@ -243,9 +209,7 @@ const typing = async (io, socket, data) => {
          WHERE s.id = $1 AND pme.utilisateur_id = $2`,
         [session_id, socket.user.id]
       );
-      if (result.rows.length > 0) {
-        otherUserId = result.rows[0].other_id;
-      }
+      if (result.rows.length > 0) otherUserId = result.rows[0].other_id;
     }
     
     if (otherUserId && connectedUsers.has(otherUserId)) {
@@ -266,36 +230,26 @@ const typing = async (io, socket, data) => {
 const disconnect = (socket) => {
   if (socket.user && socket.user.id) {
     connectedUsers.delete(socket.user.id);
-    console.log(`🔴 Utilisateur déconnecté: ${socket.user.email} (${socket.user.id})`);
+    console.log(`🔴 Utilisateur déconnecté: ${socket.user.email}`);
   }
 };
 
 const initSocket = (server) => {
   const { Server } = require('socket.io');
-  const adminUI = require('@socket.io/admin-ui');
   
   const io = new Server(server, {
     cors: {
-      origin: [process.env.FRONTEND_URL || 'http://localhost:3000', 'https://admin.socket.io'],
+      origin: ["http://localhost:3000", "http://localhost:5000"],
       credentials: true
     }
   });
   
-  // Admin UI pour monitoring
-  adminUI.instrument(io, { auth: false });
-  
-  // Middleware d'authentification
   io.use(authenticateSocket);
   
   io.on('connection', (socket) => {
-    console.log(`🟢 Nouvelle connexion: ${socket.user.email} (${socket.user.id})`);
+    console.log(`🟢 Connecté: ${socket.user?.email}`);
     
-    // Rejoindre une room spécifique à l'utilisateur
-    socket.join(`user_${socket.user.id}`);
-    
-    // Écouter les événements
     socket.on('send_message', (data) => sendMessage(io, socket, data));
-    socket.on('mark_read', (data) => markAsRead(socket, data));
     socket.on('get_history', (data) => getHistory(socket, data));
     socket.on('typing', (data) => typing(io, socket, data));
     socket.on('disconnect', () => disconnect(socket));
