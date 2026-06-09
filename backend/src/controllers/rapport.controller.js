@@ -1,21 +1,48 @@
 const { query } = require('../config/db');
-const pdfService = require('../services/pdf.service');
+const PDFDocument = require('pdfkit');
 const fs = require('fs');
+const path = require('path');
 
+const reportsDir = path.join(__dirname, '../../uploads/reports');
+if (!fs.existsSync(reportsDir)) {
+  fs.mkdirSync(reportsDir, { recursive: true });
+}
+
+const formatDate = (date) => {
+  if (!date) return 'Non défini';
+  const d = new Date(date);
+  return d.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+const formatDateOnly = (date) => {
+  if (!date) return 'Non défini';
+  const d = new Date(date);
+  return d.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
+
+// ============================================
+// GÉNÉRER UN RAPPORT DE SESSION
+// ============================================
 const generateSessionRapport = async (req, res, next) => {
   const { session_id } = req.params;
-  
+
   try {
-    // Vérifier l'accès à la session
-    let hasAccess = false;
-    let sessionData;
-    
     const sessionResult = await query(
       `SELECT s.*,
-              um.id as mentor_user_id, um.nom as mentor_nom, um.prenom as mentor_prenom, um.email as mentor_email,
-              ume.id as mentore_user_id, ume.nom as mentore_nom, ume.prenom as mentore_prenom, ume.email as mentore_email,
-              pm.bio as mentor_bio, pm.domaine as mentor_domaine, pm.annees_experience, pm.note_moyenne, pm.nb_sessions,
-              pme.niveau_etude, pme.objectifs, pme.progression
+              um.nom as mentor_nom, um.prenom as mentor_prenom, um.email as mentor_email,
+              ume.nom as mentore_nom, ume.prenom as mentore_prenom, ume.email as mentore_email,
+              pm.domaine as mentor_domaine,
+              pme.niveau_etude
        FROM sessions s
        JOIN profils_mentor pm ON pm.id = s.mentor_id
        JOIN utilisateurs um ON um.id = pm.utilisateur_id
@@ -24,131 +51,143 @@ const generateSessionRapport = async (req, res, next) => {
        WHERE s.id = $1`,
       [session_id]
     );
-    
+
     if (sessionResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Session non trouvée'
-      });
+      return res.status(404).json({ success: false, message: 'Session non trouvée' });
     }
+
+    const session = sessionResult.rows[0];
+
+    const fileName = `rapport_session_${session_id}_${Date.now()}.pdf`;
+    const filePath = path.join(reportsDir, fileName);
     
-    sessionData = sessionResult.rows[0];
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const stream = fs.createWriteStream(filePath);
+    doc.pipe(stream);
+
+    // En-tête
+    doc.fontSize(20).font('Helvetica-Bold').fillColor('#1a5276')
+       .text('RAPPORT DE SESSION', { align: 'center' });
+    doc.moveDown();
+    doc.fontSize(10).fillColor('#666666')
+       .text(`Généré le ${formatDate(new Date())}`, { align: 'center' });
+    doc.moveDown(2);
+
+    // Informations générales
+    doc.fontSize(14).font('Helvetica-Bold').fillColor('#2c3e50')
+       .text('INFORMATIONS GÉNÉRALES', { underline: true });
+    doc.moveDown(0.5);
+    doc.fontSize(10).font('Helvetica').fillColor('#333333');
     
-    // Vérifier l'accès
-    if (req.user.role === 'mentor' && sessionData.mentor_user_id === req.user.id) {
-      hasAccess = true;
-    } else if (req.user.role === 'mentore' && sessionData.mentore_user_id === req.user.id) {
-      hasAccess = true;
-    }
+    doc.text(`Session ID: ${session.id}`, 50, doc.y);
+    doc.text(`Sujet: ${session.sujet}`, 50, doc.y + 20);
+    doc.text(`Date: ${formatDate(session.date_debut)}`, 50, doc.y + 40);
+    doc.text(`Durée réelle: ${session.duree_reelle || 'Non renseignée'} minutes`, 50, doc.y + 60);
     
-    if (!hasAccess) {
-      return res.status(403).json({
-        success: false,
-        message: 'Accès non autorisé à cette session'
-      });
-    }
+    doc.moveDown(4);
+
+    // Participants
+    doc.fontSize(14).font('Helvetica-Bold').fillColor('#2c3e50')
+       .text('PARTICIPANTS', { underline: true });
+    doc.moveDown(0.5);
+    doc.fontSize(10).font('Helvetica').fillColor('#333333');
     
-    // Récupérer les messages de la session (optionnel)
-    const messagesResult = await query(
-      `SELECT m.*, u.nom, u.prenom
-       FROM messages m
-       JOIN utilisateurs u ON u.id = m.expediteur_id
-       WHERE m.session_id = $1
-       ORDER BY m.envoye_le
-       LIMIT 50`,
-      [session_id]
-    );
+    doc.text(`Mentor: ${session.mentor_prenom} ${session.mentor_nom}`, 50, doc.y);
+    doc.text(`Email: ${session.mentor_email}`, 50, doc.y + 20);
+    doc.text(`Domaine: ${session.mentor_domaine || 'Non spécifié'}`, 50, doc.y + 40);
     
-    // Préparer les objets mentor et mentoré
-    const mentor = {
-      id: sessionData.mentor_user_id,
-      nom: sessionData.mentor_nom,
-      prenom: sessionData.mentor_prenom,
-      email: sessionData.mentor_email,
-      bio: sessionData.mentor_bio,
-      domaine: sessionData.mentor_domaine,
-      annees_experience: sessionData.annees_experience,
-      note_moyenne: sessionData.note_moyenne,
-      nb_sessions: sessionData.nb_sessions
-    };
+    doc.moveDown(2);
     
-    const mentore = {
-      id: sessionData.mentore_user_id,
-      nom: sessionData.mentore_nom,
-      prenom: sessionData.mentore_prenom,
-      email: sessionData.mentore_email,
-      niveau_etude: sessionData.niveau_etude,
-      objectifs: sessionData.objectifs,
-      progression: sessionData.progression
-    };
+    doc.text(`Mentoré: ${session.mentore_prenom} ${session.mentore_nom}`, 50, doc.y);
+    doc.text(`Email: ${session.mentore_email}`, 50, doc.y + 20);
+    doc.text(`Niveau: ${session.niveau_etude || 'Non spécifié'}`, 50, doc.y + 40);
     
-    // Générer le PDF
-    const pdf = await pdfService.generateSessionReport(
-      sessionData,
-      mentor,
-      mentore,
-      messagesResult.rows
-    );
+    doc.moveDown(4);
+
+    // Évaluations
+    doc.fontSize(14).font('Helvetica-Bold').fillColor('#2c3e50')
+       .text('ÉVALUATIONS', { underline: true });
+    doc.moveDown(0.5);
+    doc.fontSize(10).font('Helvetica').fillColor('#333333');
     
-    // Sauvegarder le lien dans la base
-    await query(
-      `INSERT INTO rapports (session_id, contenu, fichier_url)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (session_id) 
-       DO UPDATE SET fichier_url = EXCLUDED.fichier_url, genere_le = NOW()`,
-      [session_id, JSON.stringify({ generated: new Date() }), pdf.url]
-    );
+    doc.text(`Note du mentor: ${session.note_du_mentore || 'Non évalué'}/5`, 50, doc.y);
+    doc.text(`Commentaire du mentor: ${session.notes_mentor || 'Aucun commentaire'}`, 50, doc.y + 20);
+    doc.moveDown(2);
     
-    res.json({
-      success: true,
-      message: 'Rapport généré avec succès',
-      rapport: {
-        url: pdf.url,
-        fileName: pdf.fileName
-      }
+    doc.text(`Note du mentoré: ${session.note_du_mentor || 'Non évalué'}/5`, 50, doc.y);
+    doc.text(`Commentaire du mentoré: ${session.notes_mentore || 'Aucun commentaire'}`, 50, doc.y + 20);
+    
+    // Pied de page (version corrigée - sans switchToPage)
+    doc.fontSize(8).fillColor('#999999')
+       .text(
+         `Plateforme de Mentorat Académique - Université Adventiste Zurcher`,
+         50,
+         doc.page.height - 50,
+         { align: 'center' }
+       );
+
+    doc.end();
+
+    stream.on('finish', async () => {
+      const fileUrl = `/uploads/reports/${fileName}`;
+      
+      await query(
+        `INSERT INTO rapports (session_id, contenu, fichier_url)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (session_id) 
+         DO UPDATE SET fichier_url = EXCLUDED.fichier_url, genere_le = NOW()`,
+        [session_id, JSON.stringify({ generated: new Date() }), fileUrl]
+      );
+      
+      res.json({ success: true, message: 'Rapport généré', rapport: { url: fileUrl, fileName } });
+    });
+    
+    stream.on('error', (error) => {
+      console.error('Erreur écriture PDF:', error);
+      res.status(500).json({ success: false, message: error.message });
     });
     
   } catch (error) {
-    next(error);
+    console.error('Erreur generateSessionRapport:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
+// ============================================
+// TÉLÉCHARGER UN RAPPORT
+// ============================================
 const downloadRapport = async (req, res, next) => {
   const { session_id } = req.params;
-  
+
   try {
     const result = await query(
       'SELECT fichier_url FROM rapports WHERE session_id = $1',
       [session_id]
     );
-    
+
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Rapport non trouvé'
-      });
+      return res.status(404).json({ success: false, message: 'Rapport non trouvé' });
     }
-    
-    const filePath = result.rows[0].fichier_url;
-    const fullPath = require('path').join(__dirname, '../../uploads', filePath.replace('/uploads/', ''));
-    
-    if (!fs.existsSync(fullPath)) {
-      return res.status(404).json({
-        success: false,
-        message: 'Fichier rapport non trouvé'
-      });
+
+    const fileUrl = result.rows[0].fichier_url;
+    const filePath = path.join(__dirname, '../../uploads', fileUrl.replace('/uploads/', ''));
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, message: 'Fichier non trouvé' });
     }
-    
-    res.download(fullPath);
-    
+
+    res.download(filePath);
   } catch (error) {
-    next(error);
+    console.error('Erreur downloadRapport:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
+// ============================================
+// GÉNÉRER UN RAPPORT DE PROGRESSION
+// ============================================
 const generateProgressRapport = async (req, res, next) => {
   try {
-    // Récupérer le profil mentoré
     const mentoreResult = await query(
       `SELECT pme.*, u.nom, u.prenom, u.email
        FROM profils_mentore pme
@@ -156,20 +195,15 @@ const generateProgressRapport = async (req, res, next) => {
        WHERE pme.utilisateur_id = $1`,
       [req.user.id]
     );
-    
+
     if (mentoreResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Profil mentoré non trouvé'
-      });
+      return res.status(404).json({ success: false, message: 'Profil mentoré non trouvé' });
     }
-    
+
     const mentore = mentoreResult.rows[0];
     
-    // Récupérer les sessions du mentoré
     const sessionsResult = await query(
-      `SELECT s.*, 
-              u.nom as mentor_nom, u.prenom as mentor_prenom
+      `SELECT s.*, u.nom as mentor_nom, u.prenom as mentor_prenom
        FROM sessions s
        JOIN profils_mentor pm ON pm.id = s.mentor_id
        JOIN utilisateurs u ON u.id = pm.utilisateur_id
@@ -177,51 +211,105 @@ const generateProgressRapport = async (req, res, next) => {
        ORDER BY s.date_debut DESC`,
       [mentore.id]
     );
-    
-    // Calculer les statistiques
+
     const sessions = sessionsResult.rows;
     const stats = {
       total_sessions: sessions.length,
       sessions_terminees: sessions.filter(s => s.statut === 'terminee').length,
-      sessions_en_cours: sessions.filter(s => s.statut === 'en_cours').length,
       taux_completion: sessions.length > 0 
         ? Math.round((sessions.filter(s => s.statut === 'terminee').length / sessions.length) * 100)
         : 0
     };
+
+    const fileName = `rapport_progression_${mentore.id}_${Date.now()}.pdf`;
+    const filePath = path.join(reportsDir, fileName);
     
-    // Générer le PDF
-    const pdf = await pdfService.generateProgressReport(mentore, sessions, stats);
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const stream = fs.createWriteStream(filePath);
+    doc.pipe(stream);
+
+    // En-tête
+    doc.fontSize(20).font('Helvetica-Bold').fillColor('#1a5276')
+       .text('RAPPORT DE PROGRESSION', { align: 'center' });
+    doc.moveDown();
+    doc.fontSize(10).fillColor('#666666')
+       .text(`Généré le ${formatDate(new Date())}`, { align: 'center' });
+    doc.moveDown(2);
+
+    // Informations mentoré
+    doc.fontSize(14).font('Helvetica-Bold').fillColor('#2c3e50')
+       .text('INFORMATIONS DU MENTORÉ', { underline: true });
+    doc.moveDown(0.5);
+    doc.fontSize(10).font('Helvetica').fillColor('#333333');
     
-    res.json({
-      success: true,
-      message: 'Rapport de progression généré avec succès',
-      rapport: {
-        url: pdf.url,
-        fileName: pdf.fileName
-      }
+    doc.text(`Nom: ${mentore.prenom} ${mentore.nom}`, 50, doc.y);
+    doc.text(`Email: ${mentore.email}`, 50, doc.y + 20);
+    doc.text(`Niveau: ${mentore.niveau_etude || 'Non défini'}`, 50, doc.y + 40);
+    doc.text(`Domaine: ${mentore.domaine || 'Non défini'}`, 50, doc.y + 60);
+    
+    doc.moveDown(3);
+
+    // Progression
+    doc.fontSize(14).font('Helvetica-Bold').fillColor('#2c3e50')
+       .text('PROGRESSION', { underline: true });
+    doc.moveDown(0.5);
+    doc.fontSize(12).font('Helvetica-Bold').fillColor('#27ae60')
+       .text(`${stats.taux_completion}%`, 50, doc.y);
+    
+    doc.moveDown(2);
+
+    // Statistiques
+    doc.fontSize(14).font('Helvetica-Bold').fillColor('#2c3e50')
+       .text('STATISTIQUES', { underline: true });
+    doc.moveDown(0.5);
+    doc.fontSize(10).font('Helvetica').fillColor('#333333');
+    
+    doc.text(`Total des sessions: ${stats.total_sessions}`, 50, doc.y);
+    doc.text(`Sessions terminées: ${stats.sessions_terminees}`, 50, doc.y + 20);
+    doc.text(`Taux de complétion: ${stats.taux_completion}%`, 50, doc.y + 40);
+    
+    doc.moveDown(4);
+
+    // Pied de page
+    doc.fontSize(8).fillColor('#999999')
+       .text(
+         `Plateforme de Mentorat Académique - Université Adventiste Zurcher`,
+         50,
+         doc.page.height - 50,
+         { align: 'center' }
+       );
+
+    doc.end();
+
+    stream.on('finish', () => {
+      const fileUrl = `/uploads/reports/${fileName}`;
+      res.json({ success: true, rapport: { url: fileUrl, fileName } });
+    });
+    
+    stream.on('error', (error) => {
+      console.error('Erreur écriture PDF:', error);
+      res.status(500).json({ success: false, message: error.message });
     });
     
   } catch (error) {
-    next(error);
+    console.error('Erreur generateProgressRapport:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
+// ============================================
+// LISTER LES RAPPORTS
+// ============================================
 const getSessionRapports = async (req, res, next) => {
   const { session_id } = req.params;
-  
   try {
     const result = await query(
       'SELECT id, session_id, fichier_url, genere_le FROM rapports WHERE session_id = $1',
       [session_id]
     );
-    
-    res.json({
-      success: true,
-      rapports: result.rows
-    });
-    
+    res.json({ success: true, rapports: result.rows });
   } catch (error) {
-    next(error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

@@ -2,170 +2,204 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { FileText, Download, Calendar, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { sessionAPI, rapportAPI } from '@/services/api';
-import Topbar from '@/components/layout/Topbar';
+import { sessionAPI, rapportAPI, BACKEND_URL } from '@/services/api';
 import toast from 'react-hot-toast';
 
-interface Session {
-  id: string; sujet: string; date_debut: string; statut: string;
-  mentor_nom?: string; mentor_prenom?: string; mentore_nom?: string; mentore_prenom?: string;
-}
-
 export default function ReportsPage() {
-  const { user }  = useAuth();
-  const router    = useRouter();
-  const [sessions,    setSessions]    = useState<Session[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [generating,  setGenerating]  = useState<string | null>(null);
-  const [downloading, setDownloading] = useState<string | null>(null);
+  const { user } = useAuth();
+  const router = useRouter();
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) { router.push('/login'); return; }
-    load();
-  }, [user]);
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    fetchSessions();
+  }, [user, router]);
 
-  const load = async () => {
-    try { const r = await sessionAPI.getAll({ statut: 'terminee' }); setSessions(r.data.sessions || []); }
-    catch { toast.error('Erreur chargement'); }
-    finally { setLoading(false); }
-  };
-
-  const handleGenerate = async (id: string) => {
-    setGenerating(id);
-    try { await rapportAPI.generateSession(id); toast.success('Rapport généré !'); await handleDownload(id); }
-    catch { toast.error('Erreur génération'); }
-    finally { setGenerating(null); }
-  };
-
-  const handleDownload = async (id: string) => {
-    setDownloading(id);
+  const fetchSessions = async () => {
     try {
-      const r    = await rapportAPI.downloadSession(id);
-      const blob = new Blob([r.data], { type: 'application/pdf' });
-      const url  = window.URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href = url; a.download = `rapport_${id}.pdf`;
-      document.body.appendChild(a); a.click(); a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch { toast.error('Rapport non disponible. Cliquez sur Générer.'); }
-    finally { setDownloading(null); }
+      const response = await sessionAPI.getAll();
+      setSessions(response.data.sessions || []);
+    } catch (error) {
+      console.error('Erreur:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleProgression = async () => {
-    setGenerating('progression');
+  const generateAndDownload = async (sessionId: string) => {
+    setGenerating(sessionId);
     try {
-      const r = await rapportAPI.generateProgression();
-      if (r.data.rapport?.url) {
-        toast.success('Rapport de progression généré !');
-        window.open(`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${r.data.rapport.url}`, '_blank');
+      toast.loading('Génération du rapport...', { id: 'report' });
+      
+      // 1. Générer le rapport
+      const response = await rapportAPI.generateSession(sessionId);
+      
+      if (response.data.success) {
+        const fileUrl = response.data.rapport.url;
+        const fullUrl = `${BACKEND_URL}${fileUrl}`;
+        
+        // 2. Télécharger directement
+        const downloadResponse = await fetch(fullUrl);
+        const blob = await downloadResponse.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `rapport_session_${sessionId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        toast.success('Rapport téléchargé !', { id: 'report' });
       }
-    } catch { toast.error('Erreur'); }
-    finally { setGenerating(null); }
+    } catch (error: any) {
+      console.error('Erreur:', error);
+      toast.error(error.response?.data?.message || 'Erreur', { id: 'report' });
+    } finally {
+      setGenerating(null);
+    }
   };
 
-  const fmt = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const generateProgressReport = async () => {
+    setGenerating('progress');
+    try {
+      toast.loading('Génération du rapport de progression...', { id: 'progress' });
+      
+      const response = await rapportAPI.generateProgression();
+      
+      if (response.data.success) {
+        const fileUrl = response.data.rapport.url;
+        const fullUrl = `${BACKEND_URL}${fileUrl}`;
+        
+        const downloadResponse = await fetch(fullUrl);
+        const blob = await downloadResponse.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `rapport_progression.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        toast.success('Rapport de progression téléchargé !', { id: 'progress' });
+      }
+    } catch (error: any) {
+      console.error('Erreur:', error);
+      toast.error('Erreur lors de la génération', { id: 'progress' });
+    } finally {
+      setGenerating(null);
+    }
+  };
 
-  const other = (s: Session) => user?.role === 'mentor'
-    ? `${s.mentore_prenom ?? ''} ${s.mentore_nom ?? ''}`.trim()
-    : `${s.mentor_prenom  ?? ''} ${s.mentor_nom  ?? ''}`.trim();
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Chargement...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const sessionsTerminees = sessions.filter(s => s.statut === 'terminee');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Topbar title="Mes rapports" icon="ti-file-text"
-        action={user?.role === 'mentore' ? (
-          <button onClick={handleProgression} disabled={generating === 'progression'}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: '#F5F7FB', border: '0.5px solid #E5EAF2', borderRadius: '8px', color: '#1E3A5F', fontSize: '13px', cursor: 'pointer' }}>
-            <i className={`ti ti-refresh${generating === 'progression' ? ' animate-spin' : ''}`} style={{ fontSize: '15px' }} aria-hidden="true" />
-            Rapport de progression
-          </button>
-        ) : undefined}
-      />
-
-      <main style={{ flex: 1, padding: '24px' }}>
-
-        {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
-            <div style={{ width: '36px', height: '36px', border: '3px solid #3B82F6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-          </div>
-        ) : sessions.length === 0 ? (
-          <div style={{ background: '#fff', borderRadius: '14px', border: '0.5px solid #E5EAF2', padding: '60px 24px', textAlign: 'center' }}>
-            <div style={{ width: '64px', height: '64px', background: '#F5F7FB', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <i className="ti ti-file-off" style={{ fontSize: '32px', color: '#E5EAF2' }} aria-hidden="true" />
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="flex justify-between items-center flex-wrap gap-4">
+            <div>
+              <h1 className="text-2xl font-bold flex items-center gap-2">
+                <FileText className="w-6 h-6" />
+                Rapports
+              </h1>
+              <p className="text-indigo-100 mt-1">Générez et téléchargez vos rapports</p>
             </div>
-            <p style={{ fontSize: '15px', fontWeight: 600, color: '#1E3A5F' }}>Aucun rapport disponible</p>
-            <p style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '6px' }}>Les rapports apparaîtront ici une fois que vous aurez terminé des sessions.</p>
+            {sessionsTerminees.length > 0 && (
+              <button
+                onClick={generateProgressReport}
+                disabled={generating === 'progress'}
+                className="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                <Download className="w-4 h-4" />
+                {generating === 'progress' ? 'Génération...' : 'Rapport global'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        {sessionsTerminees.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-md p-12 text-center">
+            <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Aucune session terminée</h3>
+            <p className="text-gray-500">
+              Les rapports seront disponibles une fois vos sessions terminées.
+            </p>
+            {user?.role === 'mentore' && (
+              <Link href="/mentors" className="inline-block mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg">
+                Trouver un mentor
+              </Link>
+            )}
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {/* Stats summary */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px', marginBottom: '8px' }}>
-              {[
-                { label: 'Sessions terminées', val: sessions.length, icon: 'ti-circle-check', bg: '#F0FDF4', color: '#22C55E' },
-                { label: 'Rapports disponibles', val: sessions.length, icon: 'ti-file-text', bg: '#EFF6FF', color: '#3B82F6' },
-                { label: 'Ce mois-ci', val: sessions.filter(s => new Date(s.date_debut).getMonth() === new Date().getMonth()).length, icon: 'ti-calendar', bg: '#FFFBEB', color: '#F59E0B' },
-              ].map((s, i) => (
-                <div key={i} style={{ background: '#fff', borderRadius: '12px', border: '0.5px solid #E5EAF2', padding: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <i className={`ti ${s.icon}`} style={{ fontSize: '20px', color: s.color }} aria-hidden="true" />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '22px', fontWeight: 600, color: '#1E3A5F', lineHeight: 1 }}>{s.val}</div>
-                    <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '3px' }}>{s.label}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Reports list */}
-            {sessions.map(s => {
-              const o = other(s);
-              const initO = o.split(' ').map((w: string) => w[0] ?? '').join('').slice(0, 2).toUpperCase();
-
-              return (
-                <div key={s.id} style={{ background: '#fff', borderRadius: '14px', border: '0.5px solid #E5EAF2', padding: '18px 20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <i className="ti ti-file-text" style={{ fontSize: '22px', color: '#22C55E' }} aria-hidden="true" />
-                  </div>
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: '#1E3A5F', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.sujet}</div>
-                    <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '12px', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <i className="ti ti-calendar" style={{ fontSize: '13px' }} aria-hidden="true" /> {fmt(s.date_debut)}
-                      </span>
-                      {o && (
-                        <span style={{ fontSize: '12px', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <i className="ti ti-user" style={{ fontSize: '13px' }} aria-hidden="true" /> Avec {o}
-                        </span>
-                      )}
-                      <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '20px', background: '#F0FDF4', color: '#166534' }}>Terminée</span>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                    <button onClick={() => handleGenerate(s.id)} disabled={generating === s.id || downloading === s.id}
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#3B82F6', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', opacity: generating === s.id || downloading === s.id ? 0.6 : 1 }}>
-                      {generating === s.id
-                        ? <div style={{ width: '14px', height: '14px', border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                        : <i className="ti ti-download" style={{ fontSize: '15px' }} aria-hidden="true" />}
-                      {generating === s.id ? 'Génération...' : 'Générer'}
-                    </button>
-                    <button onClick={() => handleDownload(s.id)} disabled={downloading === s.id}
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: '#F5F7FB', color: '#1E3A5F', border: '0.5px solid #E5EAF2', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', opacity: downloading === s.id ? 0.6 : 1 }}>
-                      {downloading === s.id
-                        ? <div style={{ width: '14px', height: '14px', border: '2px solid #1E3A5F', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                        : <i className="ti ti-download" style={{ fontSize: '15px' }} aria-hidden="true" />}
-                      Retélécharger
-                    </button>
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              Sessions terminées ({sessionsTerminees.length})
+            </h2>
+            {sessionsTerminees.map((session) => (
+              <div key={session.id} className="bg-white rounded-xl shadow-md p-5 flex flex-wrap justify-between items-center gap-4">
+                <div>
+                  <h3 className="font-semibold text-gray-900">{session.sujet}</h3>
+                  <div className="flex gap-4 text-sm text-gray-500 mt-1">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-4 h-4" />
+                      {formatDate(session.date_debut)}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <User className="w-4 h-4" />
+                      {user?.role === 'mentor' 
+                        ? session.mentore_prenom 
+                        : session.mentor_prenom}
+                    </span>
                   </div>
                 </div>
-              );
-            })}
+                <button
+                  onClick={() => generateAndDownload(session.id)}
+                  disabled={generating === session.id}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  {generating === session.id ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  Télécharger PDF
+                </button>
+              </div>
+            ))}
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }
