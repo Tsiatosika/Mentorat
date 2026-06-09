@@ -1,185 +1,256 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { sessionAPI } from '@/services/api';
-import Topbar from '@/components/layout/Topbar';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { Calendar, MessageCircle, FileText, Users, TrendingUp, Clock, Mail, Award, Activity, Target, BarChart3 } from 'lucide-react';
+import { mentorAPI, mentoreAPI, sessionAPI } from '@/services/api';
+import { ProgressChart, ActivityChart, StatsGrid } from '@/components/dashboard/ProgressChart';
+import { SkillsRadar } from '@/components/dashboard/SkillsRadar';
+import toast from 'react-hot-toast';
 
-interface Stats { sessions_confirmees: number; sessions_en_attente: number; messages_non_lus: number; progression?: number; note_moyenne?: number; }
-
-const QUICK = [
-  { label: 'Disponibilités', sub: 'Gérer vos créneaux',  href: '/profile#disponibilites', icon: 'ti-clock',         bg: '#EFF6FF', color: '#3B82F6' },
-  { label: 'Sessions',       sub: 'Voir et gérer',        href: '/sessions',               icon: 'ti-calendar',      bg: '#0A3B8A', color: '#fff'    },
-  { label: 'Rapports PDF',   sub: 'Télécharger',          href: '/reports',                icon: 'ti-file-text',     bg: '#F0FDF4', color: '#22C55E' },
-  { label: 'Matching IA',    sub: 'Recommandations',      href: '/matching',               icon: 'ti-brain',         bg: '#FFFBEB', color: '#F59E0B' },
-];
-
-const STATUT_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
-  en_attente: { label: 'En attente', bg: '#FFFBEB', color: '#92400E' },
-  confirmee:  { label: 'Confirmée',  bg: '#EFF6FF', color: '#1D4ED8' },
-  en_cours:   { label: 'En cours',   bg: '#F0FDF4', color: '#166534' },
-  terminee:   { label: 'Terminée',   bg: '#F5F7FB', color: '#6B7280' },
-  annulee:    { label: 'Annulée',    bg: '#FEF2F2', color: '#991B1B' },
-};
+interface Session {
+  id: string;
+  sujet: string;
+  date_debut: string;
+  statut: string;
+  note_du_mentor?: number;
+  note_du_mentore?: number;
+}
 
 export default function DashboardPage() {
-  const { user } = useAuth();
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [stats, setStats]       = useState<Stats>({ sessions_confirmees: 0, sessions_en_attente: 0, messages_non_lus: 0 });
-  const [loading, setLoading]   = useState(true);
+  const { user, logout } = useAuth();
+  const router = useRouter();
+  const [profile, setProfile] = useState<any>(null);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [progressData, setProgressData] = useState<{ date: string; score: number; sessions: number }[]>([]);
+  const [activityData, setActivityData] = useState<{ date: string; count: number }[]>([]);
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await sessionAPI.getAll();
-        const all: any[] = res.data.sessions || [];
-        setSessions(all.slice(0, 4));
-        setStats({
-          sessions_confirmees:  all.filter(s => s.statut === 'confirmee').length,
-          sessions_en_attente:  all.filter(s => s.statut === 'en_attente').length,
-          messages_non_lus:     4,
-          note_moyenne:         user?.role === 'mentor' ? 4.8 : undefined,
-          progression:          user?.role === 'mentore' ? 68 : undefined,
-        });
-      } catch {}
-      finally { setLoading(false); }
-    };
-    if (user) load();
-  }, [user]);
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    fetchDashboardData();
+  }, [user, router]);
 
-  const initials = user ? `${user.prenom?.[0] ?? ''}${user.nom?.[0] ?? ''}`.toUpperCase() : '??';
-  const getOther = (s: any) => user?.role === 'mentor'
-    ? `${s.mentore_prenom ?? ''} ${s.mentore_nom ?? ''}`.trim()
-    : `${s.mentor_prenom  ?? ''} ${s.mentor_nom  ?? ''}`.trim();
+  const fetchDashboardData = async () => {
+    try {
+      // Récupérer le profil
+      if (user?.role === 'mentor') {
+        const response = await mentorAPI.getProfile();
+        setProfile(response.data.profile);
+      } else {
+        const response = await mentoreAPI.getProfile();
+        setProfile(response.data.profile);
+      }
+
+      // Récupérer les sessions
+      const sessionsResponse = await sessionAPI.getAll();
+      const allSessions = sessionsResponse.data.sessions || [];
+      setSessions(allSessions);
+
+      // Préparer les données pour les graphiques
+      prepareChartData(allSessions);
+    } catch (error) {
+      console.error('Erreur chargement dashboard:', error);
+      toast.error('Erreur lors du chargement');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const prepareChartData = (sessionsData: Session[]) => {
+    // Grouper par mois
+    const sessionsByMonth: Record<string, { count: number; scores: number[] }> = {};
+    
+    sessionsData.forEach(session => {
+      const date = new Date(session.date_debut);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthName = date.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+      
+      if (!sessionsByMonth[monthKey]) {
+        sessionsByMonth[monthKey] = { count: 0, scores: [] };
+      }
+      sessionsByMonth[monthKey].count++;
+      
+      // Récupérer la note
+      const note = session.note_du_mentor || session.note_du_mentore || 0;
+      if (note > 0) {
+        sessionsByMonth[monthKey].scores.push(note * 20); // Convertir note/5 en pourcentage
+      }
+    });
+
+    // Calculer la progression moyenne par mois
+    let cumulativeScore = 0;
+    let cumulativeSessions = 0;
+    const progressChartData = Object.entries(sessionsByMonth)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, data]) => {
+        cumulativeSessions += data.count;
+        const avgScore = data.scores.length > 0 
+          ? data.scores.reduce((a, b) => a + b, 0) / data.scores.length
+          : cumulativeScore;
+        cumulativeScore = avgScore;
+        
+        return {
+          date: key,
+          score: Math.round(cumulativeScore),
+          sessions: cumulativeSessions
+        };
+      });
+
+    setProgressData(progressChartData);
+
+    // Données d'activité (derniers 6 mois)
+    const last6Months = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthName = date.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+      
+      last6Months.push({
+        date: monthName,
+        count: sessionsByMonth[monthKey]?.count || 0
+      });
+    }
+    setActivityData(last6Months);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) return null;
+
+  const isMentor = user.role === 'mentor';
+  const userName = `${user.prenom} ${user.nom}`;
+  
+  // Statistiques
+  const sessionsTerminees = sessions.filter(s => s.statut === 'terminee').length;
+  const sessionsEnCours = sessions.filter(s => s.statut === 'en_cours').length;
+  const sessionsAnnulees = sessions.filter(s => s.statut === 'annulee').length;
+  const tauxReussite = sessions.length > 0 ? Math.round((sessionsTerminees / sessions.length) * 100) : 0;
+
+  // Calcul de la note moyenne
+  const notes = sessions
+    .filter(s => s.note_du_mentor || s.note_du_mentore)
+    .map(s => s.note_du_mentor || s.note_du_mentore || 0);
+  const noteMoyenne = notes.length > 0 
+    ? (notes.reduce((a, b) => a + b, 0) / notes.length).toFixed(1)
+    : 'N/A';
+
+  const stats = [
+    { label: 'Sessions terminées', value: sessionsTerminees, color: 'bg-green-500', icon: <CheckCircle className="w-5 h-5 text-white" /> },
+    { label: 'Sessions en cours', value: sessionsEnCours, color: 'bg-blue-500', icon: <Clock className="w-5 h-5 text-white" /> },
+    { label: 'Taux de réussite', value: `${tauxReussite}%`, color: 'bg-indigo-500', icon: <Target className="w-5 h-5 text-white" /> },
+    { label: 'Note moyenne', value: noteMoyenne, color: 'bg-yellow-500', icon: <Star className="w-5 h-5 text-white" /> },
+  ];
+
+  // Données radar pour les compétences
+  const skillsData = profile?.competences?.map((comp: any) => ({
+    subject: comp.nom,
+    value: comp.niveau === 'avance' ? 80 : comp.niveau === 'intermediaire' ? 60 : 40,
+    fullMark: 100
+  })) || [];
+
+  const menuItems = [
+    { title: 'Mes sessions', icon: Calendar, href: '/sessions', color: 'bg-indigo-500', description: 'Voir et gérer vos sessions' },
+    { title: 'Messagerie', icon: MessageCircle, href: '/chat', color: 'bg-blue-500', description: 'Discuter avec vos contacts' },
+    { title: 'Rapports PDF', icon: FileText, href: '/reports', color: 'bg-green-500', description: 'Télécharger vos rapports' },
+  ];
+
+  if (isMentor) {
+    menuItems.unshift({ title: 'Mes disponibilités', icon: Clock, href: '/disponibilites', color: 'bg-purple-500', description: 'Gérer vos créneaux' });
+  } else {
+    menuItems.unshift({ title: 'Trouver un mentor', icon: Users, href: '/mentors', color: 'bg-pink-500', description: 'Rechercher des mentors' });
+    menuItems.push({ title: 'Recommandations IA', icon: Award, href: '/matching', color: 'bg-orange-500', description: 'Mentors suggérés' });
+  }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Topbar title="Tableau de bord" icon="ti-layout-dashboard" />
-
-      <main style={{ flex: 1, padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
-        {/* Hero banner */}
-        <div style={{ background: '#0A3B8A', borderRadius: '16px', padding: '24px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h1 style={{ fontSize: '22px', fontWeight: 600, color: '#fff', marginBottom: '6px' }}>
-              Bonjour, {user?.prenom} ! 👋
-            </h1>
-            <p style={{ fontSize: '13px', color: '#93C5FD' }}>
-              {user?.role === 'mentor'
-                ? `Vous avez ${stats.sessions_en_attente} session(s) en attente de confirmation`
-                : `Continuez sur votre lancée — progression en cours`}
-            </p>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            {user?.role === 'mentor' && stats.note_moyenne && (
-              <>
-                <div style={{ fontSize: '36px', fontWeight: 700, color: '#fff', lineHeight: 1 }}>{stats.note_moyenne}</div>
-                <div style={{ fontSize: '11px', color: '#93C5FD', marginTop: '4px' }}>Note moyenne</div>
-              </>
-            )}
-            {user?.role === 'mentore' && stats.progression !== undefined && (
-              <>
-                <div style={{ fontSize: '36px', fontWeight: 700, color: '#fff', lineHeight: 1 }}>{stats.progression}%</div>
-                <div style={{ fontSize: '11px', color: '#93C5FD', marginTop: '4px' }}>Progression</div>
-              </>
-            )}
+    <div className="min-h-screen bg-gray-100">
+      {/* Navigation */}
+      <nav className="bg-white shadow-lg sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <span className="text-2xl">🎓</span>
+              <span className="text-xl font-bold text-gray-900">Tableau de bord</span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <span className="text-gray-600">{userName} ({isMentor ? 'Mentor' : 'Mentoré'})</span>
+              <button onClick={logout} className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
+                Déconnexion
+              </button>
+            </div>
           </div>
         </div>
+      </nav>
 
-        {/* Stats cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-          {[
-            { icon: 'ti-calendar-check', bg: '#EFF6FF', color: '#3B82F6', val: stats.sessions_confirmees, label: 'Sessions confirmées', trend: '+2', trendUp: true },
-            { icon: 'ti-clock',          bg: '#FFFBEB', color: '#F59E0B', val: stats.sessions_en_attente, label: 'En attente',          trend: '',   trendUp: false },
-            { icon: 'ti-mail',           bg: '#FEF2F2', color: '#EF4444', val: stats.messages_non_lus,    label: 'Messages non lus',    trend: '',   trendUp: false },
-          ].map((s, i) => (
-            <div key={i} style={{ background: '#fff', borderRadius: '14px', border: '0.5px solid #E5EAF2', padding: '18px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <i className={`ti ${s.icon}`} style={{ fontSize: '20px', color: s.color }} aria-hidden="true" />
+      {/* Header */}
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+        <div className="max-w-7xl mx-auto px-4 py-12">
+          <h1 className="text-3xl md:text-4xl font-bold mb-2">Bienvenue, {user.prenom} ! 👋</h1>
+          <p className="text-indigo-100 text-lg">Voici votre activité en un coup d'œil</p>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Statistiques */}
+        <div className="mb-8">
+          <StatsGrid stats={stats} />
+        </div>
+
+        {/* Graphiques */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <ProgressChart data={progressData} title="Évolution de votre progression" />
+          <ActivityChart data={activityData} />
+        </div>
+
+        {/* Radar des compétences (pour mentoré) */}
+        {!isMentor && skillsData.length > 0 && (
+          <div className="mb-8">
+            <SkillsRadar data={skillsData} title="Compétences en développement" />
+          </div>
+        )}
+
+        {/* Accès rapide */}
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Accès rapide</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {menuItems.map((item, index) => (
+            <Link key={index} href={item.href}
+              className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-lg transition-all hover:-translate-y-1">
+              <div className="p-6">
+                <div className={`w-12 h-12 ${item.color} rounded-xl flex items-center justify-center mb-4`}>
+                  <item.icon className="w-6 h-6 text-white" />
                 </div>
-                {s.trend && (
-                  <div style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '20px', background: '#F0FDF4', color: '#16A34A', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                    <i className="ti ti-arrow-up" style={{ fontSize: '10px' }} aria-hidden="true" /> {s.trend}
-                  </div>
-                )}
+                <h3 className="font-semibold text-gray-900 mb-1">{item.title}</h3>
+                <p className="text-sm text-gray-500">{item.description}</p>
               </div>
-              <div style={{ fontSize: '28px', fontWeight: 600, color: '#1E3A5F', lineHeight: 1 }}>{s.val}</div>
-              <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '4px' }}>{s.label}</div>
-            </div>
+            </Link>
           ))}
         </div>
-
-        {/* Sessions + Accès rapide */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-
-          {/* Sessions récentes */}
-          <div style={{ background: '#fff', borderRadius: '14px', border: '0.5px solid #E5EAF2', padding: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <span style={{ fontSize: '14px', fontWeight: 600, color: '#1E3A5F' }}>Sessions récentes</span>
-              <Link href="/sessions" style={{ fontSize: '12px', color: '#3B82F6', textDecoration: 'none' }}>Voir tout →</Link>
-            </div>
-
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: '24px', color: '#9CA3AF', fontSize: '13px' }}>Chargement...</div>
-            ) : sessions.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '24px' }}>
-                <i className="ti ti-calendar-off" style={{ fontSize: '32px', color: '#E5EAF2' }} aria-hidden="true" />
-                <p style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '8px' }}>Aucune session pour l'instant</p>
-              </div>
-            ) : (
-              <div>
-                {sessions.map((s, i) => {
-                  const cfg = STATUT_CONFIG[s.statut] ?? STATUT_CONFIG.terminee;
-                  const other = getOther(s);
-                  const initOther = other.split(' ').map((w: string) => w[0] ?? '').join('').slice(0, 2).toUpperCase();
-                  return (
-                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: i < sessions.length - 1 ? '0.5px solid #F5F7FB' : 'none' }}>
-                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600, color: '#3B82F6', flexShrink: 0 }}>
-                        {initOther}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '13px', fontWeight: 500, color: '#1E3A5F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {other || 'Inconnu'}
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {s.sujet}
-                        </div>
-                      </div>
-                      <span style={{ fontSize: '10px', padding: '3px 8px', borderRadius: '20px', background: cfg.bg, color: cfg.color, flexShrink: 0 }}>
-                        {cfg.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Accès rapide */}
-          <div style={{ background: '#fff', borderRadius: '14px', border: '0.5px solid #E5EAF2', padding: '20px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 600, color: '#1E3A5F', marginBottom: '16px' }}>Accès rapide</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              {QUICK.map(q => (
-                <Link key={q.href} href={q.href} style={{ textDecoration: 'none' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px', border: '0.5px solid #E5EAF2', borderRadius: '12px', cursor: 'pointer', transition: 'box-shadow 0.15s' }}
-                    onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)')}
-                    onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: q.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <i className={`ti ${q.icon}`} style={{ fontSize: '18px', color: q.color }} aria-hidden="true" />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#1E3A5F' }}>{q.label}</div>
-                      <div style={{ fontSize: '10px', color: '#9CA3AF', marginTop: '1px' }}>{q.sub}</div>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }
+
+// Composants d'icônes supplémentaires
+const CheckCircle = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+const Star = ({ className }: { className?: string }) => (
+  <svg className={className} fill="currentColor" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+  </svg>
+);
