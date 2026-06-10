@@ -1,96 +1,66 @@
 const jwt = require('jsonwebtoken');
 const { query } = require('../config/db');
-const { createNotification } = require('../controllers/notification.controller');
 
-// Stockage des utilisateurs connectés (userId -> socketId)
 const connectedUsers = new Map();
 
 const authenticateSocket = async (socket, next) => {
   try {
     const token = socket.handshake.auth.token;
-    
-    if (!token) {
-      return next(new Error('Authentication error: Token manquant'));
-    }
+    if (!token) return next(new Error('Token manquant'));
     
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
     const result = await query(
       'SELECT id, email, role, actif, prenom, nom FROM utilisateurs WHERE id = $1',
       [decoded.userId]
     );
     
     if (result.rows.length === 0 || !result.rows[0].actif) {
-      return next(new Error('Authentication error: Utilisateur invalide'));
+      return next(new Error('Utilisateur invalide'));
     }
     
-    socket.user = {
-      id: result.rows[0].id,
-      email: result.rows[0].email,
-      role: result.rows[0].role,
-      prenom: result.rows[0].prenom,
-      nom: result.rows[0].nom
-    };
-    
+    socket.user = result.rows[0];
     connectedUsers.set(socket.user.id, socket.id);
-    
     next();
   } catch (error) {
-    console.error('Socket auth error:', error.message);
-    next(new Error('Authentication error: Token invalide'));
+    next(new Error('Token invalide'));
   }
 };
 
 const sendMessage = async (io, socket, data) => {
-  const { session_id, contenu, type_message = 'texte', fichier_url = null } = data;
+  const { session_id, contenu, type_message = 'texte', fichier_url = null, fichier_nom = null } = data;
   
-  if (!session_id || !contenu) {
-    socket.emit('error', { message: 'session_id et contenu sont requis' });
+  if (!session_id || (!contenu && !fichier_url)) {
+    socket.emit('error', { message: 'session_id et contenu/fichier sont requis' });
     return;
   }
   
   try {
-    let hasAccess = false;
     let otherUserId = null;
-    let otherUserPrenom = '';
-    let otherUserNom = '';
     
     if (socket.user.role === 'mentor') {
       const result = await query(
-        `SELECT pme.utilisateur_id as other_id, u.prenom, u.nom
+        `SELECT pme.utilisateur_id as other_id
          FROM sessions s
          JOIN profils_mentor pm ON pm.id = s.mentor_id
          JOIN profils_mentore pme ON pme.id = s.mentore_id
-         JOIN utilisateurs u ON u.id = pme.utilisateur_id
          WHERE s.id = $1 AND pm.utilisateur_id = $2`,
         [session_id, socket.user.id]
       );
-      hasAccess = result.rows.length > 0;
-      if (hasAccess) {
-        otherUserId = result.rows[0].other_id;
-        otherUserPrenom = result.rows[0].prenom;
-        otherUserNom = result.rows[0].nom;
-      }
+      if (result.rows.length > 0) otherUserId = result.rows[0].other_id;
     } else {
       const result = await query(
-        `SELECT pm.utilisateur_id as other_id, u.prenom, u.nom
+        `SELECT pm.utilisateur_id as other_id
          FROM sessions s
          JOIN profils_mentore pme ON pme.id = s.mentore_id
          JOIN profils_mentor pm ON pm.id = s.mentor_id
-         JOIN utilisateurs u ON u.id = pm.utilisateur_id
          WHERE s.id = $1 AND pme.utilisateur_id = $2`,
         [session_id, socket.user.id]
       );
-      hasAccess = result.rows.length > 0;
-      if (hasAccess) {
-        otherUserId = result.rows[0].other_id;
-        otherUserPrenom = result.rows[0].prenom;
-        otherUserNom = result.rows[0].nom;
-      }
+      if (result.rows.length > 0) otherUserId = result.rows[0].other_id;
     }
     
-    if (!hasAccess) {
-      socket.emit('error', { message: 'Accès non autorisé à cette session' });
+    if (!otherUserId) {
+      socket.emit('error', { message: 'Accès non autorisé' });
       return;
     }
     
@@ -99,34 +69,35 @@ const sendMessage = async (io, socket, data) => {
       `INSERT INTO messages (session_id, expediteur_id, contenu, type_message, fichier_url)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, session_id, expediteur_id, contenu, type_message, fichier_url, envoye_le, lu`,
-      [session_id, socket.user.id, contenu, type_message, fichier_url]
+      [session_id, socket.user.id, contenu || (fichier_nom || 'Fichier'), type_message, fichier_url]
     );
     
     const message = result.rows[0];
     message.expediteur_nom = `${socket.user.prenom} ${socket.user.nom}`;
+    message.expediteur_prenom = socket.user.prenom;
+    message.expediteur_nom_famille = socket.user.nom;
     
+    // Envoyer à l'expéditeur
     socket.emit('message_sent', { success: true, message });
     
+    // Envoyer au destinataire
     if (otherUserId && connectedUsers.has(otherUserId)) {
       const otherSocketId = connectedUsers.get(otherUserId);
       io.to(otherSocketId).emit('new_message', message);
     }
     
-    // CRÉER UNE NOTIFICATION POUR LE DESTINATAIRE
-    if (otherUserId) {
-      await createNotification(
-        otherUserId,
-        'nouveau_message',
-        'Nouveau message',
-        `${socket.user.prenom} ${socket.user.nom} vous a envoyé un message`,
-        `/chat/${session_id}`
-      );
-      console.log(`📧 Notification envoyée à ${otherUserPrenom} ${otherUserNom}`);
-    }
+    // Notification
+    await query(
+      `INSERT INTO notifications (utilisateur_id, type, titre, message, lien)
+       VALUES ($1, 'nouveau_message', 'Nouveau message', 
+               '${socket.user.prenom} ${socket.user.nom} vous a envoyé un message', 
+               '/chat/${session_id}')`,
+      [otherUserId]
+    );
     
   } catch (error) {
     console.error('Send message error:', error);
-    socket.emit('error', { message: 'Erreur lors de l\'envoi du message' });
+    socket.emit('error', { message: 'Erreur lors de l\'envoi' });
   }
 };
 
@@ -161,9 +132,7 @@ const getHistory = async (socket, data) => {
     }
     
     const result = await query(
-      `SELECT m.id, m.session_id, m.expediteur_id, m.contenu, m.type_message, 
-              m.fichier_url, m.envoye_le, m.lu, m.lu_le,
-              u.nom, u.prenom
+      `SELECT m.*, u.nom, u.prenom
        FROM messages m
        JOIN utilisateurs u ON u.id = m.expediteur_id
        WHERE m.session_id = $1
@@ -175,12 +144,12 @@ const getHistory = async (socket, data) => {
     socket.emit('history', {
       success: true,
       messages: result.rows,
-      pagination: { page, limit, total: result.rows.length }
+      total: result.rows.length
     });
     
   } catch (error) {
     console.error('Get history error:', error);
-    socket.emit('error', { message: 'Erreur lors de la récupération des messages' });
+    socket.emit('error', { message: 'Erreur historique' });
   }
 };
 
@@ -216,21 +185,19 @@ const typing = async (io, socket, data) => {
       const otherSocketId = connectedUsers.get(otherUserId);
       io.to(otherSocketId).emit('user_typing', {
         session_id,
-        user_id: socket.user.id,
         user_name: `${socket.user.prenom} ${socket.user.nom}`,
         is_typing
       });
     }
-    
   } catch (error) {
-    console.error('Typing indicator error:', error);
+    console.error('Typing error:', error);
   }
 };
 
 const disconnect = (socket) => {
-  if (socket.user && socket.user.id) {
+  if (socket.user?.id) {
     connectedUsers.delete(socket.user.id);
-    console.log(`🔴 Utilisateur déconnecté: ${socket.user.email}`);
+    console.log(`🔴 Déconnecté: ${socket.user.email}`);
   }
 };
 

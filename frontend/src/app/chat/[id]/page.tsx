@@ -1,217 +1,548 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ArrowLeft, User, Download, File, X, Paperclip, Send, Smile } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { sessionAPI } from '@/services/api';
+import { uploadFile } from '@/services/uploadService';
 import { io, Socket } from 'socket.io-client';
 import toast from 'react-hot-toast';
+import EmojiPicker from 'emoji-picker-react';
 
 interface Message {
-  id: string; contenu: string; expediteur_id: string;
-  envoye_le: string; nom: string; prenom: string;
+  id: string;
+  contenu: string;
+  expediteur_id: string;
+  envoye_le: string;
+  nom: string;
+  prenom: string;
+  type_message?: string;
+  fichier_url?: string;
+  lu?: boolean;
+  tempId?: string;
 }
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000';
-
 export default function ChatPage() {
-  const params    = useParams();
-  const router    = useRouter();
-  const { user }  = useAuth();
+  const params = useParams();
+  const router = useRouter();
+  const { user } = useAuth();
   const sessionId = params.id as string;
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [otherTyping, setOtherTyping] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [filePreviews, setFilePreviews] = useState<{ url: string; name: string; type: string }[]>([]);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [messages,   setMessages]  = useState<Message[]>([]);
-  const [newMessage, setNewMessage]= useState('');
-  const [loading,    setLoading]   = useState(true);
-  const [sending,    setSending]   = useState(false);
-  const [isTyping,   setIsTyping]  = useState(false);
-  const [connected,  setConnected] = useState(false);
-
-  const endRef       = useRef<HTMLDivElement>(null);
-  const typingRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const socketRef    = useRef<Socket | null>(null);
-  const textareaRef  = useRef<HTMLTextAreaElement>(null);
-
-  const scroll = () => endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const BACKEND_URL = 'http://localhost:5000';
 
   useEffect(() => {
-    if (!user) { router.push('/login'); return; }
-    const token = localStorage.getItem('token');
-    const sock  = io(SOCKET_URL, { auth: { token }, transports: ['websocket', 'polling'], reconnection: true, reconnectionAttempts: 5 });
-    socketRef.current = sock;
-
-    sock.on('connect', () => { setConnected(true); sock.emit('get_history', { session_id: sessionId, page: 1, limit: 50 }); });
-    sock.on('disconnect', () => setConnected(false));
-    sock.on('history', d => { if (d.success) { setMessages(d.messages || []); setLoading(false); setTimeout(scroll, 100); } });
-    sock.on('new_message', (m: Message) => {
-      setMessages(p => p.find(x => x.id === m.id) ? p : [...p, m]);
-      setTimeout(scroll, 100);
-      sock.emit('mark_read', { session_id: sessionId, message_id: m.id });
-    });
-    sock.on('message_sent', d => {
-      if (d.success && d.message) setMessages(p => p.find(x => x.id === d.message.id) ? p : [...p, d.message]);
-      setTimeout(scroll, 100);
-    });
-    sock.on('user_typing', (d: { is_typing: boolean }) => {
-      setIsTyping(d.is_typing);
-      if (d.is_typing) { if (typingRef.current) clearTimeout(typingRef.current); typingRef.current = setTimeout(() => setIsTyping(false), 3000); }
-    });
-    sock.on('error', (e: { message: string }) => toast.error(e.message));
-    return () => { sock.disconnect(); if (typingRef.current) clearTimeout(typingRef.current); };
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    initSocket();
+    return () => { if (socket) socket.disconnect(); };
   }, [user, router, sessionId]);
 
-  const handleTyping = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setNewMessage(e.target.value);
-    // Auto-resize
-    if (textareaRef.current) { textareaRef.current.style.height = 'auto'; textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px'; }
-    if (socketRef.current) {
-      socketRef.current.emit('typing', { session_id: sessionId, is_typing: true });
-      if (typingRef.current) clearTimeout(typingRef.current);
-      typingRef.current = setTimeout(() => socketRef.current?.emit('typing', { session_id: sessionId, is_typing: false }), 1500);
+  const initSocket = () => {
+    const token = localStorage.getItem('token');
+    const newSocket = io('http://localhost:5000', {
+      auth: { token },
+      transports: ['websocket', 'polling']
+    });
+    
+    newSocket.on('connect', () => {
+      console.log('✅ Socket connecté');
+      newSocket.emit('get_history', { session_id: sessionId });
+    });
+    
+    newSocket.on('history', (data) => {
+      if (data.success) {
+        setMessages(data.messages || []);
+        setLoading(false);
+        setTimeout(() => scrollToBottom(), 100);
+      }
+    });
+    
+    newSocket.on('new_message', (message) => {
+      setMessages(prev => [...prev, message]);
+      setTimeout(() => scrollToBottom(), 100);
+    });
+    
+    newSocket.on('user_typing', (data) => {
+      setOtherTyping(data.is_typing);
+    });
+    
+    newSocket.on('error', (error) => {
+      toast.error(error.message);
+      setSending(false);
+      setUploading(false);
+    });
+    
+    setSocket(newSocket);
+  };
+
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
+
+  const sendTextMessage = (text: string) => {
+    if (!socket || sending) return;
+    if (!text.trim()) return;
+    
+    const tempId = Date.now().toString();
+    const tempMessage: Message = {
+      id: tempId,
+      contenu: text.trim(),
+      expediteur_id: user?.id || '',
+      envoye_le: new Date().toISOString(),
+      nom: user?.nom || '',
+      prenom: user?.prenom || '',
+      type_message: 'texte',
+      tempId: tempId
+    };
+    
+    setMessages(prev => [...prev, tempMessage]);
+    setNewMessage('');
+    setSending(true);
+    scrollToBottom();
+    
+    socket.emit('send_message', {
+      session_id: sessionId,
+      contenu: text.trim(),
+      type_message: 'texte'
+    });
+    setTimeout(() => setSending(false), 500);
+  };
+
+  const sendFile = async (file: File) => {
+    try {
+      const result = await uploadFile(file);
+      if (result.success && socket) {
+        const fileUrl = result.url.startsWith('http') ? result.url : `${BACKEND_URL}${result.url}`;
+        const messageText = file.type.startsWith('image/') ? `📷 ${file.name}` : `📎 ${file.name}`;
+        
+        const tempId = Date.now().toString();
+        const tempMessage: Message = {
+          id: tempId,
+          contenu: messageText,
+          expediteur_id: user?.id || '',
+          envoye_le: new Date().toISOString(),
+          nom: user?.nom || '',
+          prenom: user?.prenom || '',
+          type_message: 'fichier',
+          fichier_url: fileUrl,
+          tempId: tempId
+        };
+        
+        setMessages(prev => [...prev, tempMessage]);
+        scrollToBottom();
+        
+        socket.emit('send_message', {
+          session_id: sessionId,
+          contenu: messageText,
+          type_message: 'fichier',
+          fichier_url: fileUrl,
+          fichier_nom: file.name
+        });
+        return true;
+      }
+      return false;
+    } catch (error) {
+      toast.error(`Erreur upload: ${file.name}`);
+      return false;
     }
   };
 
-  const send = useCallback(() => {
-    if (!newMessage.trim() || !socketRef.current || sending) return;
+  const sendAll = async () => {
+    if (sending || uploading) return;
+    if (newMessage.trim() === '' && selectedFiles.length === 0) return;
+    
     setSending(true);
-    socketRef.current.emit('send_message', { session_id: sessionId, contenu: newMessage.trim(), type_message: 'texte' });
-    socketRef.current.emit('typing', { session_id: sessionId, is_typing: false });
+    setUploading(true);
+    
+    const messageText = newMessage.trim();
+    
+    if (messageText) {
+      sendTextMessage(messageText);
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+    
+    for (const file of selectedFiles) {
+      await sendFile(file);
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+    
     setNewMessage('');
-    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+    setSelectedFiles([]);
+    setFilePreviews([]);
     setSending(false);
-  }, [newMessage, sending, sessionId]);
+    setUploading(false);
+    
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
-  const handleKey = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
+  const handleMultipleFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    
+    const tooLarge = files.some(f => f.size > 10 * 1024 * 1024);
+    if (tooLarge) {
+      toast.error('Un ou plusieurs fichiers dépassent 10MB');
+      return;
+    }
+    
+    setSelectedFiles(prev => [...prev, ...files]);
+    
+    const newPreviews = files.map(file => {
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        return new Promise<{ url: string; name: string; type: string }>((resolve) => {
+          reader.onloadend = () => {
+            resolve({ url: reader.result as string, name: file.name, type: file.type });
+          };
+        });
+      } else {
+        return Promise.resolve({ url: '', name: file.name, type: file.type });
+      }
+    });
+    
+    Promise.all(newPreviews).then(previews => {
+      setFilePreviews(prev => [...prev, ...previews]);
+    });
+    
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
-  const fmtTime = (d: string) => new Date(d).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  const fmtDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long' });
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setFilePreviews(prev => prev.filter((_, i) => i !== index));
+  };
 
-  // Grouper les messages par date
-  const grouped: { date: string; msgs: Message[] }[] = [];
-  messages.forEach(m => {
-    const d = fmtDate(m.envoye_le);
-    const last = grouped[grouped.length - 1];
-    if (last && last.date === d) last.msgs.push(m);
-    else grouped.push({ date: d, msgs: [m] });
-  });
+  const handleTyping = () => {
+    if (!socket) return;
+    
+    socket.emit('typing', { session_id: sessionId, is_typing: true });
+    
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      socket.emit('typing', { session_id: sessionId, is_typing: false });
+    }, 1000);
+  };
 
-  if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F5F7FB' }}>
-      <div style={{ width: '36px', height: '36px', border: '3px solid #3B82F6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
-  );
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendAll();
+    }
+  };
+
+  const handleEmojiClick = (emojiObject: any) => {
+    setNewMessage(prev => prev + emojiObject.emoji);
+    setShowEmojiPicker(false);
+  };
+
+  const downloadFile = async (url: string, filename: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename.replace(/[📎📷]/g, '').trim();
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      window.open(url, '_blank');
+    }
+  };
+
+  const handleFileClick = (url: string, filename: string, isImage: boolean) => {
+    if (isImage) {
+      setSelectedImage(url);
+    } else {
+      downloadFile(url, filename);
+    }
+  };
+
+  const getFullUrl = (url: string) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    return `${BACKEND_URL}${url}`;
+  };
+
+  const isImageFile = (url: string) => {
+    return url?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  const hasContent = newMessage.trim() !== '' || selectedFiles.length > 0;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-
-      {/* Chat Header */}
-      <div style={{ background: '#fff', borderBottom: '0.5px solid #E5EAF2', padding: '0 20px', height: '56px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-        <Link href="/sessions" style={{ textDecoration: 'none', color: '#6B7280', display: 'flex', alignItems: 'center' }}>
-          <i className="ti ti-arrow-left" style={{ fontSize: '20px' }} aria-hidden="true" />
-        </Link>
-        <div style={{ width: '1px', height: '20px', background: '#E5EAF2' }} />
-        <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#0A3B8A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 600, color: '#fff' }}>
-          <i className="ti ti-message-circle" style={{ fontSize: '16px' }} aria-hidden="true" />
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '14px', fontWeight: 600, color: '#1E3A5F' }}>Chat de session</div>
-          <div style={{ fontSize: '11px', color: connected ? '#22C55E' : '#EF4444', display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: connected ? '#22C55E' : '#EF4444', display: 'inline-block' }} />
-            {connected ? 'Connecté' : 'Reconnexion...'}
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white sticky top-0 z-10 shadow-md">
+        <div className="max-w-5xl mx-auto px-4 py-4">
+          <div className="flex items-center gap-4">
+            <Link href="/chat" className="hover:text-indigo-200 transition-colors">
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <div>
+              <h1 className="font-semibold">Chat</h1>
+              <p className="text-sm text-indigo-200">Session de mentorat</p>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        {grouped.length === 0 ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF' }}>
-            <i className="ti ti-messages" style={{ fontSize: '48px', color: '#E5EAF2', marginBottom: '12px' }} aria-hidden="true" />
-            <p style={{ fontSize: '14px' }}>Aucun message. Commencez la conversation !</p>
-          </div>
-        ) : (
-          grouped.map(group => (
-            <div key={group.date}>
-              {/* Date divider */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '16px 0 12px' }}>
-                <div style={{ flex: 1, height: '0.5px', background: '#E5EAF2' }} />
-                <span style={{ fontSize: '11px', color: '#9CA3AF', background: '#F5F7FB', padding: '3px 10px', borderRadius: '20px', border: '0.5px solid #E5EAF2' }}>{group.date}</span>
-                <div style={{ flex: 1, height: '0.5px', background: '#E5EAF2' }} />
-              </div>
-
-              {group.msgs.map((msg, i) => {
-                const isOwn     = msg.expediteur_id === user?.id;
-                const prev      = i > 0 ? group.msgs[i - 1] : null;
-                const showAvatar = !isOwn && (!prev || prev.expediteur_id !== msg.expediteur_id);
-
-                return (
-                  <div key={msg.id} style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start', marginBottom: '3px' }}>
+      <div className="flex-1 max-w-5xl mx-auto w-full px-4 py-6 overflow-y-auto">
+        <div className="space-y-3">
+          {messages.length === 0 ? (
+            <div className="text-center text-gray-500 py-12">
+              💬 Aucun message. Commencez la conversation !
+            </div>
+          ) : (
+            messages.map((message, index) => {
+              const isOwn = message.expediteur_id === user?.id;
+              const fullUrl = getFullUrl(message.fichier_url || '');
+              const isImage = isImageFile(fullUrl);
+              const isFile = message.type_message === 'fichier' && message.fichier_url;
+              
+              return (
+                <div key={message.id || index} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[70%] rounded-2xl px-4 py-2 ${
+                    isOwn
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-gray-800 shadow-md'
+                  }`}>
                     {!isOwn && (
-                      <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: showAvatar ? '#EFF6FF' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 600, color: '#3B82F6', flexShrink: 0, marginRight: '8px', alignSelf: 'flex-end' }}>
-                        {showAvatar ? `${msg.prenom?.[0] ?? ''}${msg.nom?.[0] ?? ''}`.toUpperCase() : ''}
+                      <p className="text-xs text-indigo-500 mb-1 font-medium">
+                        {message.prenom} {message.nom}
+                      </p>
+                    )}
+                    
+                    {isFile ? (
+                      <div 
+                        onClick={() => handleFileClick(fullUrl, message.contenu, isImage)}
+                        className="cursor-pointer"
+                      >
+                        {isImage ? (
+                          <img 
+                            src={fullUrl} 
+                            alt={message.contenu}
+                            className="max-w-[200px] max-h-[150px] rounded-lg object-cover hover:opacity-90 transition-opacity"
+                          />
+                        ) : (
+                          <div className="flex items-center gap-2 hover:underline p-2 bg-gray-100 rounded-lg">
+                            <File className="w-5 h-5 text-indigo-600" />
+                            <span className="text-sm break-words">{message.contenu}</span>
+                            <Download className="w-4 h-4 text-gray-500" />
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm break-words whitespace-pre-wrap">{message.contenu}</p>
+                    )}
+                    
+                    <p className={`text-xs mt-1 ${isOwn ? 'text-indigo-200' : 'text-gray-400'}`}>
+                      {new Date(message.envoye_le).toLocaleTimeString('fr-FR', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
+                </div>
+              );
+            })
+          )}
+          
+          {otherTyping && (
+            <div className="flex justify-start">
+              <div className="bg-white rounded-2xl px-4 py-2 shadow-sm">
+                <div className="flex gap-1">
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {(sending || uploading) && (
+            <div className="flex justify-end">
+              <div className="bg-gray-200 rounded-2xl px-4 py-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-sm text-gray-500">Envoi...</span>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+
+      {/* Modal image en grand */}
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] p-4">
+            <button
+              onClick={() => setSelectedImage(null)}
+              className="absolute -top-10 right-0 text-white hover:text-gray-300"
+            >
+              <X className="w-8 h-8" />
+            </button>
+            <img 
+              src={selectedImage} 
+              alt="Agrandissement" 
+              className="max-w-full max-h-[85vh] object-contain rounded-lg"
+            />
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                downloadFile(selectedImage, 'image');
+              }}
+              className="absolute -bottom-10 right-0 bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700"
+            >
+              <Download className="w-4 h-4" />
+              Télécharger
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Zone de saisie */}
+      <div className="bg-white border-t border-gray-200 sticky bottom-0 shadow-lg">
+        <div className="max-w-5xl mx-auto px-4 py-3">
+          
+          {/* Aperçu des fichiers sélectionnés */}
+          {filePreviews.length > 0 && (
+            <div className="mb-3 p-3 bg-gray-100 rounded-xl">
+              <div className="flex flex-wrap gap-2">
+                {filePreviews.map((preview, idx) => (
+                  <div key={idx} className="relative group">
+                    {preview.url ? (
+                      <img src={preview.url} alt={preview.name} className="w-16 h-16 rounded-lg object-cover" />
+                    ) : (
+                      <div className="w-16 h-16 bg-indigo-100 rounded-lg flex items-center justify-center">
+                        <File className="w-8 h-8 text-indigo-600" />
                       </div>
                     )}
-                    <div style={{ maxWidth: '65%' }}>
-                      {showAvatar && !isOwn && (
-                        <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '3px', marginLeft: '2px' }}>{msg.prenom} {msg.nom}</div>
-                      )}
-                      <div style={{
-                        padding: '10px 14px', borderRadius: isOwn ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                        background: isOwn ? '#3B82F6' : '#fff',
-                        border: isOwn ? 'none' : '0.5px solid #E5EAF2',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                      }}>
-                        <p style={{ fontSize: '13px', color: isOwn ? '#fff' : '#1E3A5F', lineHeight: 1.5, wordBreak: 'break-word', whiteSpace: 'pre-wrap', margin: 0 }}>
-                          {msg.contenu}
-                        </p>
-                        <p style={{ fontSize: '10px', color: isOwn ? 'rgba(255,255,255,0.6)' : '#9CA3AF', textAlign: 'right', marginTop: '4px', marginBottom: 0 }}>
-                          {fmtTime(msg.envoye_le)}
-                        </p>
-                      </div>
-                    </div>
+                    <button
+                      onClick={() => removeFile(idx)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                    <p className="text-xs text-gray-500 mt-1 truncate w-16">{preview.name.substring(0, 10)}</p>
                   </div>
-                );
-              })}
+                ))}
+              </div>
             </div>
-          ))
-        )}
+          )}
 
-        {/* Typing indicator */}
-        {isTyping && (
-          <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: '8px', marginLeft: '40px' }}>
-            <div style={{ background: '#fff', border: '0.5px solid #E5EAF2', borderRadius: '18px', padding: '10px 14px', display: 'flex', gap: '4px', alignItems: 'center' }}>
-              {[0, 150, 300].map(d => (
-                <span key={d} style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#9CA3AF', display: 'inline-block', animation: 'bounce 1.2s infinite', animationDelay: `${d}ms` }} />
-              ))}
-            </div>
+          {/* Input principal */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={sending || uploading}
+              className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              title="Joindre des fichiers"
+            >
+              <Paperclip className="w-5 h-5" />
+            </button>
+            
+            <button
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Emojis"
+            >
+              <Smile className="w-5 h-5" />
+            </button>
+            
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf,.txt"
+              multiple
+              className="hidden"
+              onChange={handleMultipleFilesSelect}
+              disabled={sending || uploading}
+            />
+            
+            <textarea
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={handleKeyPress}
+              onKeyUp={handleTyping}
+              placeholder="Écrivez votre message..."
+              disabled={sending || uploading}
+              rows={1}
+              className="flex-1 resize-none border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100"
+              style={{ minHeight: '44px', maxHeight: '120px' }}
+            />
+            
+            <button
+              onClick={sendAll}
+              disabled={!hasContent || sending || uploading}
+              className="bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {sending || uploading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <span>Envoyer</span>
+                  <Send className="w-4 h-4" />
+                </>
+              )}
+            </button>
           </div>
-        )}
-        <div ref={endRef} />
-      </div>
-
-      {/* Input */}
-      <div style={{ background: '#fff', borderTop: '0.5px solid #E5EAF2', padding: '12px 20px', flexShrink: 0 }}>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', background: '#F5F7FB', borderRadius: '14px', border: '0.5px solid #E5EAF2', padding: '8px 12px' }}>
-          <textarea
-            ref={textareaRef}
-            value={newMessage}
-            onChange={handleTyping}
-            onKeyDown={handleKey}
-            placeholder="Écrivez un message... (Entrée pour envoyer)"
-            disabled={!connected}
-            style={{ flex: 1, border: 'none', background: 'transparent', resize: 'none', outline: 'none', fontSize: '13px', color: '#1E3A5F', lineHeight: 1.5, maxHeight: '120px', fontFamily: 'inherit' }}
-            rows={1}
-          />
-          <button onClick={send} disabled={!newMessage.trim() || sending || !connected} aria-label="Envoyer"
-            style={{ width: '36px', height: '36px', borderRadius: '10px', background: newMessage.trim() && connected ? '#3B82F6' : '#E5EAF2', border: 'none', cursor: newMessage.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 0.2s' }}>
-            <i className="ti ti-send" style={{ fontSize: '16px', color: newMessage.trim() && connected ? '#fff' : '#9CA3AF' }} aria-hidden="true" />
-          </button>
+          
+          {/* Picker emoji */}
+          {showEmojiPicker && (
+            <div className="absolute bottom-20 right-4 z-50">
+              <div className="relative">
+                <button
+                  onClick={() => setShowEmojiPicker(false)}
+                  className="absolute -top-2 -right-2 bg-gray-800 text-white rounded-full p-1 z-10"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+                <EmojiPicker onEmojiClick={handleEmojiClick} />
+              </div>
+            </div>
+          )}
+        
         </div>
-        <p style={{ fontSize: '10px', color: '#9CA3AF', marginTop: '6px', textAlign: 'center' }}>Maj+Entrée pour aller à la ligne</p>
       </div>
-
-      <style>{`@keyframes bounce{0%,80%,100%{transform:scale(0.7)}40%{transform:scale(1)}}`}</style>
     </div>
   );
 }
