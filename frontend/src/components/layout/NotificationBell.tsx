@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { IconBell, IconBellFilled } from '@tabler/icons-react';
 
 interface Notification {
   id: string;
@@ -56,19 +57,6 @@ export function NotificationBell({ collapsed = false }: { collapsed?: boolean })
     }
   };
 
-  const markAllAsRead = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      await fetch('http://localhost:5000/api/notifications/read-all', {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      fetchNotifications();
-    } catch (error) {
-      console.error('Erreur:', error);
-    }
-  };
-
   const getIcon = (type: string) => {
     switch (type) {
       case 'session_confirmee': return '✅';
@@ -81,96 +69,34 @@ export function NotificationBell({ collapsed = false }: { collapsed?: boolean })
   };
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        style={{
-          background: 'rgba(255,255,255,0.08)',
-          border: 'none',
-          borderRadius: '10px',
-          cursor: 'pointer',
-          padding: collapsed ? '10px' : '10px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'relative',
-          width: collapsed ? '36px' : '36px',
-          transition: 'all 0.2s',
-        }}
-        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
-        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+        className="relative p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors w-full flex items-center justify-center"
       >
-        <i className="ti ti-bell" style={{ fontSize: '18px', color: '#fff' }} aria-hidden="true" />
-        {unreadCount > 0 && (
-          <span style={{
-            position: 'absolute',
-            top: '-4px',
-            right: '-4px',
-            background: '#EF4444',
-            color: '#fff',
-            fontSize: '9px',
-            fontWeight: 'bold',
-            padding: '2px 5px',
-            borderRadius: '20px',
-            minWidth: '16px',
-            textAlign: 'center',
-          }}>
-            {unreadCount > 9 ? '9+' : unreadCount}
-          </span>
+        {unreadCount > 0 ? (
+          <>
+            <IconBellFilled className="w-5 h-5 text-white" />
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          </>
+        ) : (
+          <IconBell className="w-5 h-5 text-white" />
         )}
+        {!collapsed && <span className="ml-2 text-sm text-white">Notifications</span>}
       </button>
 
       {isOpen && (
         <>
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              zIndex: 998,
-            }}
-            onClick={() => setIsOpen(false)}
-          />
-          <div style={{
-            position: 'absolute',
-            top: '45px',
-            left: collapsed ? '60px' : '240px',
-            width: '320px',
-            background: '#fff',
-            borderRadius: '12px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
-            zIndex: 999,
-            overflow: 'hidden',
-          }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '12px 16px',
-              borderBottom: '1px solid #e5e7eb',
-              background: '#fff',
-            }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#1f2937' }}>Notifications</h3>
-              {unreadCount > 0 && (
-                <button
-                  onClick={markAllAsRead}
-                  style={{
-                    fontSize: '11px',
-                    color: '#4f46e5',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Tout marquer lu
-                </button>
-              )}
+          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+          <div className="absolute bottom-full left-0 mb-2 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
+            <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="font-semibold text-gray-900 dark:text-white">Notifications</h3>
             </div>
-            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            <div className="max-h-96 overflow-y-auto">
               {notifications.length === 0 ? (
-                <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af', fontSize: '12px' }}>
+                <div className="p-6 text-center text-gray-500 dark:text-gray-400 text-sm">
                   Aucune notification
                 </div>
               ) : (
@@ -178,35 +104,18 @@ export function NotificationBell({ collapsed = false }: { collapsed?: boolean })
                   <div
                     key={notif.id}
                     onClick={() => markAsRead(notif.id, notif.lien)}
-                    style={{
-                      padding: '12px 16px',
-                      borderBottom: '1px solid #f3f4f6',
-                      cursor: 'pointer',
-                      background: notif.lue ? '#fff' : '#eef2ff',
-                      transition: 'background 0.2s',
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
-                    onMouseLeave={e => e.currentTarget.style.background = notif.lue ? '#fff' : '#eef2ff'}
+                    className={`p-3 border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${!notif.lue ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''}`}
                   >
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <span style={{ fontSize: '16px' }}>{getIcon(notif.type)}</span>
-                      <div style={{ flex: 1 }}>
-                        <p style={{ fontSize: '12px', fontWeight: 500, color: '#1f2937', marginBottom: '2px' }}>
-                          {notif.titre}
-                        </p>
-                        <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>
-                          {notif.message}
-                        </p>
-                        <p style={{ fontSize: '10px', color: '#9ca3af' }}>
-                          {new Date(notif.created_at).toLocaleDateString('fr-FR', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
+                    <div className="flex gap-2">
+                      <span className="text-lg">{getIcon(notif.type)}</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{notif.titre}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{notif.message}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                          {new Date(notif.created_at).toLocaleString('fr-FR')}
                         </p>
                       </div>
-                      {!notif.lue && (
-                        <div style={{ width: '8px', height: '8px', background: '#4f46e5', borderRadius: '50%', marginTop: '6px' }} />
-                      )}
+                      {!notif.lue && <div className="w-2 h-2 bg-indigo-600 rounded-full mt-2" />}
                     </div>
                   </div>
                 ))

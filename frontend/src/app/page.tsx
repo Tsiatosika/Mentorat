@@ -40,17 +40,17 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
         <div className="text-center">
           <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-gray-500">Chargement...</p>
+          <p className="text-gray-600 dark:text-gray-400">Chargement...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white dark:bg-gray-900">
       {/* Hero Section */}
       <div className="relative overflow-hidden bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -108,7 +108,7 @@ export default function Home() {
         </div>
 
         <div className="relative h-12">
-          <svg className="absolute bottom-0 w-full h-12 text-gray-50" preserveAspectRatio="none" viewBox="0 0 1440 48">
+          <svg className="absolute bottom-0 w-full h-12 text-white dark:text-gray-900" preserveAspectRatio="none" viewBox="0 0 1440 48">
             <path fill="currentColor" d="M0 20L120 14C240 8 480 0 720 0C960 0 1200 8 1320 14L1440 20V48H0V20Z" />
           </svg>
         </div>
@@ -117,58 +117,20 @@ export default function Home() {
       {/* Features Section */}
       <div className="max-w-6xl mx-auto px-4 py-16">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-gray-800 mb-3">Pourquoi choisir notre plateforme ?</h2>
-          <p className="text-gray-500">Une expérience de mentorat complète et innovante</p>
+          <h2 className="text-3xl font-bold mb-3 text-gray-900 dark:text-white">Pourquoi choisir notre plateforme ?</h2>
+          <p className="text-gray-600 dark:text-gray-400">Une expérience de mentorat complète et innovante</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((f, i) => (
             <div key={i}
-              className="bg-white rounded-xl border border-gray-100 p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+              className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
                 <f.icon className="w-5 h-5 text-white" />
               </div>
-              <h3 className="text-base font-semibold text-gray-800 mb-2">{f.title}</h3>
-              <p className="text-gray-500 text-sm">{f.description}</p>
+              <h3 className="text-base font-semibold mb-2 text-gray-900 dark:text-white">{f.title}</h3>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">{f.description}</p>
             </div>
           ))}
-        </div>
-      </div>
-
-      {/* Top Mentors Section */}
-      <div className="bg-white border-t border-gray-100 py-16">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-800 mb-3">Nos mentors exceptionnels</h2>
-            <p className="text-gray-500">Des experts passionnés prêts à vous accompagner</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {topMentors.slice(0, 3).map((mentor: any) => (
-              <div key={mentor.id}
-                className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 bg-blue-800 rounded-full flex items-center justify-center">
-                    <span className="text-lg font-bold text-white">
-                      {mentor.prenom?.[0]}{mentor.nom?.[0]}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                    <span className="font-semibold text-gray-700 text-sm">{getNoteDisplay(mentor.note_moyenne)}</span>
-                  </div>
-                </div>
-                <h3 className="text-base font-semibold text-gray-800 mb-1">{mentor.prenom} {mentor.nom}</h3>
-                <p className="text-blue-600 text-sm font-medium mb-3">{mentor.domaine || 'Expert'}</p>
-                <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
-                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{mentor.annees_experience || 0} ans</span>
-                  <span className="flex items-center gap-1"><Users className="w-3 h-3" />{mentor.nb_sessions || 0} sessions</span>
-                </div>
-                <Link href={`/mentors/${mentor.id}`}
-                  className="block w-full text-center px-3 py-2 rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 transition-colors font-medium text-sm">
-                  Voir le profil
-                </Link>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 
@@ -187,10 +149,10 @@ export default function Home() {
       </div>
 
       {/* Footer */}
-      <footer className="bg-gray-800 py-8">
+      <footer className="bg-gray-100 dark:bg-gray-800 py-8">
         <div className="max-w-6xl mx-auto px-4 text-center">
-          <p className="text-gray-400 text-sm">© 2025 Université Adventiste Zurcher — Plateforme de Mentorat Académique</p>
-          <p className="text-gray-500 text-xs mt-2">RAMAMONJISOA Sitrakiniaina Tsiatosika — Projet de Fin d'Études</p>
+          <p className="text-gray-600 dark:text-gray-400 text-sm">© 2025 Université Adventiste Zurcher — Plateforme de Mentorat Académique</p>
+          <p className="text-gray-500 dark:text-gray-500 text-xs mt-2">RAMAMONJISOA Sitrakiniaina Tsiatosika — Projet de Fin d'Études</p>
         </div>
       </footer>
     </div>

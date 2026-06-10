@@ -1,18 +1,18 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Mail, Lock, Eye, EyeOff, LogIn, Sparkles, Calendar, FileText, Shield } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, LogIn, Sparkles, Shield, Target, Users, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 
 function LoginForm() {
-  const router       = useRouter();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { login, user } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [loading,      setLoading]      = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ email: '', mot_de_passe: '' });
 
   const redirectTo = searchParams.get('redirect') || '/dashboard';
@@ -39,66 +39,64 @@ function LoginForm() {
     }
   };
 
-  const features = [
-    { icon: Sparkles,  label: 'Matching IA personnalisé' },
-    { icon: Calendar,  label: 'Sessions planifiées facilement' },
-    { icon: FileText,  label: 'Rapports PDF automatiques' },
-    { icon: Shield,    label: 'Données sécurisées' },
+  const benefits = [
+    { icon: Users, title: 'Mentorat personnalisé', desc: 'Connectez-vous avec des experts de votre domaine' },
+    { icon: Target, title: 'Matching intelligent', desc: 'Trouvez le mentor idéal grâce à notre IA' },
+    { icon: Clock, title: 'Gain de temps', desc: 'Réservation simplifiée en quelques clics' },
+    { icon: Shield, title: 'Sécurisé', desc: 'Plateforme fiable et confidentielle' },
   ];
 
   return (
-    <div className="min-h-screen bg-[#F5F7FB] flex">
-
-      {/* Left panel */}
-      <div className="hidden lg:flex w-[420px] bg-[#0A3B8A] flex-col justify-between p-10 flex-shrink-0">
-        <div>
-          <div className="w-12 h-12 bg-[#3B82F6] rounded-xl flex items-center justify-center mb-8">
-            <span className="text-2xl">🎓</span>
-          </div>
-          <h1 className="text-3xl font-bold text-white leading-tight">
-            La plateforme de mentorat intelligente
-          </h1>
-          <p className="text-blue-200 mt-4 text-sm leading-relaxed">
-            Connectez-vous avec des experts de votre domaine pour accélérer votre carrière et atteindre vos objectifs.
-          </p>
-        </div>
-        <div className="space-y-3">
-          {features.map((f, i) => (
-            <div key={i} className="flex items-center gap-3 py-3 border-b border-white/10">
-              <f.icon className="w-5 h-5 text-[#3B82F6] flex-shrink-0" />
-              <span className="text-sm text-white/80 font-medium">{f.label}</span>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-12">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+          {/* Colonne gauche - Texte et bénéfices */}
+          <div className="space-y-8">
+            <div>
+              <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+                <span className="text-3xl">🎓</span>
+              </div>
+              <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+                Heureux de vous revoir !
+              </h1>
+              <p className="text-lg text-gray-600 dark:text-gray-400">
+                Connectez-vous pour continuer votre parcours de mentorat et accéder à vos sessions.
+              </p>
             </div>
-          ))}
-        </div>
-      </div>
 
-      {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12">
-        <div className="w-full max-w-md">
-
-          {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 bg-[#0A3B8A] rounded-xl flex items-center justify-center">
-              <span className="text-xl">🎓</span>
+            <div className="space-y-4">
+              {benefits.map((benefit, idx) => (
+                <div key={idx} className="flex items-start gap-3 p-3 rounded-lg hover:bg-white/50 dark:hover:bg-gray-800/50 transition-colors">
+                  <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <benefit.icon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">{benefit.title}</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{benefit.desc}</p>
+                  </div>
+                </div>
+              ))}
             </div>
-            <span className="text-xl font-bold text-[#1E3A5F]">MentorIA</span>
           </div>
 
-          <div className="bg-white rounded-2xl border border-[#E5EAF2] p-8 shadow-sm">
-            <h2 className="text-2xl font-bold text-[#1E3A5F] mb-1">Connexion</h2>
-            <p className="text-sm text-[#6B82A4] mb-8">Accédez à votre espace de mentorat</p>
+          {/* Colonne droite - Formulaire */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Connexion</h2>
+              <p className="text-gray-600 dark:text-gray-400">Accédez à votre compte</p>
+            </div>
 
-            <form onSubmit={handleSubmit}>
-              <div className="mb-5">
-                <label className="block text-sm font-semibold text-[#1E3A5F] mb-2">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Adresse email
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B82A4] w-4 h-4" />
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
                     type="email"
-                    placeholder="vous@email.com"
-                    className="w-full pl-10 pr-4 py-3 rounded-lg border border-[#E5EAF2] bg-[#F5F7FB] focus:border-[#3B82F6] focus:ring-2 focus:ring-blue-100 focus:bg-white outline-none transition-all text-sm text-[#1E3A5F] placeholder:text-[#6B82A4]"
+                    placeholder="votre@email.com"
+                    className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     required
@@ -106,16 +104,16 @@ function LoginForm() {
                 </div>
               </div>
 
-              <div className="mb-7">
-                <label className="block text-sm font-semibold text-[#1E3A5F] mb-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Mot de passe
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B82A4] w-4 h-4" />
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••"
-                    className="w-full pl-10 pr-12 py-3 rounded-lg border border-[#E5EAF2] bg-[#F5F7FB] focus:border-[#3B82F6] focus:ring-2 focus:ring-blue-100 focus:bg-white outline-none transition-all text-sm text-[#1E3A5F] placeholder:text-[#6B82A4]"
+                    className="w-full pl-10 pr-12 py-3 rounded-lg border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     value={formData.mot_de_passe}
                     onChange={(e) => setFormData({ ...formData, mot_de_passe: e.target.value })}
                     required
@@ -123,42 +121,56 @@ function LoginForm() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B82A4] hover:text-[#1E3A5F] transition-colors"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? <EyeOff className="w-5 h-5 text-gray-400" /> : <Eye className="w-5 h-5 text-gray-400" />}
                   </button>
                 </div>
+              </div>
+
+              <div className="text-right">
+                <Link
+                  href="/forgot-password"
+                  className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+                >
+                  Mot de passe oublié ?
+                </Link>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-[#3B82F6] text-white py-3 rounded-lg font-semibold hover:bg-[#2563EB] transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {loading
-                  ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  : <><LogIn className="w-4 h-4" />Se connecter</>
-                }
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <LogIn className="w-5 h-5" />
+                    Se connecter
+                  </>
+                )}
               </button>
             </form>
 
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-[#E5EAF2]" />
-              </div>
-              <div className="relative flex justify-center text-xs">
-                <span className="px-3 bg-white text-[#6B82A4]">ou</span>
-              </div>
+            <div className="mt-6 text-center pt-6 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Pas encore de compte ?{' '}
+                <Link href="/register" className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
+                  Inscrivez-vous gratuitement
+                </Link>
+              </p>
             </div>
 
-            <p className="text-center text-sm text-[#6B82A4]">
-              Pas encore de compte ?{' '}
-              <Link href="/register" className="font-semibold text-[#3B82F6] hover:text-[#2563EB] transition-colors">
-                Inscription gratuite
-              </Link>
-            </p>
-
-          
+            <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center mb-2 flex items-center justify-center gap-1">
+                <Sparkles className="w-3 h-3" /> Comptes de démonstration
+              </p>
+              <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1 text-center">
+                <p>👨‍🏫 Mentor: faneva@test.mg / Password123</p>
+                <p>👨‍🎓 Mentoré: miora@test.mg / Password123</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -168,11 +180,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#F5F7FB] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
-      </div>
-    }>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Chargement...</div>}>
       <LoginForm />
     </Suspense>
   );

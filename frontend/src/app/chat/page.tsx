@@ -23,21 +23,24 @@ export default function ChatListPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading,  setLoading]  = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) { router.push('/login'); return; }
+    if (!user) {
+      router.push('/login');
+      return;
+    }
     fetchSessions();
   }, [user, router]);
 
   const fetchSessions = async () => {
     try {
       const response = await sessionAPI.getAll();
-      const all = response.data.sessions || [];
-      const active = all.filter(
+      const allSessions = response.data.sessions || [];
+      const activeSessions = allSessions.filter(
         (s: Session) => s.statut === 'confirmee' || s.statut === 'en_cours' || s.statut === 'terminee'
       );
-      setSessions(active);
+      setSessions(activeSessions);
     } catch (error) {
       console.error('Erreur:', error);
       toast.error('Erreur lors du chargement');
@@ -46,101 +49,70 @@ export default function ChatListPage() {
     }
   };
 
-  const formatDate = (date: string) =>
-    new Date(date).toLocaleDateString('fr-FR', {
-      day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
     });
+  };
 
   const getOtherPerson = (session: Session) => {
     if (user?.role === 'mentor') {
-      return `${session.mentore_prenom || ''} ${session.mentore_nom || ''}`.trim();
+      return `${session.mentore_prenom || ''} ${session.mentore_nom || ''}`;
     }
-    return `${session.mentor_prenom || ''} ${session.mentor_nom || ''}`.trim();
-  };
-
-  const getInitials = (session: Session) => {
-    const name = getOtherPerson(session);
-    const parts = name.split(' ');
-    return (parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '');
-  };
-
-  const getStatutConfig = (statut: string) => {
-    switch (statut) {
-      case 'confirmee':  return { label: 'Confirmée', dot: 'bg-[#3B82F6]', text: 'text-[#3B82F6]' };
-      case 'en_cours':   return { label: 'En cours',  dot: 'bg-[#22C55E]', text: 'text-[#22C55E]' };
-      case 'terminee':   return { label: 'Terminée',  dot: 'bg-[#6B82A4]', text: 'text-[#6B82A4]' };
-      default:           return { label: statut,      dot: 'bg-[#6B82A4]', text: 'text-[#6B82A4]' };
-    }
+    return `${session.mentor_prenom || ''} ${session.mentor_nom || ''}`;
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F5F7FB] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F7FB]">
-
-      {/* Header */}
-      <div className="bg-white border-b border-[#E5EAF2]">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <h1 className="text-2xl font-bold text-[#1E3A5F]">Messagerie</h1>
-          <p className="text-[#6B82A4] mt-1 text-sm">
-            Discutez avec vos mentors et mentorés
-          </p>
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <h1 className="text-2xl font-bold">Messagerie</h1>
+          <p className="text-indigo-100 mt-1">Discutez avec vos mentors et mentorés</p>
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         {sessions.length === 0 ? (
-          <div className="bg-white rounded-xl border border-[#E5EAF2] p-12 text-center">
-            <div className="w-14 h-14 bg-[#F5F7FB] rounded-full flex items-center justify-center mx-auto mb-4">
-              <MessageCircle className="w-7 h-7 text-[#6B82A4]" />
-            </div>
-            <h3 className="text-base font-bold text-[#1E3A5F] mb-2">Aucune conversation</h3>
-            <p className="text-sm text-[#6B82A4]">Vous n'avez pas encore de sessions actives.</p>
-            {user?.role === 'mentore' && (
-              <Link
-                href="/mentors"
-                className="inline-block mt-5 bg-[#3B82F6] text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-[#2563EB] transition-colors"
-              >
-                Trouver un mentor
-              </Link>
-            )}
+          <div className="rounded-xl shadow-md p-12 text-center" style={{ backgroundColor: 'var(--card-bg)' }}>
+            <MessageCircle className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }} />
+            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Aucune conversation</h3>
+            <p style={{ color: 'var(--text-secondary)' }}>Vous n'avez pas encore de sessions actives.</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {sessions.map((session) => {
-              const config = getStatutConfig(session.statut);
-              return (
-                <Link
-                  key={session.id}
-                  href={`/chat/${session.id}`}
-                  className="block bg-white rounded-xl border border-[#E5EAF2] hover:border-[#3B82F6] hover:shadow-md transition-all"
-                >
-                  <div className="p-5 flex items-center gap-4">
-                    <div className="w-12 h-12 bg-[#0A3B8A] rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm font-bold text-white">{getInitials(session)}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-sm text-[#1E3A5F] truncate">{session.sujet}</h3>
-                      <p className="text-xs text-[#6B82A4] mt-0.5">avec {getOtherPerson(session)}</p>
-                      <div className="flex items-center gap-1.5 mt-1.5">
-                        <Clock className="w-3 h-3 text-[#6B82A4]" />
-                        <span className="text-xs text-[#6B82A4]">{formatDate(session.date_debut)}</span>
+            {sessions.map((session) => (
+              <Link key={session.id} href={`/chat/${session.id}`} className="block">
+                <div className="rounded-xl shadow-md p-4 hover:shadow-lg transition-all" style={{ backgroundColor: 'var(--card-bg)' }}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center">
+                        <Users className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>{session.sujet}</h3>
+                        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>avec {getOtherPerson(session)}</p>
+                        <div className="flex items-center gap-1 mt-1">
+                          <Clock className="w-3 h-3" style={{ color: 'var(--text-tertiary)' }} />
+                          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{formatDate(session.date_debut)}</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className={`w-2 h-2 rounded-full ${config.dot}`} />
-                      <span className={`text-xs font-semibold ${config.text}`}>{config.label}</span>
-                    </div>
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                   </div>
-                </Link>
-              );
-            })}
+                </div>
+              </Link>
+            ))}
           </div>
         )}
       </div>

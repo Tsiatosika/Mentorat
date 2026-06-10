@@ -3,56 +3,51 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useState, useEffect } from 'react';
 import { NotificationBell } from './NotificationBell';
-
-// Icônes Tabler
-const icons = {
-  home: 'ti-home',
-  dashboard: 'ti-layout-dashboard',
-  users: 'ti-users',
-  calendar: 'ti-calendar',
-  message: 'ti-message-circle',
-  file: 'ti-file-text',
-  brain: 'ti-brain',
-  user: 'ti-user-circle',
-  clock: 'ti-clock',
-  logout: 'ti-logout',
-  menu: 'ti-menu-2',
-  chevronLeft: 'ti-chevron-left',
-  chevronRight: 'ti-chevron-right',
-  school: 'ti-school',
-};
+import {
+  IconHome,
+  IconLayoutDashboard,
+  IconUsers,
+  IconCalendar,
+  IconMessageCircle,
+  IconFileText,
+  IconBrain,
+  IconUserCircle,
+  IconLogout,
+  IconChevronLeft,
+  IconChevronRight,
+  IconSchool,
+  IconSun,
+  IconMoon,
+} from '@tabler/icons-react';
 
 const menuItems = [
-  { label: 'Accueil',    href: '/',          icon: icons.home },
-  { label: 'Dashboard',  href: '/dashboard', icon: icons.dashboard },
-  { label: 'Mentors',    href: '/mentors',   icon: icons.users },
-  { label: 'Sessions',   href: '/sessions',  icon: icons.calendar },
-  { label: 'Chat',       href: '/chat',      icon: icons.message },
-  { label: 'Rapports',   href: '/reports',   icon: icons.file },
+  { label: 'Accueil', href: '/', icon: IconHome },
+  { label: 'Dashboard', href: '/dashboard', icon: IconLayoutDashboard },
+  { label: 'Mentors', href: '/mentors', icon: IconUsers },
+  { label: 'Sessions', href: '/sessions', icon: IconCalendar },
+  { label: 'Chat', href: '/chat', icon: IconMessageCircle },
+  { label: 'Rapports', href: '/reports', icon: IconFileText },
 ];
 
 const toolItems = [
-  { label: 'Matching IA', href: '/matching', icon: icons.brain },
-  { label: 'Mon profil',  href: '/profile',  icon: icons.user },
+  { label: 'Matching IA', href: '/matching', icon: IconBrain },
+  { label: 'Mon profil', href: '/profile', icon: IconUserCircle },
 ];
-
-const getInitialCollapsed = () => {
-  if (typeof window !== 'undefined') {
-    const saved = localStorage.getItem('sidebar-collapsed');
-    return saved === 'true';
-  }
-  return false;
-};
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setCollapsed(getInitialCollapsed());
+    const saved = localStorage.getItem('sidebar-collapsed');
+    setCollapsed(saved === 'true');
+    setMounted(true);
   }, []);
 
   const toggleSidebar = () => {
@@ -61,282 +56,114 @@ export default function Sidebar() {
     localStorage.setItem('sidebar-collapsed', String(newState));
   };
 
-  const isActive = (href: string) =>
-    href === '/' ? pathname === '/' : pathname.startsWith(href);
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
 
-  const initials = user
-    ? `${user.prenom?.[0] ?? ''}${user.nom?.[0] ?? ''}`.toUpperCase()
-    : '??';
+  const initials = user ? `${user.prenom?.[0] || ''}${user.nom?.[0] || ''}`.toUpperCase() : '??';
 
-  const sidebarWidth = collapsed ? '72px' : '260px';
+  if (!mounted) return null;
+
+  const ThemeIcon = theme === 'dark' ? IconMoon : IconSun;
 
   return (
-    <>
-      <aside style={{
-        width: sidebarWidth,
-        minHeight: '100vh',
-        background: 'linear-gradient(180deg, #0A3B8A 0%, #0d4aa8 100%)',
-        display: 'flex',
-        flexDirection: 'column',
-        flexShrink: 0,
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        zIndex: 50,
-        transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        boxShadow: '4px 0 20px rgba(0, 0, 0, 0.08)',
-      }}>
-
-        {/* Logo + toggle button */}
-        <div style={{
-          padding: collapsed ? '20px 12px' : '20px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: collapsed ? 'center' : 'space-between',
-          gap: collapsed ? '0' : '12px',
-          borderBottom: '0.5px solid rgba(255,255,255,0.12)',
-        }}>
-          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', flex: 1 }}>
-            <div style={{
-              width: '36px',
-              height: '36px',
-              background: 'rgba(59, 130, 246, 0.9)',
-              borderRadius: '10px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-              boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
-            }}>
-              <i className={`ti ${icons.school}`} style={{ fontSize: '18px', color: '#fff' }} aria-hidden="true" />
+    <aside className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-blue-900 to-indigo-900 transition-all duration-300 z-50 flex flex-col ${collapsed ? 'w-[72px]' : 'w-[260px]'}`}>
+      {/* Logo */}
+      <div className={`flex items-center ${collapsed ? 'justify-center p-4' : 'justify-between p-5'} flex-shrink-0`}>
+        <Link href="/" className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg">
+            <IconSchool className="w-5 h-5 text-white" />
+          </div>
+          {!collapsed && (
+            <div>
+              <div className="text-white font-bold text-sm">MentorIPath</div>
+              <div className="text-blue-200 text-[10px]">UAZ — Informatique</div>
             </div>
-            {!collapsed && (
-              <div>
-                <div style={{ fontSize: '15px', fontWeight: 600, color: '#fff', letterSpacing: '-0.3px' }}>MentorIPath</div>
-                <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>UAZ — Informatique</div>
-              </div>
-            )}
-          </Link>
+          )}
+        </Link>
+        <button onClick={toggleSidebar} className="text-white/70 hover:text-white">
+          {collapsed ? <IconChevronRight className="w-5 h-5" /> : <IconChevronLeft className="w-5 h-5" />}
+        </button>
+      </div>
+
+      {/* Menu principal - prend tout l'espace disponible */}
+      <div className="flex-1 overflow-y-auto">
+        {/* Theme Toggle */}
+        <div className={`${collapsed ? 'px-3 py-2 flex justify-center' : 'px-5 py-2'}`}>
           <button
-            onClick={toggleSidebar}
-            style={{
-              background: 'rgba(255,255,255,0.1)',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              padding: '6px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              transition: 'all 0.2s',
-              flexShrink: 0,
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+            onClick={toggleTheme}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-white"
           >
-            <i className={`ti ${collapsed ? icons.chevronRight : icons.chevronLeft}`} style={{ fontSize: '16px' }} aria-hidden="true" />
+            <ThemeIcon className="w-5 h-5" />
+            {!collapsed && <span className="text-sm">{theme === 'dark' ? 'Mode clair' : 'Mode sombre'}</span>}
           </button>
         </div>
 
-        {/* Cloche de notification */}
-        <div style={{ padding: collapsed ? '12px' : '16px 20px', display: 'flex', justifyContent: collapsed ? 'center' : 'flex-start' }}>
+        {/* Menu Navigation */}
+        <div className="mt-4 px-3">
+          {!collapsed && <div className="text-blue-200 text-[10px] uppercase tracking-wider px-3 mb-2">Navigation</div>}
+          {menuItems.map(item => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
+            return (
+              <Link key={item.href} href={item.href}>
+                <div className={`flex items-center gap-3 px-3 py-2 rounded-lg mb-1 transition-colors ${active ? 'bg-blue-600 text-white' : 'text-blue-100 hover:bg-white/10'}`}>
+                  <Icon className="w-5 h-5" />
+                  {!collapsed && <span className="text-sm">{item.label}</span>}
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Outils IA */}
+        <div className="mt-6 px-3">
+          {!collapsed && <div className="text-blue-200 text-[10px] uppercase tracking-wider px-3 mb-2">Outils IA</div>}
+          {toolItems.map(item => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
+            return (
+              <Link key={item.href} href={item.href}>
+                <div className={`flex items-center gap-3 px-3 py-2 rounded-lg mb-1 transition-colors ${active ? 'bg-blue-600 text-white' : 'text-blue-100 hover:bg-white/10'}`}>
+                  <Icon className="w-5 h-5" />
+                  {!collapsed && <span className="text-sm">{item.label}</span>}
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Section basse - Notification et Profil */}
+      <div className="flex-shrink-0 border-t border-white/10">
+        {/* Notification */}
+        <div className={`${collapsed ? 'py-3 flex justify-center' : 'px-5 py-3'}`}>
           <NotificationBell collapsed={collapsed} />
         </div>
 
-        {/* Navigation principale */}
-        <div style={{ padding: collapsed ? '16px 8px' : '20px 12px', flex: 1 }}>
-          {!collapsed && (
-            <div style={{
-              fontSize: '10px',
-              color: 'rgba(255,255,255,0.4)',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              padding: '0 10px 12px',
-            }}>
-              Navigation
-            </div>
-          )}
-          {menuItems.map(item => {
-            const active = isActive(item.href);
-            return (
-              <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: collapsed ? 'center' : 'flex-start',
-                  gap: collapsed ? '0' : '12px',
-                  padding: collapsed ? '12px' : '10px 12px',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  marginBottom: '4px',
-                  transition: 'all 0.2s',
-                  background: active ? 'rgba(59, 130, 246, 0.9)' : 'transparent',
-                  color: active ? '#fff' : 'rgba(255,255,255,0.7)',
-                }}>
-                  <i className={`ti ${item.icon}`} style={{ fontSize: '18px', flexShrink: 0 }} aria-hidden="true" />
-                  {!collapsed && <span style={{ fontSize: '13px', fontWeight: 500 }}>{item.label}</span>}
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* Outils */}
-        <div style={{ padding: collapsed ? '8px 8px' : '12px 12px' }}>
-          {!collapsed && (
-            <div style={{
-              fontSize: '10px',
-              color: 'rgba(255,255,255,0.4)',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              padding: '0 10px 12px',
-            }}>
-              Outils IA
-            </div>
-          )}
-          {toolItems.map(item => {
-            const active = isActive(item.href);
-            return (
-              <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: collapsed ? 'center' : 'flex-start',
-                  gap: collapsed ? '0' : '12px',
-                  padding: collapsed ? '12px' : '10px 12px',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  marginBottom: '4px',
-                  transition: 'all 0.2s',
-                  background: active ? 'rgba(59, 130, 246, 0.9)' : 'transparent',
-                  color: active ? '#fff' : 'rgba(255,255,255,0.7)',
-                }}>
-                  <i className={`ti ${item.icon}`} style={{ fontSize: '18px', flexShrink: 0 }} aria-hidden="true" />
-                  {!collapsed && <span style={{ fontSize: '13px', fontWeight: 500 }}>{item.label}</span>}
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* User profile + logout */}
-        <div style={{
-          marginTop: 'auto',
-          padding: collapsed ? '12px 12px' : '16px 16px',
-          borderTop: '0.5px solid rgba(255,255,255,0.12)',
-        }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: collapsed ? 'center' : 'space-between',
-            gap: collapsed ? '0' : '12px',
-            padding: collapsed ? '0' : '10px',
-            borderRadius: '12px',
-            background: 'rgba(255,255,255,0.06)',
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: collapsed ? '0' : '12px',
-              flex: collapsed ? 'none' : 1,
-            }}>
-              <div style={{
-                width: collapsed ? '36px' : '38px',
-                height: collapsed ? '36px' : '38px',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: collapsed ? '12px' : '14px',
-                fontWeight: 600,
-                color: '#fff',
-                flexShrink: 0,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-              }}>
-                {initials}
-              </div>
-              {!collapsed && (
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: '#fff',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}>
-                    {user ? `${user.prenom} ${user.nom}` : 'Invité'}
-                  </div>
-                  <div style={{
-                    fontSize: '10px',
-                    color: 'rgba(255,255,255,0.5)',
-                    marginTop: '2px',
-                  }}>
-                    {user?.role === 'mentor' ? 'Mentor' : 'Mentoré(e)'}
-                  </div>
-                </div>
-              )}
+        {/* User profile */}
+        <div className={`p-4 ${collapsed ? 'flex justify-center' : ''}`}>
+          <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
+            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+              {initials}
             </div>
             {!collapsed && (
-              <button
-                onClick={logout}
-                style={{
-                  background: 'rgba(239, 68, 68, 0.15)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  padding: '6px 10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  color: '#F87171',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                }}
-              >
-                <i className={`ti ${icons.logout}`} style={{ fontSize: '14px' }} aria-hidden="true" />
+              <>
+                <div className="flex-1">
+                  <div className="text-white text-sm font-medium">{user?.prenom} {user?.nom}</div>
+                  <div className="text-blue-200 text-xs">{user?.role === 'mentor' ? 'Mentor' : 'Mentoré'}</div>
+                </div>
+                <button onClick={logout} className="text-white/70 hover:text-white">
+                  <IconLogout className="w-5 h-5" />
+                </button>
+              </>
+            )}
+            {collapsed && (
+              <button onClick={logout} className="text-white/70 hover:text-white">
+                <IconLogout className="w-5 h-5" />
               </button>
             )}
           </div>
-          {collapsed && (
-            <button
-              onClick={logout}
-              style={{
-                width: '100%',
-                marginTop: '12px',
-                background: 'rgba(239, 68, 68, 0.15)',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                padding: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#F87171',
-              }}
-            >
-              <i className={`ti ${icons.logout}`} style={{ fontSize: '18px' }} aria-hidden="true" />
-            </button>
-          )}
         </div>
-      </aside>
-
-      {!collapsed && window.innerWidth < 768 && (
-        <div
-          onClick={toggleSidebar}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0,0,0,0.5)',
-            zIndex: 40,
-          }}
-        />
-      )}
-    </>
+      </div>
+    </aside>
   );
 }
