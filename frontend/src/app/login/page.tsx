@@ -85,6 +85,7 @@ function LoginForm() {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Connexion</h2>
               <p className="text-gray-600 dark:text-gray-400">Accédez à votre compte</p>
             </div>
+            
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>

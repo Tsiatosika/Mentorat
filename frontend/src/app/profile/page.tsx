@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, Briefcase, BookOpen, Save, Upload, Tag, Plus, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { mentorAPI, mentoreAPI, uploadAPI, BACKEND_URL } from '@/services/api';
 import toast from 'react-hot-toast';
-import Image from 'next/image';
 
 export default function ProfilePage() {
   const { user, updateUser } = useAuth();
+  const { t } = useLanguage();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -45,15 +46,7 @@ export default function ProfilePage() {
         const res = await mentorAPI.getProfile();
         const p = res.data.profile;
         setProfile(p);
-        // Mettre à jour la photo depuis le profil
-        const newPhotoUrl = p.photo_url || user?.photo_url || null;
-        setPhotoUrl(newPhotoUrl);
-        
-        // Synchroniser le contexte si nécessaire
-        if (newPhotoUrl !== user?.photo_url) {
-          updateUser({ ...user, photo_url: newPhotoUrl });
-        }
-        
+        setPhotoUrl(p.photo_url || user?.photo_url || null);
         setFormData({
           bio: p.bio || '',
           domaine: p.domaine || '',
@@ -67,13 +60,7 @@ export default function ProfilePage() {
         const res = await mentoreAPI.getProfile();
         const p = res.data.profile;
         setProfile(p);
-        const newPhotoUrl = p.photo_url || user?.photo_url || null;
-        setPhotoUrl(newPhotoUrl);
-        
-        if (newPhotoUrl !== user?.photo_url) {
-          updateUser({ ...user, photo_url: newPhotoUrl });
-        }
-        
+        setPhotoUrl(p.photo_url || user?.photo_url || null);
         setFormData({
           bio: '',
           domaine: p.domaine || '',
@@ -86,7 +73,7 @@ export default function ProfilePage() {
       }
     } catch (error) {
       console.error('Erreur chargement profil:', error);
-      toast.error('Erreur lors du chargement du profil');
+      toast.error(t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -112,51 +99,28 @@ export default function ProfilePage() {
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    if (!file.type.startsWith('image/')) {
-      toast.error('Veuillez sélectionner une image');
-      return;
-    }
-    
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Photo trop lourde (max 5 Mo)');
-      return;
-    }
-    
+    if (file.size > 5 * 1024 * 1024) { toast.error('Photo trop lourde (max 5 Mo)'); return; }
     try {
       const res = await uploadAPI.photo(file);
-      if (res.data.success) {
-        const newPhotoUrl = res.data.url;
-        setPhotoUrl(newPhotoUrl);
-        // Mettre à jour le contexte
-        updateUser({ ...user, photo_url: newPhotoUrl });
-        toast.success('Photo mise à jour');
-        // Recharger le profil pour être sûr
-        await fetchProfile();
-      }
-    } catch (error) {
-      console.error('Erreur upload:', error);
-      toast.error("Erreur lors de l'upload de la photo");
+      updateUser({ ...user, photo_url: res.data.url });
+      setPhotoUrl(res.data.url);
+      toast.success(t('common.success'));
+      fetchProfile();
+    } catch {
+      toast.error(t('common.error'));
     }
   };
 
   const handleCVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.type !== 'application/pdf') {
-      toast.error('Veuillez sélectionner un fichier PDF');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('CV trop lourd (max 5 Mo)');
-      return;
-    }
+    if (file.size > 5 * 1024 * 1024) { toast.error('CV trop lourd (max 5 Mo)'); return; }
     try {
       await uploadAPI.cv(file);
       toast.success('CV uploadé avec succès');
       fetchProfile();
     } catch {
-      toast.error("Erreur lors de l'upload du CV");
+      toast.error(t('common.error'));
     }
   };
 
@@ -179,10 +143,10 @@ export default function ProfilePage() {
           objectifs_tags: formData.objectifs_tags,
         });
       }
-      toast.success('Profil mis à jour — les recommandations IA vont se recalculer');
+      toast.success(t('common.success'));
       fetchProfile();
     } catch {
-      toast.error('Erreur lors de la mise à jour');
+      toast.error(t('common.error'));
     } finally {
       setSaving(false);
     }
@@ -203,52 +167,37 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-gray-50">
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
         <div className="max-w-4xl mx-auto px-4 py-8">
-          <h1 className="text-2xl font-bold">Mon profil</h1>
-          <p className="text-indigo-100 mt-1">Gérez vos informations personnelles</p>
+          <h1 className="text-2xl font-bold">{t('profile.title')}</h1>
+          <p className="text-indigo-100 mt-1">{t('profile.info')}</p>
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
-
-        {/* Carte photo */}
+        {/* Photo card */}
         <div className="bg-white rounded-xl shadow-md p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <User className="w-5 h-5 text-indigo-600" /> Photo de profil
+            <User className="w-5 h-5 text-indigo-600" /> {t('profile.photo')}
           </h2>
           <div className="flex items-center gap-4">
             <div className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0">
               {displayPhotoUrl ? (
-                <img 
-                  src={displayPhotoUrl} 
-                  alt="Photo de profil" 
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    // Si l'image ne charge pas, afficher les initiales
-                    e.currentTarget.style.display = 'none';
-                    e.currentTarget.parentElement!.innerHTML = `<span class="text-2xl font-bold text-white">${user?.prenom?.[0]}${user?.nom?.[0]}</span>`;
-                  }}
-                />
+                <img src={displayPhotoUrl} alt="Photo de profil" className="w-full h-full object-cover" />
               ) : (
                 <span className="text-2xl font-bold text-white">{user?.prenom?.[0]}{user?.nom?.[0]}</span>
               )}
             </div>
-            <div className="flex-1">
-              <label className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-indigo-300 rounded-lg cursor-pointer hover:border-indigo-500 transition-colors text-sm text-indigo-600 w-fit">
-                <Upload className="w-4 h-4" />
-                Changer la photo
-                <input type="file" accept="image/jpeg,image/png,image/jpg" className="hidden" onChange={handlePhotoUpload} />
-              </label>
-              <p className="text-xs text-gray-400 mt-2">Formats acceptés : JPG, PNG (max 5 Mo)</p>
-            </div>
+            <label className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-indigo-300 rounded-lg cursor-pointer hover:border-indigo-500 transition-colors text-sm text-indigo-600 w-fit">
+              <Upload className="w-4 h-4" />
+              {t('profile.photo')}
+              <input type="file" accept="image/jpeg,image/png,image/jpg" className="hidden" onChange={handlePhotoUpload} />
+            </label>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-
-          {/* Informations personnelles */}
           <div className="bg-white rounded-xl shadow-md p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <User className="w-5 h-5 text-indigo-600" /> Informations personnelles
+              <User className="w-5 h-5 text-indigo-600" /> {t('profile.info')}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -264,15 +213,11 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Profil spécifique au rôle */}
           <div className="bg-white rounded-xl shadow-md p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              {isMentor
-                ? <><Briefcase className="w-5 h-5 text-indigo-600" /> Informations professionnelles</>
-                : <><BookOpen className="w-5 h-5 text-indigo-600" /> Parcours académique</>
-              }
+              {isMentor ? <Briefcase className="w-5 h-5 text-indigo-600" /> : <BookOpen className="w-5 h-5 text-indigo-600" />}
+              {isMentor ? t('profile.experience') : t('profile.info')}
             </h2>
-
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Domaine</label>
@@ -390,7 +335,7 @@ export default function ProfilePage() {
             <button type="submit" disabled={saving}
               className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 font-medium">
               <Save className="w-4 h-4" />
-              {saving ? 'Enregistrement...' : 'Enregistrer les modifications'}
+              {saving ? t('common.saving') : t('profile.save')}
             </button>
           </div>
         </form>
