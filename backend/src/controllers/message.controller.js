@@ -1,12 +1,14 @@
 const { query } = require('../config/db');
 
+// ============================================
+// RÉCUPÉRER L'HISTORIQUE DES MESSAGES
+// ============================================
 const getMessagesBySession = async (req, res, next) => {
   const { session_id } = req.params;
   const { page = 1, limit = 50 } = req.query;
   const offset = (page - 1) * limit;
   
   try {
-    // Vérifier l'accès à la session
     let hasAccess = false;
     
     if (req.user.role === 'mentor') {
@@ -36,36 +38,30 @@ const getMessagesBySession = async (req, res, next) => {
     
     const result = await query(
       `SELECT m.id, m.session_id, m.expediteur_id, m.contenu, m.type_message, 
-              m.fichier_url, m.envoye_le, m.lu, m.lu_le,
+              m.fichier_url, m.envoye_le, m.lu,
               u.nom, u.prenom
        FROM messages m
        JOIN utilisateurs u ON u.id = m.expediteur_id
        WHERE m.session_id = $1
-       ORDER BY m.envoye_le DESC
+       ORDER BY m.envoye_le ASC
        LIMIT $2 OFFSET $3`,
       [session_id, limit, offset]
     );
     
-    const totalResult = await query(
-      'SELECT COUNT(*) FROM messages WHERE session_id = $1',
-      [session_id]
-    );
-    
     res.json({
       success: true,
-      messages: result.rows.reverse(),
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total: parseInt(totalResult.rows[0].count)
-      }
+      messages: result.rows
     });
     
   } catch (error) {
+    console.error('Erreur getMessagesBySession:', error);
     next(error);
   }
 };
 
+// ============================================
+// MARQUER LES MESSAGES COMME LUS
+// ============================================
 const markSessionAsRead = async (req, res, next) => {
   const { session_id } = req.params;
   
@@ -77,19 +73,17 @@ const markSessionAsRead = async (req, res, next) => {
       [session_id, req.user.id]
     );
     
-    res.json({
-      success: true,
-      message: 'Messages marqués comme lus'
-    });
-    
+    res.json({ success: true, message: 'Messages marqués comme lus' });
   } catch (error) {
     next(error);
   }
 };
 
+// ============================================
+// NOMBRE DE MESSAGES NON LUS
+// ============================================
 const getUnreadCount = async (req, res, next) => {
   try {
-    // Récupérer toutes les sessions de l'utilisateur
     let sessionsQuery;
     
     if (req.user.role === 'mentor') {
@@ -124,18 +118,77 @@ const getUnreadCount = async (req, res, next) => {
       [sessionIds, req.user.id]
     );
     
-    res.json({
-      success: true,
-      unread_count: parseInt(result.rows[0].count)
-    });
-    
+    res.json({ success: true, unread_count: parseInt(result.rows[0].count) });
   } catch (error) {
     next(error);
+  }
+};
+
+// ============================================
+// SUPPRIMER UN MESSAGE
+// ============================================
+const deleteMessage = async (req, res, next) => {
+  const { id } = req.params;
+  
+  console.log(`🗑️ DELETE /messages/${id} par utilisateur: ${req.user.id}`);
+  
+  try {
+    // Validation de l'ID
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'ID du message requis' });
+    }
+    
+    // Vérifier que le message existe et récupérer l'expéditeur
+    const messageCheck = await query(
+      'SELECT expediteur_id FROM messages WHERE id = $1',
+      [id]
+    );
+    
+    if (messageCheck.rows.length === 0) {
+      console.log(`❌ Message ${id} non trouvé`);
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Message non trouvé' 
+      });
+    }
+    
+    // Vérifier que l'utilisateur est l'expéditeur
+    if (messageCheck.rows[0].expediteur_id !== req.user.id) {
+      console.log(`❌ Non autorisé: ${req.user.id} vs ${messageCheck.rows[0].expediteur_id}`);
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Vous ne pouvez supprimer que vos propres messages' 
+      });
+    }
+    
+    // Supprimer le message
+    const deleteResult = await query('DELETE FROM messages WHERE id = $1', [id]);
+    
+    if (deleteResult.rowCount === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Message non trouvé' 
+      });
+    }
+    
+    console.log(`✅ Message ${id} supprimé avec succès`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Message supprimé avec succès'
+    });
+  } catch (error) {
+    console.error('❌ Erreur suppression message:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur lors de la suppression: ' + error.message
+    });
   }
 };
 
 module.exports = {
   getMessagesBySession,
   markSessionAsRead,
-  getUnreadCount
+  getUnreadCount,
+  deleteMessage
 };

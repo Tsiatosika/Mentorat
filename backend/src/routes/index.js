@@ -24,10 +24,9 @@ router.use('/rapports',       rapportRoutes);
 router.use('/competences',    competencesRoutes);
 router.use('/disponibilites', disponibiliteRoutes);
 router.use('/upload',         uploadRoutes);
-router.use('/notifications', notificationRoutes);
+router.use('/notifications',  notificationRoutes);
 
-
-
+// Routes mentors protégées
 router.get('/mentors/profile/me',
   authenticate, authorize('mentor'),
   mentorController.getProfile);
@@ -47,9 +46,9 @@ router.delete('/mentors/competences/:competence_id',
 // Routes publiques APRÈS les routes fixes
 router.get('/mentors',        mentorController.searchMentors);
 router.get('/mentors/search', mentorController.searchMentors);
-router.get('/mentors/:id',    mentorController.getMentorById);  // ← en dernier
+router.get('/mentors/:id',    mentorController.getMentorById);
 
-// ── MENTORÉS ─────────────────────────────────────────────────────────────────
+// Routes mentorés
 router.get('/mentores/profile/me',
   authenticate, authorize('mentore'),
   mentoreController.getProfile);
@@ -62,7 +61,7 @@ router.get('/mentores/progression',
   authenticate, authorize('mentore'),
   mentoreController.getProgression);
 
-// ── TEST ──────────────────────────────────────────────────────────────────────
+// Routes de test
 router.get('/ping', (req, res) => {
   res.json({ success: true, message: 'pong', timestamp: new Date().toISOString() });
 });

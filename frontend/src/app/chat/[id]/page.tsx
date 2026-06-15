@@ -3,13 +3,20 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, User, Download, File, X, Paperclip, Send, Smile } from 'lucide-react';
+import { 
+  ArrowLeft, Download, File, X, Paperclip, Send, Smile, Video, 
+  Phone, Trash2, MoreVertical
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { sessionAPI } from '@/services/api';
+import { sessionAPI, messageAPI } from '@/services/api';
 import { uploadFile } from '@/services/uploadService';
 import { io, Socket } from 'socket.io-client';
 import toast from 'react-hot-toast';
 import EmojiPicker from 'emoji-picker-react';
+import { SimpleJitsi } from '@/components/video/SimpleJitsi';
+import { IncomingCallModal } from '@/components/video/IncomingCallModal';
+import { CallHistory, saveCallRecord } from '@/components/video/CallHistory';
+import { useSound } from '@/hooks/useSound';
 
 interface Message {
   id: string;
@@ -29,6 +36,7 @@ export default function ChatPage() {
   const router = useRouter();
   const { user } = useAuth();
   const sessionId = params.id as string;
+  const { playRingtone, stopRingtone } = useSound();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -40,11 +48,41 @@ export default function ChatPage() {
   const [filePreviews, setFilePreviews] = useState<{ url: string; name: string; type: string }[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showVideo, setShowVideo] = useState(false);
+  const [incomingCall, setIncomingCall] = useState<{ from: string; fromName: string; roomName: string } | null>(null);
+  const [otherUserId, setOtherUserId] = useState<string | null>(null);
+  const [otherUserName, setOtherUserName] = useState<string>('');
+  const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const callStartTimeRef = useRef<number | null>(null);
 
   const BACKEND_URL = 'http://localhost:5000';
+
+  // Récupérer l'autre participant
+  useEffect(() => {
+    const fetchOtherUser = async () => {
+      try {
+        const response = await sessionAPI.getById(sessionId);
+        const session = response.data.session;
+        
+        if (user?.role === 'mentor') {
+          setOtherUserId(session.mentore_user_id);
+          setOtherUserName(`${session.mentore_prenom} ${session.mentore_nom}`);
+        } else {
+          setOtherUserId(session.mentor_user_id);
+          setOtherUserName(`${session.mentor_prenom} ${session.mentor_nom}`);
+        }
+      } catch (error) {
+        console.error('Erreur:', error);
+      }
+    };
+    
+    if (sessionId && user) {
+      fetchOtherUser();
+    }
+  }, [sessionId, user]);
 
   useEffect(() => {
     if (!user) {
@@ -54,6 +92,19 @@ export default function ChatPage() {
     initSocket();
     return () => { if (socket) socket.disconnect(); };
   }, [user, router, sessionId]);
+
+  // Gestion de la durée d'appel
+  useEffect(() => {
+    if (showVideo) {
+      callStartTimeRef.current = Date.now();
+    } else if (callStartTimeRef.current) {
+      const duration = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
+      if (duration > 0 && otherUserId && otherUserName) {
+        saveCallRecord(otherUserId, otherUserName, duration, 'sortant', true);
+      }
+      callStartTimeRef.current = null;
+    }
+  }, [showVideo, otherUserId, otherUserName]);
 
   const initSocket = () => {
     const token = localStorage.getItem('token');
@@ -84,7 +135,57 @@ export default function ChatPage() {
       setOtherTyping(data.is_typing);
     });
     
+    // Suppression de message
+    newSocket.on('message_deleted', (data) => {
+      setMessages(prev => prev.filter(m => m.id !== data.messageId));
+      toast('Message supprimé', { icon: '🗑️' });
+    });
+    
+    // Appels entrants
+    newSocket.on('incoming_call', (data) => {
+      console.log('📞 Appel entrant:', data);
+      playRingtone();
+      setIncomingCall({
+        from: data.from,
+        fromName: data.fromName,
+        roomName: data.roomName
+      });
+    });
+    
+    newSocket.on('call_accepted', (data) => {
+      console.log('✅ Appel accepté');
+      stopRingtone();
+      toast.success('Appel accepté !');
+      setShowVideo(true);
+    });
+    
+    newSocket.on('call_rejected', () => {
+      console.log('❌ Appel refusé');
+      stopRingtone();
+      toast.error('Appel refusé');
+      if (otherUserId && otherUserName) {
+        saveCallRecord(otherUserId, otherUserName, 0, 'sortant', false);
+      }
+    });
+    
+    newSocket.on('call_ended', () => {
+      console.log('🔚 Appel terminé par l\'autre');
+      setShowVideo(false);
+      toast('Appel terminé', { icon: '📞' });
+    });
+    
+    newSocket.on('call_error', (error) => {
+      console.error('Erreur appel:', error);
+      stopRingtone();
+      toast.error(error.message);
+    });
+    
+    newSocket.on('call_initiated', (data) => {
+      console.log('📞 Appel initié:', data);
+    });
+    
     newSocket.on('error', (error) => {
+      console.error('Socket error:', error);
       toast.error(error.message);
       setSending(false);
       setUploading(false);
@@ -281,6 +382,21 @@ export default function ChatPage() {
     }
   };
 
+  const deleteMessage = async (messageId: string) => {
+    if (!socket) return;
+    
+    try {
+      await messageAPI.deleteMessage(messageId);
+      socket.emit('delete_message', { messageId, sessionId });
+      setMessages(prev => prev.filter(m => m.id !== messageId));
+      toast.success('Message supprimé');
+    } catch (error) {
+      console.error('Erreur suppression:', error);
+      toast.error('Impossible de supprimer ce message');
+    }
+    setMenuOpenFor(null);
+  };
+
   const getFullUrl = (url: string) => {
     if (!url) return '';
     if (url.startsWith('http')) return url;
@@ -289,6 +405,70 @@ export default function ChatPage() {
 
   const isImageFile = (url: string) => {
     return url?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+  };
+
+  const startCall = () => {
+    if (!socket) {
+      toast.error('Connexion socket non établie');
+      return;
+    }
+    
+    if (!otherUserId) {
+      toast.error('Impossible de trouver l\'autre participant');
+      return;
+    }
+    
+    console.log('📞 Lancement appel vers:', otherUserId);
+    
+    socket.emit('call_user', {
+      to: otherUserId,
+      roomName: sessionId,
+      callerName: `${user?.prenom} ${user?.nom}`
+    });
+    
+    setShowVideo(true);
+    toast.success('Appel en cours...');
+  };
+
+  const acceptCall = () => {
+    if (incomingCall && socket) {
+      stopRingtone();
+      console.log('✅ Acceptation appel de:', incomingCall.from);
+      socket.emit('accept_call', { to: incomingCall.from, roomName: incomingCall.roomName });
+      setShowVideo(true);
+      setIncomingCall(null);
+    }
+  };
+
+  const rejectCall = () => {
+    if (incomingCall && socket) {
+      stopRingtone();
+      console.log('❌ Refus appel de:', incomingCall.from);
+      socket.emit('reject_call', { to: incomingCall.from });
+      setIncomingCall(null);
+      if (otherUserId && otherUserName) {
+        saveCallRecord(otherUserId, otherUserName, 0, 'entrant', false);
+      }
+    }
+  };
+
+  const endCall = () => {
+    if (socket && otherUserId) {
+      socket.emit('end_call', { to: otherUserId });
+    }
+    setShowVideo(false);
+  };
+
+  const handleCallBack = (contactId: string, contactName: string) => {
+    if (socket && contactId) {
+      socket.emit('call_user', {
+        to: contactId,
+        roomName: sessionId,
+        callerName: `${user?.prenom} ${user?.nom}`
+      });
+      setShowVideo(true);
+      toast.success(`Appel vers ${contactName}...`);
+    }
   };
 
   if (loading) {
@@ -303,17 +483,37 @@ export default function ChatPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Modal d'appel entrant */}
+      {incomingCall && (
+        <IncomingCallModal
+          callerName={incomingCall.fromName}
+          onAccept={acceptCall}
+          onReject={rejectCall}
+        />
+      )}
+
       {/* Header */}
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white sticky top-0 z-10 shadow-md">
         <div className="max-w-5xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Link href="/chat" className="hover:text-indigo-200 transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div>
-              <h1 className="font-semibold">Chat</h1>
-              <p className="text-sm text-indigo-200">Session de mentorat</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link href="/chat" className="hover:text-indigo-200 transition-colors">
+                <ArrowLeft className="w-5 h-5" />
+              </Link>
+              <div>
+                <h1 className="font-semibold">Chat</h1>
+                <p className="text-sm text-indigo-200">Session de mentorat</p>
+              </div>
             </div>
+            
+            <button
+              onClick={startCall}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+              title="Appel vidéo"
+            >
+              <Video className="w-5 h-5" />
+              <span className="text-sm font-medium">Appel vidéo</span>
+            </button>
           </div>
         </div>
       </div>
@@ -333,7 +533,7 @@ export default function ChatPage() {
               const isFile = message.type_message === 'fichier' && message.fichier_url;
               
               return (
-                <div key={message.id || index} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                <div key={message.id || index} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group relative`}>
                   <div className={`max-w-[70%] rounded-2xl px-4 py-2 ${
                     isOwn
                       ? 'bg-indigo-600 text-white'
@@ -368,12 +568,35 @@ export default function ChatPage() {
                       <p className="text-sm break-words whitespace-pre-wrap">{message.contenu}</p>
                     )}
                     
-                    <p className={`text-xs mt-1 ${isOwn ? 'text-indigo-200' : 'text-gray-400'}`}>
-                      {new Date(message.envoye_le).toLocaleTimeString('fr-FR', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </p>
+                    <div className="flex items-center justify-between gap-2 mt-1">
+                      <p className={`text-xs ${isOwn ? 'text-indigo-200' : 'text-gray-400'}`}>
+                        {new Date(message.envoye_le).toLocaleTimeString('fr-FR', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                      {isOwn && (
+                        <button
+                          onClick={() => setMenuOpenFor(menuOpenFor === message.id ? null : message.id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <MoreVertical className="w-3 h-3 text-gray-400 hover:text-red-500" />
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Menu de suppression */}
+                    {isOwn && menuOpenFor === message.id && (
+                      <div className="absolute right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-100 overflow-hidden z-10">
+                        <button
+                          onClick={() => deleteMessage(message.id)}
+                          className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 w-full transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Supprimer
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -439,11 +662,21 @@ export default function ChatPage() {
         </div>
       )}
 
+      {/* Visioconférence */}
+      {showVideo && (
+        <SimpleJitsi
+          roomName={sessionId}
+          userName={`${user?.prenom} ${user?.nom}`}
+          contactName={otherUserName}
+          contactId={otherUserId || undefined}
+          onClose={endCall}
+        />
+      )}
+
       {/* Zone de saisie */}
       <div className="bg-white border-t border-gray-200 sticky bottom-0 shadow-lg">
         <div className="max-w-5xl mx-auto px-4 py-3">
           
-          {/* Aperçu des fichiers sélectionnés */}
           {filePreviews.length > 0 && (
             <div className="mb-3 p-3 bg-gray-100 rounded-xl">
               <div className="flex flex-wrap gap-2">
@@ -469,7 +702,6 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* Input principal */}
           <div className="flex gap-3">
             <button
               onClick={() => fileInputRef.current?.click()}
@@ -526,7 +758,6 @@ export default function ChatPage() {
             </button>
           </div>
           
-          {/* Picker emoji */}
           {showEmojiPicker && (
             <div className="absolute bottom-20 right-4 z-50">
               <div className="relative">
@@ -540,9 +771,42 @@ export default function ChatPage() {
               </div>
             </div>
           )}
-        
+          
+          <p className="text-xs text-gray-400 mt-2 text-center">
+            😊 Emojis | 📎 Fichiers | 🎥 Appel vidéo | ⏎ Envoyer
+          </p>
         </div>
       </div>
+
+      {/* Historique des appels (comme dans Messenger) */}
+      {!showVideo && (
+        <div className="max-w-5xl mx-auto px-4 pb-4">
+          <CallHistory onCallBack={handleCallBack} />
+        </div>
+      )}
     </div>
   );
 }
+
+// Remplacer la fonction deleteMessage par:
+const deleteMessage = async (messageId: string) => {
+  if (!socket) return;
+  
+  try {
+    console.log('🗑️ Suppression du message:', messageId);
+    const response = await messageAPI.deleteMessage(messageId);
+    console.log('Réponse:', response.data);
+    
+    if (response.data.success) {
+      // Supprimer localement
+      setMessages(prev => prev.filter(m => m.id !== messageId));
+      // Notifier via socket
+      socket.emit('delete_message', { messageId, sessionId });
+      toast.success('Message supprimé');
+    }
+  } catch (error) {
+    console.error('Erreur suppression:', error);
+    toast.error('Impossible de supprimer ce message');
+  }
+  setMenuOpenFor(null);
+};

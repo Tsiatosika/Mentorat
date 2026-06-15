@@ -62,15 +62,14 @@ export const competenceAPI = {
   getById: (id: string)  => api.get(`/competences/${id}`),
 };
 
-// SESSION API - ROUTES CORRIGÉES
 export const sessionAPI = {
   getAll:   (params?: any)               => api.get('/sessions', { params }),
   getById:  (id: string)                 => api.get(`/sessions/${id}`),
   create:   (data: any)                  => api.post('/sessions', data),
-  confirm:  (id: string)                 => api.put(`/sessions/${id}/confirm`),    // ← confirm (pas confirmer)
-  cancel:   (id: string, raison?: string) => api.put(`/sessions/${id}/cancel`, { raison }),  // ← cancel (pas annuler)
-  start:    (id: string)                 => api.put(`/sessions/${id}/start`),      // ← start (pas demarrer)
-  complete: (id: string, data: any)      => api.put(`/sessions/${id}/complete`, data), // ← complete (pas terminer)
+  confirm:  (id: string)                 => api.put(`/sessions/${id}/confirm`),
+  cancel:   (id: string, raison?: string) => api.put(`/sessions/${id}/cancel`, { raison }),
+  start:    (id: string)                 => api.put(`/sessions/${id}/start`),
+  complete: (id: string, data: any)      => api.put(`/sessions/${id}/complete`, data),
   addVisio: (id: string, lien: string)   => api.put(`/sessions/${id}/visio`, { lien_visio: lien }),
 };
 
@@ -80,6 +79,7 @@ export const messageAPI = {
   markAsRead:     (sessionId: string) =>
     api.put(`/messages/session/${sessionId}/read`),
   getUnreadCount: () => api.get('/messages/unread/count'),
+  deleteMessage:  (id: string) => api.delete(`/messages/${id}`),
 };
 
 export const matchingAPI = {
