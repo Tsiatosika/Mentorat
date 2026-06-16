@@ -3,6 +3,7 @@ const router = express.Router();
 const { authenticate } = require('../middlewares/auth');
 const notificationController = require('../controllers/notification.controller');
 
+// Toutes les routes nécessitent authentification
 router.use(authenticate);
 
 router.get('/', notificationController.getNotifications);

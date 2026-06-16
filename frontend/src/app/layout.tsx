@@ -7,6 +7,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { Toaster } from 'react-hot-toast';
 import Sidebar from '@/components/layout/Sidebar';
+import { TopNavbar } from '@/components/layout/TopNavbar';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
@@ -37,22 +38,30 @@ export default function RootLayout({
   return (
     <html lang="fr" className={inter.className} suppressHydrationWarning>
       <body className="antialiased">
-        <LanguageProvider>
-          <ThemeProvider>
+        <ThemeProvider>
+          <LanguageProvider>
             <AuthProvider>
-              <div className="flex min-h-screen">
-                {showSidebar && <Sidebar onCollapseChange={setSidebarCollapsed} />}
-                <main 
-                  className="flex-1 transition-all duration-300"
-                  style={{ marginLeft: showSidebar ? sidebarWidth : '0' }}
-                >
-                  {children}
-                </main>
+              <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+                {/* Top Navbar (toujours visible) */}
+                {showSidebar && <TopNavbar />}
+                
+                {/* Sidebar + Content */}
+                <div className="flex">
+                  {showSidebar && <Sidebar onCollapseChange={setSidebarCollapsed} />}
+                  <main 
+                    className="flex-1 transition-all duration-300"
+                    style={{ marginLeft: showSidebar ? sidebarWidth : '0' }}
+                  >
+                    <div className="p-6">
+                      {children}
+                    </div>
+                  </main>
+                </div>
               </div>
               <Toaster position="top-right" />
             </AuthProvider>
-          </ThemeProvider>
-        </LanguageProvider>
+          </LanguageProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

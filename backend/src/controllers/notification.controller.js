@@ -1,5 +1,8 @@
 const { query } = require('../config/db');
 
+// ============================================
+// RÉCUPÉRER LES NOTIFICATIONS
+// ============================================
 const getNotifications = async (req, res, next) => {
   try {
     const result = await query(
@@ -11,13 +14,19 @@ const getNotifications = async (req, res, next) => {
       [req.user.id]
     );
 
-    res.json({ success: true, notifications: result.rows });
+    res.json({
+      success: true,
+      notifications: result.rows
+    });
   } catch (error) {
     console.error('Erreur getNotifications:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
+// ============================================
+// MARQUER UNE NOTIFICATION COMME LUE
+// ============================================
 const markAsRead = async (req, res, next) => {
   const { id } = req.params;
 
@@ -36,6 +45,9 @@ const markAsRead = async (req, res, next) => {
   }
 };
 
+// ============================================
+// MARQUER TOUTES LES NOTIFICATIONS COMME LUES
+// ============================================
 const markAllAsRead = async (req, res, next) => {
   try {
     await query(
@@ -52,26 +64,8 @@ const markAllAsRead = async (req, res, next) => {
   }
 };
 
-const createNotification = async (userId, type, titre, message, lien = null) => {
-  try {
-    // Récupérer le prénom et nom de l'expéditeur si nécessaire
-    const result = await query(
-      `INSERT INTO notifications (utilisateur_id, type, titre, message, lien, created_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())
-       RETURNING id`,
-      [userId, type, titre, message, lien]
-    );
-    console.log(`✅ Notification créée pour ${userId}: ${titre}`);
-    return result.rows[0].id;
-  } catch (error) {
-    console.error('❌ Erreur createNotification:', error);
-    return null;
-  }
-};
-
 module.exports = {
   getNotifications,
   markAsRead,
-  markAllAsRead,
-  createNotification
+  markAllAsRead
 };
