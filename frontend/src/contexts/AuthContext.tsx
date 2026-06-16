@@ -3,7 +3,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '@/types';
 import api from '@/services/api';
-import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
 interface AuthContextType {
@@ -28,7 +27,6 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -48,13 +46,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await api.post('/auth/login', { email, mot_de_passe: password });
+      const response = await api.post('/auth/login', { 
+        email, 
+        mot_de_passe: password 
+      });
+      
       if (response.data.success) {
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
         setUser(response.data.user);
-        toast.success('Connexion réussie !');
-        router.push('/dashboard');
+        toast.success('Connexion réussie');
       } else {
         throw new Error(response.data.message || 'Erreur de connexion');
       }
@@ -74,12 +75,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         mot_de_passe: data.mot_de_passe,
         role: data.role
       });
+      
       if (response.data.success) {
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
         setUser(response.data.user);
-        toast.success('Inscription réussie !');
-        router.push('/dashboard');
+        toast.success('Inscription réussie');
       } else {
         throw new Error(response.data.message || 'Erreur d\'inscription');
       }
@@ -91,15 +92,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    // Supprimer les données du localStorage
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
-    
-    // Rediriger vers la page d'accueil
-    router.push('/');
-    
-    // Afficher un message de confirmation
+    // Rediriger vers l'accueil, pas vers login
+    window.location.href = '/';
     toast.success('Déconnexion réussie');
   };
 

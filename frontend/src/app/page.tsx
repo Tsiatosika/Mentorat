@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Users, Calendar, MessageCircle, Award, ArrowRight, Sparkles, Shield, Clock, Video, Star } from 'lucide-react';
+import { Users, Calendar, MessageCircle, Award, ArrowRight, Sparkles, Shield, Clock, Video, Star, Search } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { publicAPI } from '@/services/api';
 
@@ -72,16 +72,43 @@ export default function Home() {
             <p className="text-lg text-blue-100 mb-8 max-w-2xl mx-auto">
               Rejoignez notre communauté et accélérez votre apprentissage grâce à un mentorat personnalisé avec matching IA
             </p>
-            {!user && (
-              <div className="flex flex-wrap gap-4 justify-center">
-                <Link href="/register" className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg">
-                  Commencer gratuitement <ArrowRight className="w-4 h-4" />
-                </Link>
-                <Link href="/mentors" className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 text-white border border-white/30 rounded-lg font-semibold hover:bg-white/20 transition-colors">
-                  Voir les mentors
-                </Link>
-              </div>
-            )}
+
+            {/* Boutons d'action */}
+            <div className="flex flex-wrap gap-4 justify-center">
+              {!user ? (
+                <>
+                  <Link
+                    href="/mentors"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg"
+                  >
+                    <Search className="w-5 h-5" />
+                    Trouver un mentor
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 text-white border border-white/30 rounded-lg font-semibold hover:bg-white/20 transition-colors"
+                  >
+                    Commencer gratuitement
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/mentors"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg"
+                  >
+                    <Search className="w-5 h-5" />
+                    Trouver un mentor
+                  </Link>
+                  <Link
+                    href="/dashboard"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 text-white border border-white/30 rounded-lg font-semibold hover:bg-white/20 transition-colors"
+                  >
+                    Tableau de bord
+                  </Link>
+                </>
+              )}
+            </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16">
               <div className="text-center">
@@ -171,9 +198,20 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold text-white mb-3">Prêt à commencer votre parcours ?</h2>
           <p className="text-blue-200 mb-6">Rejoignez des milliers d'étudiants qui ont déjà trouvé leur mentor idéal</p>
-          {!user && (
-            <Link href="/register" className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg">
+          {!user ? (
+            <Link
+              href="/register"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg"
+            >
               Inscription gratuite <ArrowRight className="w-4 h-4" />
+            </Link>
+          ) : (
+            <Link
+              href="/mentors"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg"
+            >
+              <Search className="w-5 h-5" />
+              Trouver un mentor
             </Link>
           )}
         </div>

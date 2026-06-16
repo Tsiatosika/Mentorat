@@ -3,28 +3,29 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { NotificationBell } from './NotificationBell';
-import { Bell, LogOut, Sun, Moon, Globe, ChevronDown, User } from 'lucide-react';
+import { Bell, LogOut, Sun, Moon, Globe, ChevronDown, User, LogIn, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 
 export function TopNavbar() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
-  const router = useRouter();
   const [showLangDropdown, setShowLangDropdown] = useState(false);
 
   return (
-    <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+    <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo / Titre (gauche) */}
-          <div className="flex items-center space-x-3">
+          <Link href="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
               <span className="text-lg">🎓</span>
             </div>
-          </div>
+            <span className="text-lg font-bold text-gray-900 dark:text-white">MentorIPath</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">UAZ — Informatique</span>
+          </Link>
 
           {/* Actions (droite) */}
           <div className="flex items-center space-x-2">
@@ -80,10 +81,28 @@ export function TopNavbar() {
               )}
             </button>
 
-            {/* Notifications */}
-            <NotificationBell />
+            {/* Notifications - seulement si connecté */}
+            {user && <NotificationBell />}
 
-            {/* Profil utilisateur */}
+            {/* Connexion / Inscription - si déconnecté */}
+            {!user && (
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/login"
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Connexion
+                </Link>
+                <Link
+                  href="/register"
+                  className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm"
+                >
+                  Inscription
+                </Link>
+              </div>
+            )}
+
+            {/* Profil utilisateur - si connecté */}
             {user && (
               <div className="flex items-center gap-2 ml-2">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center">
