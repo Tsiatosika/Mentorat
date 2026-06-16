@@ -16,6 +16,7 @@ const mentorController  = require('../controllers/mentor.controller');
 const mentoreController = require('../controllers/mentore.controller');
 const { authenticate, authorize } = require('../middlewares/auth');
 
+// Routes principales
 router.use('/auth',           authRoutes);
 router.use('/sessions',       sessionRoutes);
 router.use('/messages',       messageRoutes);

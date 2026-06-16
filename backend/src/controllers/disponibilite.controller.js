@@ -206,30 +206,54 @@ const deleteDisponibilite = async (req, res, next) => {
   }
 };
 
+// CORRECTION : Accepter à la fois l'ID utilisateur et l'ID profil mentor
 const getDisponibilitesByMentorId = async (req, res, next) => {
   const { mentorId } = req.params;
 
   try {
-    // Vérifier que le mentor existe
-    const mentorResult = await query(
-      `SELECT u.id, u.nom, u.prenom 
-       FROM utilisateurs u
-       JOIN profils_mentor pm ON pm.utilisateur_id = u.id
+    let mentorProfilId = null;
+    let mentorInfo = null;
+
+    // 1. Essayer d'abord avec l'ID comme utilisateur_id
+    let result = await query(
+      `SELECT pm.id as profil_id, u.id, u.nom, u.prenom 
+       FROM profils_mentor pm
+       JOIN utilisateurs u ON u.id = pm.utilisateur_id
        WHERE u.id = $1 AND u.role = 'mentor' AND u.actif = true`,
       [mentorId]
     );
 
-    if (mentorResult.rows.length === 0) {
+    if (result.rows.length > 0) {
+      mentorProfilId = result.rows[0].profil_id;
+      mentorInfo = result.rows[0];
+    } else {
+      // 2. Essayer avec l'ID comme profil_id
+      result = await query(
+        `SELECT pm.id as profil_id, u.id, u.nom, u.prenom 
+         FROM profils_mentor pm
+         JOIN utilisateurs u ON u.id = pm.utilisateur_id
+         WHERE pm.id = $1 AND u.role = 'mentor' AND u.actif = true`,
+        [mentorId]
+      );
+      
+      if (result.rows.length > 0) {
+        mentorProfilId = result.rows[0].profil_id;
+        mentorInfo = result.rows[0];
+      }
+    }
+
+    if (!mentorProfilId || !mentorInfo) {
       return res.status(404).json({
         success: false,
         message: 'Mentor non trouvé'
       });
     }
 
-    const result = await query(
+    // Récupérer les disponibilités
+    const disponibilitesResult = await query(
       `SELECT id, jour_semaine, heure_debut, heure_fin, recurrent
        FROM disponibilites
-       WHERE mentor_id = (SELECT id FROM profils_mentor WHERE utilisateur_id = $1)
+       WHERE mentor_id = $1
        ORDER BY 
          CASE jour_semaine
            WHEN 'lundi' THEN 1
@@ -241,16 +265,21 @@ const getDisponibilitesByMentorId = async (req, res, next) => {
            WHEN 'dimanche' THEN 7
          END,
          heure_debut`,
-      [mentorId]
+      [mentorProfilId]
     );
 
     res.json({
       success: true,
-      mentor: mentorResult.rows[0],
-      disponibilites: result.rows
+      mentor: {
+        id: mentorInfo.id,
+        nom: mentorInfo.nom,
+        prenom: mentorInfo.prenom
+      },
+      disponibilites: disponibilitesResult.rows
     });
   } catch (error) {
-    next(error);
+    console.error('Erreur getDisponibilitesByMentorId:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

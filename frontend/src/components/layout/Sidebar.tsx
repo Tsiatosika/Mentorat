@@ -9,15 +9,15 @@ import { useState, useEffect } from 'react';
 import { NotificationBell } from './NotificationBell';
 import { 
   Home, LayoutDashboard, Users, Calendar, MessageCircle, FileText, 
-  Brain, UserCircle, Clock, LogOut, Menu, ChevronLeft, ChevronRight, 
-  GraduationCap, Sun, Moon, Languages
+  Brain, UserCircle, Clock, LogOut, ChevronLeft, ChevronRight, 
+  GraduationCap, Sun, Moon
 } from 'lucide-react';
 
 const menuItems = [
   { labelKey: 'nav.home', href: '/', icon: Home },
   { labelKey: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
   { labelKey: 'nav.mentors', href: '/mentors', icon: Users },
-  { labelKey: 'nav.sessions', href: '/sessions', icon: Calendar },
+  { labelKey: 'nav.sessions', href: '/sessions', icon: Clock },
   { labelKey: 'nav.chat', href: '/chat', icon: MessageCircle },
   { labelKey: 'nav.reports', href: '/reports', icon: FileText },
 ];
@@ -107,7 +107,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
           </div>
           {!collapsed && (
             <div>
-              <div style={{ fontSize: '15px', fontWeight: 600, color: '#fff' }}>MentoriPath</div>
+              <div style={{ fontSize: '15px', fontWeight: 600, color: '#fff' }}>MentorIPath</div>
               <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.45)' }}>UAZ — Informatique</div>
             </div>
           )}
