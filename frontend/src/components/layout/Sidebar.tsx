@@ -10,25 +10,6 @@ import {
   GraduationCap
 } from 'lucide-react';
 
-const menuItems = [
-  { label: 'Accueil', href: '/', icon: Home },
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Mentors', href: '/mentors', icon: Users },
-  { label: 'Sessions', href: '/sessions', icon: Calendar },
-  { label: 'Chat', href: '/chat', icon: MessageCircle },
-  { label: 'Rapports', href: '/reports', icon: FileText },
-];
-
-const toolItems = [
-  { label: 'Matching IA', href: '/matching', icon: Brain },
-  { label: 'Mon profil', href: '/profile', icon: UserCircle },
-];
-
-// Pour les mentors uniquement
-const mentorItems = [
-  { label: 'Mes disponibilités', href: '/disponibilites', icon: Clock },
-];
-
 interface SidebarProps {
   onCollapseChange?: (collapsed: boolean) => void;
 }
@@ -40,6 +21,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
   const [mounted, setMounted] = useState(false);
 
   const isMentor = user?.role === 'mentor';
+  const isMentore = user?.role === 'mentore';
 
   useEffect(() => {
     const saved = localStorage.getItem('sidebar-collapsed');
@@ -66,6 +48,59 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
   const sidebarWidth = collapsed ? '72px' : '260px';
 
   if (!mounted) return null;
+
+  // Menu commun à tous les utilisateurs connectés
+  const commonMenuItems = [
+    { label: 'Accueil', href: '/', icon: Home },
+    { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  ];
+
+  // Menu pour les mentorés
+  const mentoreMenuItems = [
+    { label: 'Mentors', href: '/mentors', icon: Users },
+  ];
+
+  // Menu pour les mentors
+  const mentorMenuItems = [
+    { label: 'Mes disponibilités', href: '/disponibilites', icon: Clock },
+  ];
+
+  // Menu commun (sessions, chat, rapports)
+  const commonMenuItems2 = [
+    { label: 'Sessions', href: '/sessions', icon: Calendar },
+    { label: 'Chat', href: '/chat', icon: MessageCircle },
+    { label: 'Rapports', href: '/reports', icon: FileText },
+  ];
+
+  // Outils communs (profil uniquement)
+  const commonToolItems = [
+    { label: 'Mon profil', href: '/profile', icon: UserCircle },
+  ];
+
+  // Outils pour mentorés (Matching IA)
+  const mentoreToolItems = [
+    { label: 'Matching IA', href: '/matching', icon: Brain },
+  ];
+
+  // Construire le menu selon le rôle
+  let menuItems = [...commonMenuItems];
+  
+  if (isMentore) {
+    menuItems = [...menuItems, ...mentoreMenuItems];
+  }
+  
+  if (isMentor) {
+    menuItems = [...menuItems, ...mentorMenuItems];
+  }
+  
+  menuItems = [...menuItems, ...commonMenuItems2];
+
+  // Construire les outils selon le rôle
+  let toolItems = [...commonToolItems];
+  
+  if (isMentore) {
+    toolItems = [...toolItems, ...mentoreToolItems];
+  }
 
   return (
     <aside style={{
@@ -170,11 +205,11 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
         })}
       </div>
 
-      {/* Outils IA */}
+      {/* Outils */}
       <div style={{ padding: collapsed ? '8px 8px' : '12px 12px' }}>
-        {!collapsed && (
+        {!collapsed && toolItems.length > 0 && (
           <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', padding: '0 10px 12px' }}>
-            Outils IA
+            Outils
           </div>
         )}
         {toolItems.map(item => {
@@ -200,40 +235,6 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
             </Link>
           );
         })}
-        
-        {/* Menu pour les mentors */}
-        {isMentor && (
-          <>
-            {!collapsed && (
-              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', padding: '0 10px 12px', marginTop: '12px' }}>
-                Mentor
-              </div>
-            )}
-            {mentorItems.map(item => {
-              const Icon = item.icon;
-              const active = isActive(item.href);
-              return (
-                <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: collapsed ? 'center' : 'flex-start',
-                    gap: collapsed ? '0' : '12px',
-                    padding: collapsed ? '12px' : '10px 12px',
-                    borderRadius: '10px',
-                    marginBottom: '4px',
-                    background: active ? 'rgba(59, 130, 246, 0.9)' : 'transparent',
-                    color: active ? '#fff' : 'rgba(255,255,255,0.7)',
-                    transition: 'all 0.2s',
-                  }}>
-                    <Icon className="w-5 h-5" />
-                    {!collapsed && <span style={{ fontSize: '13px', fontWeight: 500 }}>{item.label}</span>}
-                  </div>
-                </Link>
-              );
-            })}
-          </>
-        )}
       </div>
 
       {/* User profile + logout */}
