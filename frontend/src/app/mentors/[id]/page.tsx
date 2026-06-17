@@ -3,57 +3,66 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, Clock, Users, Star, Briefcase, Mail, MapPin, Award, BookOpen } from 'lucide-react';
-import { publicAPI } from '@/services/api';
+import { ArrowLeft, Calendar, Clock, Users, Star, CheckCircle, XCircle, Mail } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-
-interface MentorDetail {
-  id: string;
-  nom: string;
-  prenom: string;
-  email: string;
-  photo_url: string;
-  bio: string;
-  domaine: string;
-  annees_experience: number;
-  note_moyenne: number;
-  nb_sessions: number;
-  disponible: boolean;
-  competences: Array<{ id: string; nom: string; niveau: string }>;
-  disponibilites: Array<{ id: string; jour_semaine: string; heure_debut: string; heure_fin: string }>;
-}
+import { publicAPI } from '@/services/api';
+import { QuickBooking } from '@/components/mentors/QuickBooking';
+import toast from 'react-hot-toast';
 
 export default function MentorDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
-  const [mentor, setMentor] = useState<MentorDetail | null>(null);
+  const [mentor, setMentor] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const mentorId = params.id as string;
 
   useEffect(() => {
-    const fetchMentor = async () => {
-      try {
-        const response = await publicAPI.getMentorById(params.id as string);
-        setMentor(response.data.mentor);
-      } catch (error) {
-        console.error('Erreur:', error);
-      } finally {
-        setLoading(false);
+    if (mentorId) {
+      fetchMentor();
+    }
+  }, [mentorId]);
+
+  const fetchMentor = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      console.log('🔍 Fetching mentor with ID:', mentorId);
+      const response = await publicAPI.getMentorById(mentorId);
+      console.log('📦 Response:', response.data);
+      
+      if (response.data.success && response.data.mentor) {
+        const mentorData = response.data.mentor;
+        console.log('✅ Mentor chargé:', mentorData);
+        console.log('✅ Mentor ID:', mentorData.id);
+        setMentor(mentorData);
+      } else {
+        setError(response.data.message || 'Mentor non trouvé');
       }
-    };
-    fetchMentor();
-  }, [params.id]);
+    } catch (error: any) {
+      console.error('❌ Erreur:', error);
+      setError(error.response?.data?.message || 'Erreur lors du chargement');
+      toast.error('Erreur lors du chargement');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getNoteDisplay = (note: any) => {
-    if (!note) return 'Nouveau';
-    const numNote = Number(note);
-    if (isNaN(numNote)) return 'Nouveau';
+    if (!note || note === 0 || note === '0') return 'Nouveau';
+    const numNote = parseFloat(note);
+    if (isNaN(numNote) || numNote === 0) return 'Nouveau';
     return numNote.toFixed(1);
   };
 
-  const joursFr: Record<string, string> = {
-    lundi: 'Lundi', mardi: 'Mardi', mercredi: 'Mercredi',
-    jeudi: 'Jeudi', vendredi: 'Vendredi', samedi: 'Samedi', dimanche: 'Dimanche'
+  const getJourLabel = (jour: string) => {
+    const jours: Record<string, string> = {
+      lundi: 'Lundi', mardi: 'Mardi', mercredi: 'Mercredi',
+      jeudi: 'Jeudi', vendredi: 'Vendredi', samedi: 'Samedi', dimanche: 'Dimanche'
+    };
+    return jours[jour] || jour;
   };
 
   if (loading) {
@@ -61,20 +70,25 @@ export default function MentorDetailPage() {
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">Chargement...</p>
+          <p style={{ color: 'var(--text-secondary)' }}>Chargement...</p>
         </div>
       </div>
     );
   }
 
-  if (!mentor) {
+  if (error || !mentor) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div className="text-center">
-          <p className="text-gray-500 dark:text-gray-400">Mentor non trouvé</p>
-          <Link href="/mentors" className="text-indigo-600 dark:text-indigo-400 hover:underline mt-4 inline-block">
-            Retour à la liste
-          </Link>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 max-w-md text-center">
+          <div className="text-red-500 text-5xl mb-4">⚠️</div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Mentor non trouvé</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">{error || 'Ce mentor n\'existe pas ou a été supprimé.'}</p>
+          <button
+            onClick={() => router.back()}
+            className="inline-block px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          >
+            Retour
+          </button>
         </div>
       </div>
     );
@@ -82,46 +96,44 @@ export default function MentorDetailPage() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <Link href="/mentors" className="inline-flex items-center gap-2 text-white hover:text-indigo-200 transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-            Retour aux mentors
-          </Link>
-        </div>
-      </div>
-
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
-          {/* Header du profil */}
-          <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-8 py-8">
-            <div className="flex items-center gap-6">
-              <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                <span className="text-3xl font-bold text-white">
-                  {mentor.prenom?.[0]}{mentor.nom?.[0]}
-                </span>
+        <button
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-6"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Retour
+        </button>
+
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-8 text-white">
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+              <div className="w-32 h-32 rounded-full bg-white/20 flex items-center justify-center text-5xl font-bold text-white border-4 border-white/30">
+                {mentor.prenom?.[0]}{mentor.nom?.[0]}
               </div>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
-                  {mentor.prenom} {mentor.nom}
-                </h1>
+              <div className="flex-1 text-center md:text-left">
+                <h1 className="text-3xl font-bold">{mentor.prenom} {mentor.nom}</h1>
                 <p className="text-indigo-100 text-lg">{mentor.domaine || 'Expert'}</p>
-                <div className="flex items-center gap-4 mt-3 flex-wrap">
+                <div className="flex flex-wrap items-center gap-4 mt-3 justify-center md:justify-start">
                   <div className="flex items-center gap-1">
-                    <Star className="w-5 h-5 text-yellow-400 fill-current" />
-                    <span className="text-white font-semibold">{getNoteDisplay(mentor.note_moyenne)}/5</span>
+                    <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+                    <span className="font-semibold">{getNoteDisplay(mentor.note_moyenne)}/5</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Users className="w-5 h-5 text-white/80" />
-                    <span className="text-white">{mentor.nb_sessions} sessions</span>
+                    <span>{mentor.nb_sessions || 0} sessions</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Clock className="w-5 h-5 text-white/80" />
-                    <span className="text-white">{mentor.annees_experience} ans d'expérience</span>
+                    <span>{mentor.annees_experience || 0} ans</span>
                   </div>
-                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${mentor.disponible ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
-                    {mentor.disponible ? 'Disponible' : 'Indisponible'}
+                  <div className="flex items-center gap-1">
+                    {mentor.disponible ? (
+                      <><CheckCircle className="w-5 h-5 text-green-300" /><span>Disponible</span></>
+                    ) : (
+                      <><XCircle className="w-5 h-5 text-red-300" /><span>Indisponible</span></>
+                    )}
                   </div>
                 </div>
               </div>
@@ -131,9 +143,7 @@ export default function MentorDetailPage() {
           {/* Contenu */}
           <div className="p-8">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Colonne gauche */}
               <div className="lg:col-span-2 space-y-6">
-                {/* Bio */}
                 <div>
                   <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">À propos</h2>
                   <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
@@ -141,14 +151,13 @@ export default function MentorDetailPage() {
                   </p>
                 </div>
 
-                {/* Compétences */}
                 {mentor.competences && mentor.competences.length > 0 && (
                   <div>
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">Compétences</h2>
                     <div className="flex flex-wrap gap-2">
-                      {mentor.competences.map((comp) => (
-                        <span key={comp.id} className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-3 py-1 rounded-full text-sm">
-                          {comp.nom} • {comp.niveau}
+                      {mentor.competences.map((comp: string, index: number) => (
+                        <span key={index} className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full text-sm">
+                          {comp}
                         </span>
                       ))}
                     </div>
@@ -156,69 +165,47 @@ export default function MentorDetailPage() {
                 )}
               </div>
 
-              {/* Colonne droite */}
               <div className="space-y-6">
-                {/* Disponibilités */}
-                {mentor.disponibilites && mentor.disponibilites.length > 0 && (
-                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                      <Calendar className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                      Disponibilités
-                    </h2>
-                    <div className="space-y-2">
-                      {mentor.disponibilites.map((dispo) => (
-                        <div key={dispo.id} className="flex justify-between text-sm">
-                          <span className="font-medium text-gray-700 dark:text-gray-300">{joursFr[dispo.jour_semaine]}</span>
-                          <span className="text-gray-600 dark:text-gray-400">
-                            {dispo.heure_debut.substring(0, 5)} - {dispo.heure_fin.substring(0, 5)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Bouton de réservation */}
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                    <Award className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                    Réserver
-                  </h2>
+                <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">📅 Réserver une session</h2>
                   {user ? (
-                    <Link
-                      href={`/sessions/new?mentor=${mentor.id}`}
-                      className="block w-full text-center bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all"
-                    >
-                      Réserver une session
-                    </Link>
+                    user.role === 'mentore' ? (
+                      mentor && mentor.id ? (
+                        <QuickBooking 
+                          mentorId={mentor.id} 
+                          mentorName={`${mentor.prenom} ${mentor.nom}`} 
+                        />
+                      ) : (
+                        <p className="text-sm text-red-500 dark:text-red-400 text-center">
+                          ID du mentor non disponible
+                        </p>
+                      )
+                    ) : (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                        Vous devez être un mentoré pour réserver.
+                      </p>
+                    )
                   ) : (
                     <Link
-                      href="/login"
-                      className="block w-full text-center bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all"
+                      href={`/login?redirect=/mentors/${mentor.id}`}
+                      className="block w-full text-center px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                     >
                       Connectez-vous pour réserver
                     </Link>
                   )}
                 </div>
 
-                {/* Stats */}
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6">
+                <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-6">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                    <BookOpen className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                    Statistiques
+                    <Mail className="w-5 h-5 text-indigo-600" />
+                    Contact
                   </h2>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Sessions réalisées</span>
-                      <span className="font-semibold text-gray-900 dark:text-white">{mentor.nb_sessions || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Note moyenne</span>
-                      <span className="font-semibold text-gray-900 dark:text-white">{getNoteDisplay(mentor.note_moyenne)}/5</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Expérience</span>
-                      <span className="font-semibold text-gray-900 dark:text-white">{mentor.annees_experience} ans</span>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                      <Mail className="w-4 h-4" />
+                      <a href={`mailto:${mentor.email}`} className="hover:text-indigo-600">
+                        {mentor.email}
+                      </a>
                     </div>
                   </div>
                 </div>

@@ -166,7 +166,7 @@ const translations: Record<Language, Record<string, string>> = {
     'matching.reputation': 'Réputation',
     'matching.experience': 'Expérience',
     'nav.calendar': 'Calendrier',
-
+    'tools.disponibilites': 'Mes disponibilités',
 
   },
   en: {
@@ -322,7 +322,7 @@ const translations: Record<Language, Record<string, string>> = {
     'matching.reputation': 'Reputation',
     'matching.experience': 'Experience',
     'nav.calendar': 'Calendar',
-
+    'tools.disponibilites': 'My availability',
  },
 };
 

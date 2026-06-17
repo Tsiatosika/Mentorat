@@ -47,6 +47,14 @@ export default function DashboardPage() {
     }
   };
 
+  // Fonction pour formater la note
+  const formatNote = (note: any) => {
+    if (!note || note === 0 || note === '0' || note === '0.00') return '0.0';
+    const numNote = typeof note === 'string' ? parseFloat(note) : note;
+    if (isNaN(numNote)) return '0.0';
+    return numNote.toFixed(1);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
@@ -80,7 +88,7 @@ export default function DashboardPage() {
     },
     { 
       title: isMentor ? t('profile.note') : t('profile.progression'), 
-      value: isMentor ? profile?.note_moyenne?.toFixed(1) || '0.0' : `${profile?.progression || 0}%`, 
+      value: isMentor ? formatNote(profile?.note_moyenne) : `${profile?.progression || 0}%`, 
       icon: TrendingUp, 
       color: 'bg-green-500',
       subtitle: isMentor ? `${profile?.nb_sessions || 0} sessions` : `${sessionsTerminees}/${totalSessions} sessions`
@@ -154,6 +162,15 @@ export default function DashboardPage() {
               <span className="text-2xl">🎓</span>
               <span className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{t('nav.dashboard')}</span>
             </div>
+            <div className="flex items-center space-x-4">
+              <span style={{ color: 'var(--text-secondary)' }}>{userName} ({isMentor ? 'Mentor' : 'Mentoré'})</span>
+              <button 
+                onClick={logout} 
+                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                {t('common.logout')}
+              </button>
+            </div>
           </div>
         </div>
       </nav>
@@ -162,7 +179,7 @@ export default function DashboardPage() {
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
         <div className="max-w-7xl mx-auto px-4 py-12">
           <h1 className="text-3xl md:text-4xl font-bold mb-2">
-            {t('dashboard.welcome')}, {user.prenom} !
+            {t('dashboard.welcome')}, {user.prenom} ! 👋
           </h1>
           <p className="text-indigo-100 text-lg">{t('dashboard.activity')}</p>
         </div>

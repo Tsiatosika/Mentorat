@@ -6,12 +6,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { 
   Home, LayoutDashboard, Users, Calendar, MessageCircle, FileText, 
-  Brain, UserCircle, LogOut, ChevronLeft, ChevronRight, 
-  GraduationCap, Search
+  Brain, UserCircle, Clock, LogOut, ChevronLeft, ChevronRight, 
+  GraduationCap
 } from 'lucide-react';
 
-// Menu pour utilisateur connecté
-const menuItemsConnected = [
+const menuItems = [
   { label: 'Accueil', href: '/', icon: Home },
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Mentors', href: '/mentors', icon: Users },
@@ -20,15 +19,14 @@ const menuItemsConnected = [
   { label: 'Rapports', href: '/reports', icon: FileText },
 ];
 
-const toolItemsConnected = [
+const toolItems = [
   { label: 'Matching IA', href: '/matching', icon: Brain },
   { label: 'Mon profil', href: '/profile', icon: UserCircle },
 ];
 
-// Menu pour utilisateur déconnecté (uniquement mentors)
-const menuItemsPublic = [
-  { label: 'Accueil', href: '/', icon: Home },
-  { label: 'Trouver un mentor', href: '/mentors', icon: Search },
+// Pour les mentors uniquement
+const mentorItems = [
+  { label: 'Mes disponibilités', href: '/disponibilites', icon: Clock },
 ];
 
 interface SidebarProps {
@@ -41,7 +39,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  const isConnected = !!user;
+  const isMentor = user?.role === 'mentor';
 
   useEffect(() => {
     const saved = localStorage.getItem('sidebar-collapsed');
@@ -61,9 +59,9 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href);
 
-  // Sélectionner le bon menu selon l'état de connexion
-  const menuItems = isConnected ? menuItemsConnected : menuItemsPublic;
-  const toolItems = isConnected ? toolItemsConnected : [];
+  const initials = user
+    ? `${user.prenom?.[0] ?? ''}${user.nom?.[0] ?? ''}`.toUpperCase()
+    : '??';
 
   const sidebarWidth = collapsed ? '72px' : '260px';
 
@@ -85,7 +83,6 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
       transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       boxShadow: '4px 0 20px rgba(0, 0, 0, 0.08)',
       overflowX: 'hidden',
-      paddingTop: '0px',
     }}>
 
       {/* Logo */}
@@ -95,7 +92,6 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
         alignItems: 'center',
         justifyContent: collapsed ? 'center' : 'space-between',
         borderBottom: '0.5px solid rgba(255,255,255,0.12)',
-        marginTop: '0px',
       }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
           <div style={{
@@ -174,39 +170,71 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
         })}
       </div>
 
-      {/* Outils IA - seulement si connecté */}
-      {isConnected && toolItems.length > 0 && (
-        <div style={{ padding: collapsed ? '8px 8px' : '12px 12px' }}>
-          {!collapsed && (
-            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', padding: '0 10px 12px' }}>
-              Outils IA
-            </div>
-          )}
-          {toolItems.map(item => {
-            const Icon = item.icon;
-            const active = isActive(item.href);
-            return (
-              <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: collapsed ? 'center' : 'flex-start',
-                  gap: collapsed ? '0' : '12px',
-                  padding: collapsed ? '12px' : '10px 12px',
-                  borderRadius: '10px',
-                  marginBottom: '4px',
-                  background: active ? 'rgba(59, 130, 246, 0.9)' : 'transparent',
-                  color: active ? '#fff' : 'rgba(255,255,255,0.7)',
-                  transition: 'all 0.2s',
-                }}>
-                  <Icon className="w-5 h-5" />
-                  {!collapsed && <span style={{ fontSize: '13px', fontWeight: 500 }}>{item.label}</span>}
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
+      {/* Outils IA */}
+      <div style={{ padding: collapsed ? '8px 8px' : '12px 12px' }}>
+        {!collapsed && (
+          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', padding: '0 10px 12px' }}>
+            Outils IA
+          </div>
+        )}
+        {toolItems.map(item => {
+          const Icon = item.icon;
+          const active = isActive(item.href);
+          return (
+            <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                gap: collapsed ? '0' : '12px',
+                padding: collapsed ? '12px' : '10px 12px',
+                borderRadius: '10px',
+                marginBottom: '4px',
+                background: active ? 'rgba(59, 130, 246, 0.9)' : 'transparent',
+                color: active ? '#fff' : 'rgba(255,255,255,0.7)',
+                transition: 'all 0.2s',
+              }}>
+                <Icon className="w-5 h-5" />
+                {!collapsed && <span style={{ fontSize: '13px', fontWeight: 500 }}>{item.label}</span>}
+              </div>
+            </Link>
+          );
+        })}
+        
+        {/* Menu pour les mentors */}
+        {isMentor && (
+          <>
+            {!collapsed && (
+              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', padding: '0 10px 12px', marginTop: '12px' }}>
+                Mentor
+              </div>
+            )}
+            {mentorItems.map(item => {
+              const Icon = item.icon;
+              const active = isActive(item.href);
+              return (
+                <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: collapsed ? 'center' : 'flex-start',
+                    gap: collapsed ? '0' : '12px',
+                    padding: collapsed ? '12px' : '10px 12px',
+                    borderRadius: '10px',
+                    marginBottom: '4px',
+                    background: active ? 'rgba(59, 130, 246, 0.9)' : 'transparent',
+                    color: active ? '#fff' : 'rgba(255,255,255,0.7)',
+                    transition: 'all 0.2s',
+                  }}>
+                    <Icon className="w-5 h-5" />
+                    {!collapsed && <span style={{ fontSize: '13px', fontWeight: 500 }}>{item.label}</span>}
+                  </div>
+                </Link>
+              );
+            })}
+          </>
+        )}
+      </div>
 
       {/* User profile + logout */}
       <div style={{
@@ -235,7 +263,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
               fontWeight: 600,
               color: '#fff',
             }}>
-              {user ? `${user.prenom?.[0] ?? ''}${user.nom?.[0] ?? ''}`.toUpperCase() : '👤'}
+              {initials}
             </div>
             {!collapsed && (
               <div style={{ flex: 1 }}>
@@ -243,12 +271,12 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
                   {user ? `${user.prenom} ${user.nom}` : 'Invité'}
                 </div>
                 <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>
-                  {user?.role === 'mentor' ? 'Mentor' : user?.role === 'mentore' ? 'Mentoré(e)' : 'Visiteur'}
+                  {user?.role === 'mentor' ? 'Mentor' : 'Mentoré(e)'}
                 </div>
               </div>
             )}
           </div>
-          {!collapsed && isConnected && (
+          {!collapsed && (
             <button onClick={logout} style={{
               background: 'rgba(239, 68, 68, 0.15)',
               border: 'none',
@@ -265,7 +293,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
             </button>
           )}
         </div>
-        {collapsed && isConnected && (
+        {collapsed && (
           <button onClick={logout} style={{
             width: '100%',
             marginTop: '12px',

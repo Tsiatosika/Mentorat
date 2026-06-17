@@ -2,7 +2,6 @@ const { query } = require('../config/db');
 
 const getDisponibilites = async (req, res, next) => {
   try {
-    // Récupérer l'ID du profil mentor à partir de l'utilisateur connecté
     const mentorResult = await query(
       'SELECT id FROM profils_mentor WHERE utilisateur_id = $1',
       [req.user.id]
@@ -47,7 +46,6 @@ const getDisponibilites = async (req, res, next) => {
 const addDisponibilite = async (req, res, next) => {
   const { jour_semaine, heure_debut, heure_fin, recurrent } = req.body;
 
-  // Validation
   if (!jour_semaine || !heure_debut || !heure_fin) {
     return res.status(400).json({
       success: false,
@@ -55,7 +53,6 @@ const addDisponibilite = async (req, res, next) => {
     });
   }
 
-  // Valider le jour de semaine
   const joursValides = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
   if (!joursValides.includes(jour_semaine.toLowerCase())) {
     return res.status(400).json({
@@ -65,7 +62,6 @@ const addDisponibilite = async (req, res, next) => {
   }
 
   try {
-    // Récupérer l'ID du profil mentor
     const mentorResult = await query(
       'SELECT id FROM profils_mentor WHERE utilisateur_id = $1',
       [req.user.id]
@@ -80,7 +76,6 @@ const addDisponibilite = async (req, res, next) => {
 
     const mentorId = mentorResult.rows[0].id;
 
-    // Vérifier si une disponibilité similaire existe déjà
     const existingResult = await query(
       `SELECT id FROM disponibilites 
        WHERE mentor_id = $1 AND jour_semaine = $2 
@@ -117,7 +112,6 @@ const updateDisponibilite = async (req, res, next) => {
   const { jour_semaine, heure_debut, heure_fin, recurrent } = req.body;
 
   try {
-    // Récupérer l'ID du profil mentor
     const mentorResult = await query(
       'SELECT id FROM profils_mentor WHERE utilisateur_id = $1',
       [req.user.id]
@@ -132,7 +126,6 @@ const updateDisponibilite = async (req, res, next) => {
 
     const mentorId = mentorResult.rows[0].id;
 
-    // Vérifier que la disponibilité appartient bien au mentor
     const checkResult = await query(
       'SELECT id FROM disponibilites WHERE id = $1 AND mentor_id = $2',
       [id, mentorId]
@@ -170,7 +163,6 @@ const deleteDisponibilite = async (req, res, next) => {
   const { id } = req.params;
 
   try {
-    // Récupérer l'ID du profil mentor
     const mentorResult = await query(
       'SELECT id FROM profils_mentor WHERE utilisateur_id = $1',
       [req.user.id]
@@ -206,7 +198,9 @@ const deleteDisponibilite = async (req, res, next) => {
   }
 };
 
-// CORRECTION : Accepter à la fois l'ID utilisateur et l'ID profil mentor
+// ============================================
+// OBTENIR LES DISPONIBILITÉS D'UN MENTOR (PUBLIC)
+// ============================================
 const getDisponibilitesByMentorId = async (req, res, next) => {
   const { mentorId } = req.params;
 
@@ -214,7 +208,7 @@ const getDisponibilitesByMentorId = async (req, res, next) => {
     let mentorProfilId = null;
     let mentorInfo = null;
 
-    // 1. Essayer d'abord avec l'ID comme utilisateur_id
+    // 1. Essayer avec l'ID comme utilisateur_id
     let result = await query(
       `SELECT pm.id as profil_id, u.id, u.nom, u.prenom 
        FROM profils_mentor pm

@@ -35,11 +35,12 @@ export default function NewSessionPage() {
 
   const fetchMentor = async () => {
     try {
-      const [mentorRes, dispoRes] = await Promise.all([
-        publicAPI.getMentorById(mentorId!),
-        disponibiliteAPI.getByMentor(mentorId!)
-      ]);
+      // Récupérer le mentor avec son ID utilisateur
+      const mentorRes = await publicAPI.getMentorById(mentorId);
       setMentor(mentorRes.data.mentor);
+      
+      // Récupérer les disponibilités avec l'ID utilisateur
+      const dispoRes = await disponibiliteAPI.getByMentor(mentorId);
       setDisponibilites(dispoRes.data.disponibilites || []);
     } catch (error) {
       console.error('Erreur:', error);
@@ -101,7 +102,7 @@ export default function NewSessionPage() {
     setLoading(true);
     try {
       await sessionAPI.create({
-        mentor_id: mentorId,
+        mentor_id: mentorId, // Utiliser l'ID utilisateur
         date_debut: date.toISOString(),
         date_fin: endDate.toISOString(),
         sujet: sujet,

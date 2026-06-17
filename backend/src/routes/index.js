@@ -44,9 +44,10 @@ router.delete('/mentors/competences/:competence_id',
   authenticate, authorize('mentor'),
   mentorController.removeCompetence);
 
-// Routes publiques APRÈS les routes fixes
+// Routes publiques - AVANT les routes avec paramètres
 router.get('/mentors',        mentorController.searchMentors);
 router.get('/mentors/search', mentorController.searchMentors);
+// Route avec paramètre DOIT être après les routes fixes
 router.get('/mentors/:id',    mentorController.getMentorById);
 
 // Routes mentorés
