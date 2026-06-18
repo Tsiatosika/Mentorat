@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Users, Calendar, MessageCircle, Award, ArrowRight, Sparkles, Shield, Clock, Video, Star, Search } from 'lucide-react';
+import { Users, Calendar, MessageCircle, Award, ArrowRight, Sparkles, Shield, Clock, Video, Star } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { publicAPI } from '@/services/api';
 
@@ -73,7 +73,6 @@ export default function Home() {
               Rejoignez notre communauté et accélérez votre apprentissage grâce à un mentorat personnalisé avec matching IA
             </p>
 
-            {/* Boutons d'action */}
             <div className="flex flex-wrap gap-4 justify-center">
               {!user ? (
                 <>
@@ -217,13 +216,38 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Footer */}
+      {/* Footer avec lien "À propos" */}
       <footer className="py-8 bg-gray-900 dark:bg-gray-950">
-        <div className="max-w-6xl mx-auto px-4 text-center">
-          <p className="text-gray-400 text-sm">© 2025 Université Adventiste Zurcher — Plateforme de Mentorat Académique</p>
-          <p className="text-gray-500 text-xs mt-2">RAMAMONJISOA Sitrakiniaina Tsiatosika — Projet de Fin d'Études</p>
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="text-center md:text-left">
+              <p className="text-gray-400 text-sm">© 2025 Université Adventiste Zurcher — Plateforme de Mentorat Académique</p>
+              <p className="text-gray-500 text-xs mt-1">RAMAMONJISOA Sitrakiniaina Tsiatosika — Projet de Fin d'Études</p>
+            </div>
+            <div className="flex gap-6">
+              <Link href="/about" className="text-gray-400 hover:text-white transition-colors text-sm">
+                À propos
+              </Link>
+              <Link href="/mentors" className="text-gray-400 hover:text-white transition-colors text-sm">
+                Mentors
+              </Link>
+              {!user && (
+                <>
+                  <Link href="/login" className="text-gray-400 hover:text-white transition-colors text-sm">
+                    Connexion
+                  </Link>
+                  <Link href="/register" className="text-gray-400 hover:text-white transition-colors text-sm">
+                    Inscription
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </footer>
     </div>
   );
 }
+
+// Importer Search manquant
+import { Search } from 'lucide-react';

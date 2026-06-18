@@ -5,7 +5,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import Link from 'next/link';
 import { NotificationBell } from './NotificationBell';
-import { Bell, LogOut, Sun, Moon, Globe, ChevronDown, User, LogIn, UserPlus } from 'lucide-react';
+import { Bell, LogOut, Sun, Moon, Globe, ChevronDown, User, LogIn, UserPlus, Info } from 'lucide-react';
 import { useState } from 'react';
 
 export function TopNavbar() {
@@ -29,6 +29,16 @@ export function TopNavbar() {
 
           {/* Actions (droite) */}
           <div className="flex items-center space-x-2">
+            {/* À propos */}
+            <Link
+              href="/about"
+              className="hidden md:flex items-center gap-1 px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm"
+              title="À propos"
+            >
+              <Info className="w-4 h-4" />
+              <span>À propos</span>
+            </Link>
+
             {/* Langue */}
             <div className="relative">
               <button
