@@ -2,12 +2,14 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Users, Calendar, MessageCircle, Award, ArrowRight, Sparkles, Shield, Clock, Video, Star } from 'lucide-react';
+import { Users, Calendar, MessageCircle, Award, ArrowRight, Sparkles, Shield, Clock, Video, Star, Search } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { publicAPI } from '@/services/api';
 
 export default function Home() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [topMentors, setTopMentors] = useState<any[]>([]);
   const [stats, setStats] = useState({ mentors: 0, sessions: 0 });
   const [isLoading, setIsLoading] = useState(true);
@@ -25,17 +27,17 @@ export default function Home() {
   }, []);
 
   const features = [
-    { icon: Users, title: 'Matching IA', description: 'Trouvez le mentor parfait grâce à notre algorithme intelligent' },
-    { icon: Calendar, title: 'Réservation facile', description: 'Planifiez vos sessions en quelques clics' },
-    { icon: MessageCircle, title: 'Chat en temps réel', description: 'Communications instantanées avec votre mentor' },
-    { icon: Video, title: 'Visioconférence', description: 'Sessions en ligne avec lien intégré' },
-    { icon: Award, title: 'Certification', description: 'Obtenez des certificats de progression' },
-    { icon: Shield, title: 'Sécurisé', description: 'Plateforme sécurisée et confidentielle' },
+    { icon: Users, titleKey: 'home.feature_matching', descKey: 'home.feature_matching_desc' },
+    { icon: Calendar, titleKey: 'home.feature_booking', descKey: 'home.feature_booking_desc' },
+    { icon: MessageCircle, titleKey: 'home.feature_chat', descKey: 'home.feature_chat_desc' },
+    { icon: Video, titleKey: 'home.feature_video', descKey: 'home.feature_video_desc' },
+    { icon: Award, titleKey: 'home.feature_certification', descKey: 'home.feature_certification_desc' },
+    { icon: Shield, titleKey: 'home.feature_security', descKey: 'home.feature_security_desc' },
   ];
 
   const getNoteDisplay = (note: any) => {
     const n = Number(note);
-    return isNaN(n) || n === 0 ? 'Nouveau' : n.toFixed(1);
+    return isNaN(n) || n === 0 ? t('common.new') : n.toFixed(1);
   };
 
   if (isLoading) {
@@ -43,7 +45,7 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
         <div className="text-center">
           <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-gray-600 dark:text-gray-400">Chargement...</p>
+          <p className="text-gray-600 dark:text-gray-400">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -62,16 +64,14 @@ export default function Home() {
           <div className="text-center">
             <div className="inline-flex items-center px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm mb-6">
               <Sparkles className="w-4 h-4 text-yellow-400 mr-2" />
-              <span className="text-xs text-white">Plateforme de mentorat nouvelle génération</span>
+              <span className="text-xs text-white">{t('home.badge')}</span>
             </div>
             <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
-              Trouvez le mentor qui
+              {t('home.hero_title')}
               <br />
-              <span className="text-blue-400 bg-white/10 px-3 py-1 rounded-lg inline-block mt-2">vous révélera</span>
+              <span className="text-blue-400 bg-white/10 px-3 py-1 rounded-lg inline-block mt-2">{t('home.hero_subtitle')}</span>
             </h1>
-            <p className="text-lg text-blue-100 mb-8 max-w-2xl mx-auto">
-              Rejoignez notre communauté et accélérez votre apprentissage grâce à un mentorat personnalisé avec matching IA
-            </p>
+            <p className="text-lg text-blue-100 mb-8 max-w-2xl mx-auto">{t('home.hero_description')}</p>
 
             <div className="flex flex-wrap gap-4 justify-center">
               {!user ? (
@@ -81,13 +81,13 @@ export default function Home() {
                     className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg"
                   >
                     <Search className="w-5 h-5" />
-                    Trouver un mentor
+                    {t('home.find_mentor')}
                   </Link>
                   <Link
                     href="/register"
                     className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 text-white border border-white/30 rounded-lg font-semibold hover:bg-white/20 transition-colors"
                   >
-                    Commencer gratuitement
+                    {t('home.start_free')}
                   </Link>
                 </>
               ) : (
@@ -97,13 +97,13 @@ export default function Home() {
                     className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg"
                   >
                     <Search className="w-5 h-5" />
-                    Trouver un mentor
+                    {t('home.find_mentor')}
                   </Link>
                   <Link
                     href="/dashboard"
                     className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 text-white border border-white/30 rounded-lg font-semibold hover:bg-white/20 transition-colors"
                   >
-                    Tableau de bord
+                    {t('nav.dashboard')}
                   </Link>
                 </>
               )}
@@ -112,19 +112,19 @@ export default function Home() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16">
               <div className="text-center">
                 <div className="text-3xl font-bold text-white">{stats.mentors}+</div>
-                <div className="text-blue-200 text-sm mt-1">Mentors experts</div>
+                <div className="text-blue-200 text-sm mt-1">{t('home.stats_mentors')}</div>
               </div>
               <div className="text-center">
                 <div className="text-3xl font-bold text-white">{stats.sessions}+</div>
-                <div className="text-blue-200 text-sm mt-1">Sessions réalisées</div>
+                <div className="text-blue-200 text-sm mt-1">{t('home.stats_sessions')}</div>
               </div>
               <div className="text-center">
                 <div className="text-3xl font-bold text-white">98%</div>
-                <div className="text-blue-200 text-sm mt-1">Taux de satisfaction</div>
+                <div className="text-blue-200 text-sm mt-1">{t('home.stats_satisfaction')}</div>
               </div>
               <div className="text-center">
                 <div className="text-3xl font-bold text-white">24/7</div>
-                <div className="text-blue-200 text-sm mt-1">Support disponible</div>
+                <div className="text-blue-200 text-sm mt-1">{t('home.stats_support')}</div>
               </div>
             </div>
           </div>
@@ -137,11 +137,11 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Features Section */}
+      {/* Features Section - traduit */}
       <div className="max-w-6xl mx-auto px-4 py-16">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-3 text-gray-900 dark:text-white">Pourquoi choisir notre plateforme ?</h2>
-          <p className="text-gray-600 dark:text-gray-400">Une expérience de mentorat complète et innovante</p>
+          <h2 className="text-3xl font-bold mb-3 text-gray-900 dark:text-white">{t('home.why_choose_us')}</h2>
+          <p className="text-gray-600 dark:text-gray-400">{t('home.why_choose_us_desc')}</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((f, i) => (
@@ -149,19 +149,19 @@ export default function Home() {
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
                 <f.icon className="w-5 h-5 text-white" />
               </div>
-              <h3 className="text-base font-semibold mb-2 text-gray-900 dark:text-white">{f.title}</h3>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">{f.description}</p>
+              <h3 className="text-base font-semibold mb-2 text-gray-900 dark:text-white">{t(f.titleKey)}</h3>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">{t(f.descKey)}</p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Top Mentors Section */}
+      {/* Top Mentors Section - CORRIGÉ AVEC TRADUCTIONS */}
       <div className="py-16 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-3 text-gray-900 dark:text-white">Nos mentors exceptionnels</h2>
-            <p className="text-gray-600 dark:text-gray-400">Des experts passionnés prêts à vous accompagner</p>
+            <h2 className="text-3xl font-bold mb-3 text-gray-900 dark:text-white">{t('mentors.top_mentors')}</h2>
+            <p className="text-gray-600 dark:text-gray-400">{t('mentors.top_mentors_desc')}</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {topMentors.slice(0, 3).map((mentor: any) => (
@@ -178,13 +178,13 @@ export default function Home() {
                   </div>
                 </div>
                 <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">{mentor.prenom} {mentor.nom}</h3>
-                <p className="text-blue-600 dark:text-blue-400 text-sm font-medium mb-3">{mentor.domaine || 'Expert'}</p>
+                <p className="text-blue-600 dark:text-blue-400 text-sm font-medium mb-3">{mentor.domaine || t('mentors.expert')}</p>
                 <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-4">
-                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{mentor.annees_experience || 0} ans</span>
-                  <span className="flex items-center gap-1"><Users className="w-3 h-3" />{mentor.nb_sessions || 0} sessions</span>
+                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{mentor.annees_experience || 0} {t('mentors.years')}</span>
+                  <span className="flex items-center gap-1"><Users className="w-3 h-3" />{mentor.nb_sessions || 0} {t('mentors.sessions')}</span>
                 </div>
                 <Link href={`/mentors/${mentor.id}`} className="block w-full text-center px-3 py-2 rounded-lg border border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors font-medium text-sm">
-                  Voir le profil
+                  {t('mentors.view_profile')}
                 </Link>
               </div>
             ))}
@@ -195,14 +195,14 @@ export default function Home() {
       {/* CTA Section */}
       <div className="bg-gradient-to-r from-blue-900 to-indigo-900 py-16">
         <div className="max-w-6xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold text-white mb-3">Prêt à commencer votre parcours ?</h2>
-          <p className="text-blue-200 mb-6">Rejoignez des milliers d'étudiants qui ont déjà trouvé leur mentor idéal</p>
+          <h2 className="text-3xl font-bold text-white mb-3">{t('home.cta_title')}</h2>
+          <p className="text-blue-200 mb-6">{t('home.cta_description')}</p>
           {!user ? (
             <Link
               href="/register"
               className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg"
             >
-              Inscription gratuite <ArrowRight className="w-4 h-4" />
+              {t('home.cta_button')} <ArrowRight className="w-4 h-4" />
             </Link>
           ) : (
             <Link
@@ -210,34 +210,34 @@ export default function Home() {
               className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg"
             >
               <Search className="w-5 h-5" />
-              Trouver un mentor
+              {t('home.find_mentor')}
             </Link>
           )}
         </div>
       </div>
 
-      {/* Footer avec lien "À propos" */}
+      {/* Footer */}
       <footer className="py-8 bg-gray-900 dark:bg-gray-950">
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="text-center md:text-left">
-              <p className="text-gray-400 text-sm">© 2025 Université Adventiste Zurcher — Plateforme de Mentorat Académique</p>
-              <p className="text-gray-500 text-xs mt-1">RAMAMONJISOA Sitrakiniaina Tsiatosika — Projet de Fin d'Études</p>
+              <p className="text-gray-400 text-sm">© 2025 Université Adventiste Zurcher — {t('footer.title')}</p>
+              <p className="text-gray-500 text-xs mt-1">{t('footer.project')}</p>
             </div>
             <div className="flex gap-6">
               <Link href="/about" className="text-gray-400 hover:text-white transition-colors text-sm">
-                À propos
+                {t('common.about')}
               </Link>
               <Link href="/mentors" className="text-gray-400 hover:text-white transition-colors text-sm">
-                Mentors
+                {t('nav.mentors')}
               </Link>
               {!user && (
                 <>
                   <Link href="/login" className="text-gray-400 hover:text-white transition-colors text-sm">
-                    Connexion
+                    {t('common.login')}
                   </Link>
                   <Link href="/register" className="text-gray-400 hover:text-white transition-colors text-sm">
-                    Inscription
+                    {t('common.register')}
                   </Link>
                 </>
               )}
@@ -248,6 +248,3 @@ export default function Home() {
     </div>
   );
 }
-
-// Importer Search manquant
-import { Search } from 'lucide-react';

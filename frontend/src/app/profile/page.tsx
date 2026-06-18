@@ -164,7 +164,7 @@ export default function ProfilePage() {
   const displayPhotoUrl = getPhotoUrl(photoUrl || user?.photo_url || null);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
         <div className="max-w-4xl mx-auto px-4 py-8">
           <h1 className="text-2xl font-bold">{t('profile.title')}</h1>
@@ -174,8 +174,8 @@ export default function ProfilePage() {
 
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
         {/* Photo card */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <User className="w-5 h-5 text-indigo-600" /> {t('profile.photo')}
           </h2>
           <div className="flex items-center gap-4">
@@ -195,34 +195,36 @@ export default function ProfilePage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          {/* Informations personnelles */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <User className="w-5 h-5 text-indigo-600" /> {t('profile.info')}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nom complet</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('profile.nom_complet')}</label>
                 <input disabled value={`${user?.prenom} ${user?.nom}`}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500" />
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
                 <input disabled value={user?.email || ''}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500" />
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          {/* Profil spécifique */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               {isMentor ? <Briefcase className="w-5 h-5 text-indigo-600" /> : <BookOpen className="w-5 h-5 text-indigo-600" />}
-              {isMentor ? t('profile.experience') : t('profile.info')}
+              {isMentor ? t('profile.experience') : t('profile.academic')}
             </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Domaine</label>
-                <input type="text" placeholder="Ex: Informatique, Marketing, Design..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('profile.domaine')}</label>
+                <input type="text" placeholder={t('profile.domaine_placeholder')}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   value={formData.domaine}
                   onChange={(e) => setFormData({ ...formData, domaine: e.target.value })}
                 />
@@ -231,18 +233,18 @@ export default function ProfilePage() {
               {isMentor ? (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Biographie</label>
-                    <textarea rows={4} placeholder="Présentez votre parcours et votre expertise..."
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('profile.bio')}</label>
+                    <textarea rows={4} placeholder={t('profile.bio_placeholder')}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
                       value={formData.bio}
                       onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                     />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Années d'expérience</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('profile.annees_experience')}</label>
                       <input type="number" min={0} max={50}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         value={formData.annees_experience}
                         onChange={(e) => setFormData({ ...formData, annees_experience: parseInt(e.target.value) || 0 })}
                       />
@@ -254,24 +256,24 @@ export default function ProfilePage() {
                           onClick={() => setFormData(prev => ({ ...prev, disponible: !prev.disponible }))}>
                           <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${formData.disponible ? 'translate-x-5' : ''}`} />
                         </div>
-                        <span className="text-sm text-gray-700">
-                          {formData.disponible ? 'Disponible pour mentorat' : 'Indisponible'}
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {formData.disponible ? t('profile.disponible') : t('profile.indisponible')}
                         </span>
                       </label>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">CV (PDF)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('profile.cv')}</label>
                     <div className="flex flex-wrap items-center gap-3">
                       {profile?.cv_url && (
                         <a href={getPhotoUrl(profile.cv_url)} target="_blank" rel="noopener noreferrer"
                           className="text-sm text-indigo-600 hover:underline">
-                          Voir le CV actuel
+                          {t('profile.view_cv')}
                         </a>
                       )}
                       <label className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-indigo-300 rounded-lg cursor-pointer hover:border-indigo-500 transition-colors text-sm text-indigo-600">
                         <Upload className="w-4 h-4" />
-                        {profile?.cv_url ? 'Remplacer le CV' : 'Uploader le CV'}
+                        {profile?.cv_url ? t('profile.replace_cv') : t('profile.upload_cv')}
                         <input type="file" accept="application/pdf" className="hidden" onChange={handleCVUpload} />
                       </label>
                     </div>
@@ -280,30 +282,30 @@ export default function ProfilePage() {
               ) : (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Niveau d'étude</label>
-                    <input type="text" placeholder="Ex: Licence 3, Master 2, Doctorat..."
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('profile.niveau_etude')}</label>
+                    <input type="text" placeholder={t('profile.niveau_etude_placeholder')}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       value={formData.niveau_etude}
                       onChange={(e) => setFormData({ ...formData, niveau_etude: e.target.value })}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Objectifs d'apprentissage</label>
-                    <textarea rows={3} placeholder="Décrivez vos objectifs d'apprentissage..."
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('profile.objectifs')}</label>
+                    <textarea rows={3} placeholder={t('profile.objectifs_placeholder')}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
                       value={formData.objectifs}
                       onChange={(e) => setFormData({ ...formData, objectifs: e.target.value })}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
-                      <Tag className="w-4 h-4" /> Mots-clés pour le matching IA
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1">
+                      <Tag className="w-4 h-4" /> {t('profile.tags')}
                     </label>
-                    <p className="text-xs text-gray-400 mb-2">Ces mots-clés sont utilisés par l'algorithme IA pour trouver les meilleurs mentors.</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">{t('profile.tags_desc')}</p>
                     {formData.objectifs_tags.length > 0 && (
                       <div className="flex flex-wrap gap-2 mb-2">
                         {formData.objectifs_tags.map((tag) => (
-                          <span key={tag} className="flex items-center gap-1 bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-sm">
+                          <span key={tag} className="flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full text-sm">
                             {tag}
                             <button type="button" onClick={() => removeTag(tag)} className="hover:text-red-500 transition-colors">
                               <X className="w-3 h-3" />
@@ -313,18 +315,18 @@ export default function ProfilePage() {
                       </div>
                     )}
                     <div className="flex gap-2">
-                      <input type="text" placeholder="Ex: python, machine learning..."
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                      <input type="text" placeholder={t('profile.tags_placeholder')}
+                        className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                         value={tagInput}
                         onChange={(e) => setTagInput(e.target.value)}
                         onKeyDown={handleTagKeyDown}
                       />
                       <button type="button" onClick={addTag}
-                        className="px-3 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors">
+                        className="px-3 py-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 transition-colors">
                         <Plus className="w-4 h-4" />
                       </button>
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">Appuyez sur Entrée ou , pour ajouter un tag</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('profile.tags_hint')}</p>
                   </div>
                 </>
               )}

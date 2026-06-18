@@ -76,7 +76,7 @@ export default function ChatListPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
         <div className="max-w-7xl mx-auto px-4 py-8">
           <h1 className="text-2xl font-bold">{t('chat.title')}</h1>
@@ -86,10 +86,10 @@ export default function ChatListPage() {
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         {sessions.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-md p-12 text-center">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-12 text-center">
             <MessageCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('chat.no_conversation')}</h3>
-            <p className="text-gray-500">{t('chat.no_conversation_desc')}</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{t('chat.no_conversation')}</h3>
+            <p className="text-gray-500 dark:text-gray-400">{t('chat.no_conversation_desc')}</p>
             {user?.role === 'mentore' && (
               <Link href="/mentors" className="inline-block mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg">
                 {t('dashboard.find_mentor')}
@@ -100,15 +100,15 @@ export default function ChatListPage() {
           <div className="space-y-3">
             {sessions.map((session) => (
               <Link key={session.id} href={`/chat/${session.id}`} className="block">
-                <div className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all">
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 hover:shadow-lg transition-all">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center">
                         <Users className="w-5 h-5 text-white" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-900">{session.sujet}</h3>
-                        <p className="text-sm text-gray-500">{t('sessions.with')} {getOtherPerson(session)}</p>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">{session.sujet}</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('sessions.with')} {getOtherPerson(session)}</p>
                         <div className="flex items-center gap-1 mt-1">
                           <Clock className="w-3 h-3 text-gray-400" />
                           <span className="text-xs text-gray-400">{formatDate(session.date_debut)}</span>

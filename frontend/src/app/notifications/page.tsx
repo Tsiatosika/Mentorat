@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Bell, Check, X, MessageCircle, Calendar, FileText, UserPlus, ChevronLeft } from 'lucide-react';
+import { Bell, Check, X, MessageCircle, Calendar, FileText, UserPlus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import toast from 'react-hot-toast';
 
 interface Notification {
@@ -19,6 +19,7 @@ interface Notification {
 
 export default function NotificationsPage() {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +44,7 @@ export default function NotificationsPage() {
       }
     } catch (error) {
       console.error('Erreur:', error);
-      toast.error('Erreur lors du chargement');
+      toast.error(t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -56,11 +57,9 @@ export default function NotificationsPage() {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      
-      setNotifications(prev => 
+      setNotifications(prev =>
         prev.map(n => n.id === id ? { ...n, lue: true } : n)
       );
-      
       if (lien) {
         router.push(lien);
       }
@@ -76,33 +75,32 @@ export default function NotificationsPage() {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      
       setNotifications(prev => prev.map(n => ({ ...n, lue: true })));
-      toast.success('Toutes les notifications marquées comme lues');
+      toast.success(t('notif.mark_all_success'));
     } catch (error) {
       console.error('Erreur:', error);
-      toast.error('Erreur');
+      toast.error(t('common.error'));
     }
   };
 
   const getIcon = (type: string) => {
     switch (type) {
       case 'session_confirmee': return <Check className="w-5 h-5 text-green-500" />;
-      case 'session_annulee': return <X className="w-5 h-5 text-red-500" />;
-      case 'nouveau_message': return <MessageCircle className="w-5 h-5 text-blue-500" />;
-      case 'nouveau_match': return <UserPlus className="w-5 h-5 text-purple-500" />;
-      case 'rapport_disponible': return <FileText className="w-5 h-5 text-orange-500" />;
-      default: return <Bell className="w-5 h-5 text-gray-500" />;
+      case 'session_annulee':   return <X className="w-5 h-5 text-red-500" />;
+      case 'nouveau_message':   return <MessageCircle className="w-5 h-5 text-blue-500" />;
+      case 'nouveau_match':     return <UserPlus className="w-5 h-5 text-purple-500" />;
+      case 'rapport_disponible':return <FileText className="w-5 h-5 text-orange-500" />;
+      default:                  return <Bell className="w-5 h-5 text-gray-500" />;
     }
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('fr-FR', {
+    return new Date(date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
 
@@ -124,11 +122,11 @@ export default function NotificationsPage() {
             <div>
               <h1 className="text-2xl font-bold flex items-center gap-2">
                 <Bell className="w-6 h-6" />
-                Notifications
+                {t('notif.title')}
               </h1>
               <p className="text-indigo-100 mt-1">
                 {notifications.length} notification{notifications.length > 1 ? 's' : ''}
-                {unreadCount > 0 && ` • ${unreadCount} non lue${unreadCount > 1 ? 's' : ''}`}
+                {unreadCount > 0 && ` • ${unreadCount} ${t('notif.unread')}`}
               </p>
             </div>
             {unreadCount > 0 && (
@@ -136,7 +134,7 @@ export default function NotificationsPage() {
                 onClick={markAllAsRead}
                 className="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors text-sm"
               >
-                Tout marquer lu
+                {t('notif.mark_all')}
               </button>
             )}
           </div>
@@ -147,8 +145,12 @@ export default function NotificationsPage() {
         {notifications.length === 0 ? (
           <div className="text-center py-12 rounded-xl" style={{ backgroundColor: 'var(--card-bg)' }}>
             <Bell className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }} />
-            <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Aucune notification</h3>
-            <p style={{ color: 'var(--text-secondary)' }}>Vous n'avez pas encore de notifications</p>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {t('notif.none')}
+            </h3>
+            <p style={{ color: 'var(--text-secondary)' }}>
+              {t('notif.none_desc')}
+            </p>
           </div>
         ) : (
           <div className="space-y-3">

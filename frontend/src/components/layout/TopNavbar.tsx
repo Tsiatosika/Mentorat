@@ -5,7 +5,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import Link from 'next/link';
 import { NotificationBell } from './NotificationBell';
-import { Bell, LogOut, Sun, Moon, Globe, ChevronDown, User, LogIn, UserPlus, Info } from 'lucide-react';
+import { LogOut, Sun, Moon, Globe, ChevronDown, Info } from 'lucide-react';
 import { useState } from 'react';
 
 export function TopNavbar() {
@@ -18,7 +18,6 @@ export function TopNavbar() {
     <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo / Titre (gauche) */}
           <Link href="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
               <span className="text-lg">🎓</span>
@@ -27,19 +26,16 @@ export function TopNavbar() {
             <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">UAZ — Informatique</span>
           </Link>
 
-          {/* Actions (droite) */}
           <div className="flex items-center space-x-2">
-            {/* À propos */}
             <Link
               href="/about"
               className="hidden md:flex items-center gap-1 px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm"
-              title="À propos"
+              title={t('nav.about')}
             >
               <Info className="w-4 h-4" />
-              <span>À propos</span>
+              <span>{t('nav.about')}</span>
             </Link>
 
-            {/* Langue */}
             <div className="relative">
               <button
                 onClick={() => setShowLangDropdown(!showLangDropdown)}
@@ -53,10 +49,7 @@ export function TopNavbar() {
               {showLangDropdown && (
                 <div className="absolute right-0 mt-2 w-32 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
                   <button
-                    onClick={() => {
-                      setLanguage('fr');
-                      setShowLangDropdown(false);
-                    }}
+                    onClick={() => { setLanguage('fr'); setShowLangDropdown(false); }}
                     className={`w-full px-4 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
                       language === 'fr' ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-gray-300'
                     }`}
@@ -64,10 +57,7 @@ export function TopNavbar() {
                     🇫🇷 Français
                   </button>
                   <button
-                    onClick={() => {
-                      setLanguage('en');
-                      setShowLangDropdown(false);
-                    }}
+                    onClick={() => { setLanguage('en'); setShowLangDropdown(false); }}
                     className={`w-full px-4 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
                       language === 'en' ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-gray-300'
                     }`}
@@ -78,11 +68,10 @@ export function TopNavbar() {
               )}
             </div>
 
-            {/* Mode sombre/clair */}
             <button
               onClick={toggleTheme}
               className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              title={theme === 'dark' ? 'Mode clair' : 'Mode sombre'}
+              title={theme === 'dark' ? t('theme.light') : t('theme.dark')}
             >
               {theme === 'dark' ? (
                 <Sun className="w-5 h-5 text-yellow-400" />
@@ -91,28 +80,25 @@ export function TopNavbar() {
               )}
             </button>
 
-            {/* Notifications - seulement si connecté */}
             {user && <NotificationBell />}
 
-            {/* Connexion / Inscription - si déconnecté */}
             {!user && (
               <div className="flex items-center gap-2">
                 <Link
                   href="/login"
                   className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
-                  Connexion
+                  {t('common.login')}
                 </Link>
                 <Link
                   href="/register"
                   className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm"
                 >
-                  Inscription
+                  {t('common.register')}
                 </Link>
               </div>
             )}
 
-            {/* Profil utilisateur - si connecté */}
             {user && (
               <div className="flex items-center gap-2 ml-2">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center">
@@ -126,7 +112,7 @@ export function TopNavbar() {
                 <button
                   onClick={logout}
                   className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                  title="Déconnexion"
+                  title={t('common.logout')}
                 >
                   <LogOut className="w-4 h-4" />
                 </button>

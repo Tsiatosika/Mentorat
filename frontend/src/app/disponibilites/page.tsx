@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { disponibiliteAPI } from '@/services/api';
 import toast from 'react-hot-toast';
 
@@ -14,6 +15,7 @@ const JOURS_LABEL: Record<string, string> = {
 
 export default function DisponibilitesPage() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const router = useRouter();
   const [disponibilites, setDisponibilites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +34,7 @@ export default function DisponibilitesPage() {
     }
     if (user.role !== 'mentor') {
       router.push('/dashboard');
-      toast.error('Seuls les mentors peuvent gérer leurs disponibilités');
+      toast.error(t('common.error'));
       return;
     }
     fetchDisponibilites();
@@ -44,7 +46,7 @@ export default function DisponibilitesPage() {
       setDisponibilites(response.data.disponibilites || []);
     } catch (error) {
       console.error('Erreur:', error);
-      toast.error('Erreur lors du chargement');
+      toast.error(t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -54,23 +56,23 @@ export default function DisponibilitesPage() {
     e.preventDefault();
     try {
       await disponibiliteAPI.create(formData);
-      toast.success('Disponibilité ajoutée');
+      toast.success(t('common.success'));
       setShowForm(false);
       fetchDisponibilites();
       setFormData({ jour_semaine: 'lundi', heure_debut: '09:00', heure_fin: '12:00', recurrent: true });
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erreur');
+      toast.error(error.response?.data?.message || t('common.error'));
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer cette disponibilité ?')) return;
+    if (!confirm(t('disponibilites.delete_confirm'))) return;
     try {
       await disponibiliteAPI.delete(id);
-      toast.success('Disponibilité supprimée');
+      toast.success(t('common.success'));
       fetchDisponibilites();
     } catch (error) {
-      toast.error('Erreur');
+      toast.error(t('common.error'));
     }
   };
 
@@ -88,14 +90,14 @@ export default function DisponibilitesPage() {
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold">Mes disponibilités</h1>
-              <p className="text-indigo-100 mt-1">Gérez vos créneaux horaires</p>
+              <h1 className="text-2xl font-bold">{t('disponibilites.title')}</h1>
+              <p className="text-indigo-100 mt-1">{t('disponibilites.subtitle')}</p>
             </div>
             <button
               onClick={() => setShowForm(!showForm)}
               className="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
             >
-              {showForm ? 'Annuler' : '+ Ajouter'}
+              {showForm ? t('disponibilites.cancel') : '+ ' + t('disponibilites.add')}
             </button>
           </div>
         </div>
@@ -104,10 +106,10 @@ export default function DisponibilitesPage() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         {showForm && (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Nouvelle disponibilité</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('disponibilites.add_disponibilite')}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jour</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('disponibilites.jour')}</label>
                 <select
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
                   style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
@@ -121,7 +123,7 @@ export default function DisponibilitesPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Heure début</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('disponibilites.heure_debut')}</label>
                   <input
                     type="time"
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
@@ -131,7 +133,7 @@ export default function DisponibilitesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Heure fin</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('disponibilites.heure_fin')}</label>
                   <input
                     type="time"
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
@@ -148,13 +150,13 @@ export default function DisponibilitesPage() {
                   onChange={(e) => setFormData({ ...formData, recurrent: e.target.checked })}
                   className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                 />
-                <label className="text-sm text-gray-700 dark:text-gray-300">Récurrent (chaque semaine)</label>
+                <label className="text-sm text-gray-700 dark:text-gray-300">{t('disponibilites.recurrent')}</label>
               </div>
               <button
                 type="submit"
                 className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
               >
-                Ajouter
+                {t('disponibilites.add')}
               </button>
             </form>
           </div>
@@ -162,8 +164,8 @@ export default function DisponibilitesPage() {
 
         {disponibilites.length === 0 ? (
           <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl shadow-md">
-            <p className="text-gray-500 dark:text-gray-400">Aucune disponibilité</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Ajoutez vos créneaux horaires</p>
+            <p className="text-gray-500 dark:text-gray-400">{t('disponibilites.no_disponibilites')}</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('disponibilites.no_disponibilites_desc')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -175,7 +177,7 @@ export default function DisponibilitesPage() {
                     {dispo.heure_debut.substring(0, 5)} - {dispo.heure_fin.substring(0, 5)}
                   </span>
                   {dispo.recurrent && (
-                    <span className="ml-2 text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full">Récurrent</span>
+                    <span className="ml-2 text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full">{t('disponibilites.recurrent')}</span>
                   )}
                 </div>
                 <button

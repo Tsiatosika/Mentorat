@@ -8,6 +8,7 @@ import {
   Phone, Trash2, MoreVertical
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { sessionAPI, messageAPI } from '@/services/api';
 import { uploadFile } from '@/services/uploadService';
 import { io, Socket } from 'socket.io-client';
@@ -35,6 +36,7 @@ export default function ChatPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const sessionId = params.id as string;
   const { playRingtone, stopRingtone } = useSound();
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -138,7 +140,7 @@ export default function ChatPage() {
     // Suppression de message
     newSocket.on('message_deleted', (data) => {
       setMessages(prev => prev.filter(m => m.id !== data.messageId));
-      toast('Message supprimé', { icon: '🗑️' });
+      toast(t('chat.message_deleted'), { icon: '🗑️' });
     });
     
     // Appels entrants
@@ -155,14 +157,14 @@ export default function ChatPage() {
     newSocket.on('call_accepted', (data) => {
       console.log('✅ Appel accepté');
       stopRingtone();
-      toast.success('Appel accepté !');
+      toast.success(t('chat.call_accepted'));
       setShowVideo(true);
     });
     
     newSocket.on('call_rejected', () => {
       console.log('❌ Appel refusé');
       stopRingtone();
-      toast.error('Appel refusé');
+      toast.error(t('chat.call_rejected'));
       if (otherUserId && otherUserName) {
         saveCallRecord(otherUserId, otherUserName, 0, 'sortant', false);
       }
@@ -171,7 +173,7 @@ export default function ChatPage() {
     newSocket.on('call_ended', () => {
       console.log('🔚 Appel terminé par l\'autre');
       setShowVideo(false);
-      toast('Appel terminé', { icon: '📞' });
+      toast(t('chat.call_ended'), { icon: '📞' });
     });
     
     newSocket.on('call_error', (error) => {
@@ -386,13 +388,18 @@ export default function ChatPage() {
     if (!socket) return;
     
     try {
-      await messageAPI.deleteMessage(messageId);
-      socket.emit('delete_message', { messageId, sessionId });
-      setMessages(prev => prev.filter(m => m.id !== messageId));
-      toast.success('Message supprimé');
+      console.log('🗑️ Suppression du message:', messageId);
+      const response = await messageAPI.deleteMessage(messageId);
+      console.log('Réponse:', response.data);
+      
+      if (response.data.success) {
+        setMessages(prev => prev.filter(m => m.id !== messageId));
+        socket.emit('delete_message', { messageId, sessionId });
+        toast.success(t('chat.message_deleted_success'));
+      }
     } catch (error) {
       console.error('Erreur suppression:', error);
-      toast.error('Impossible de supprimer ce message');
+      toast.error(t('chat.message_delete_error'));
     }
     setMenuOpenFor(null);
   };
@@ -501,18 +508,18 @@ export default function ChatPage() {
                 <ArrowLeft className="w-5 h-5" />
               </Link>
               <div>
-                <h1 className="font-semibold">Chat</h1>
-                <p className="text-sm text-indigo-200">Session de mentorat</p>
+                <h1 className="font-semibold">{t('chat.title')}</h1>
+                <p className="text-sm text-indigo-200">{t('chat.session')}</p>
               </div>
             </div>
             
             <button
               onClick={startCall}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
-              title="Appel vidéo"
+              title={t('chat.video_call')}
             >
               <Video className="w-5 h-5" />
-              <span className="text-sm font-medium">Appel vidéo</span>
+              <span className="text-sm font-medium">{t('chat.video_call')}</span>
             </button>
           </div>
         </div>
@@ -523,7 +530,7 @@ export default function ChatPage() {
         <div className="space-y-3">
           {messages.length === 0 ? (
             <div className="text-center text-gray-500 py-12">
-              💬 Aucun message. Commencez la conversation !
+              💬 {t('chat.no_messages')}
             </div>
           ) : (
             messages.map((message, index) => {
@@ -593,7 +600,7 @@ export default function ChatPage() {
                           className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 w-full transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
-                          Supprimer
+                          {t('chat.delete')}
                         </button>
                       </div>
                     )}
@@ -620,7 +627,7 @@ export default function ChatPage() {
               <div className="bg-gray-200 rounded-2xl px-4 py-2">
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-sm text-gray-500">Envoi...</span>
+                  <span className="text-sm text-gray-500">{t('chat.sending')}</span>
                 </div>
               </div>
             </div>
@@ -656,7 +663,7 @@ export default function ChatPage() {
               className="absolute -bottom-10 right-0 bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700"
             >
               <Download className="w-4 h-4" />
-              Télécharger
+              {t('chat.download')}
             </button>
           </div>
         </div>
@@ -707,7 +714,7 @@ export default function ChatPage() {
               onClick={() => fileInputRef.current?.click()}
               disabled={sending || uploading}
               className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-              title="Joindre des fichiers"
+              title={t('chat.attach_file')}
             >
               <Paperclip className="w-5 h-5" />
             </button>
@@ -715,7 +722,7 @@ export default function ChatPage() {
             <button
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
               className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Emojis"
+              title={t('chat.emoji')}
             >
               <Smile className="w-5 h-5" />
             </button>
@@ -735,7 +742,7 @@ export default function ChatPage() {
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyDown={handleKeyPress}
               onKeyUp={handleTyping}
-              placeholder="Écrivez votre message..."
+              placeholder={t('chat.message_placeholder')}
               disabled={sending || uploading}
               rows={1}
               className="flex-1 resize-none border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100"
@@ -751,7 +758,7 @@ export default function ChatPage() {
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <span>Envoyer</span>
+                  <span>{t('chat.send')}</span>
                   <Send className="w-4 h-4" />
                 </>
               )}
@@ -773,12 +780,12 @@ export default function ChatPage() {
           )}
           
           <p className="text-xs text-gray-400 mt-2 text-center">
-            😊 Emojis | 📎 Fichiers | 🎥 Appel vidéo | ⏎ Envoyer
+            {t('chat.hint')}
           </p>
         </div>
       </div>
 
-      {/* Historique des appels (comme dans Messenger) */}
+      {/* Historique des appels */}
       {!showVideo && (
         <div className="max-w-5xl mx-auto px-4 pb-4">
           <CallHistory onCallBack={handleCallBack} />
@@ -787,26 +794,3 @@ export default function ChatPage() {
     </div>
   );
 }
-
-// Remplacer la fonction deleteMessage par:
-const deleteMessage = async (messageId: string) => {
-  if (!socket) return;
-  
-  try {
-    console.log('🗑️ Suppression du message:', messageId);
-    const response = await messageAPI.deleteMessage(messageId);
-    console.log('Réponse:', response.data);
-    
-    if (response.data.success) {
-      // Supprimer localement
-      setMessages(prev => prev.filter(m => m.id !== messageId));
-      // Notifier via socket
-      socket.emit('delete_message', { messageId, sessionId });
-      toast.success('Message supprimé');
-    }
-  } catch (error) {
-    console.error('Erreur suppression:', error);
-    toast.error('Impossible de supprimer ce message');
-  }
-  setMenuOpenFor(null);
-};

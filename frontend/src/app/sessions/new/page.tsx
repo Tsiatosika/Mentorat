@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, Clock, User, FileText, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, FileText } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { publicAPI, disponibiliteAPI, sessionAPI } from '@/services/api';
 import toast from 'react-hot-toast';
 
@@ -12,8 +13,9 @@ export default function NewSessionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const mentorId = searchParams.get('mentor');
-  
+
   const [mentor, setMentor] = useState<any>(null);
   const [disponibilites, setDisponibilites] = useState<any[]>([]);
   const [selectedDate, setSelectedDate] = useState('');
@@ -28,41 +30,35 @@ export default function NewSessionPage() {
       router.push('/login');
       return;
     }
-    if (mentorId) {
-      fetchMentor();
-    }
+    if (mentorId) fetchMentor();
   }, [mentorId, user, router]);
 
   const fetchMentor = async () => {
     try {
-      // Récupérer le mentor avec son ID utilisateur
       const mentorRes = await publicAPI.getMentorById(mentorId);
       setMentor(mentorRes.data.mentor);
-      
-      // Récupérer les disponibilités avec l'ID utilisateur
       const dispoRes = await disponibiliteAPI.getByMentor(mentorId);
       setDisponibilites(dispoRes.data.disponibilites || []);
     } catch (error) {
       console.error('Erreur:', error);
-      toast.error('Erreur lors du chargement');
+      toast.error(t('session.loading_error'));
     }
   };
 
   const generateTimeSlots = (date: string) => {
     if (!date) return [];
-    const dayOfWeek = new Date(date).toLocaleDateString('fr-FR', { weekday: 'long' }).toLowerCase();
+    const locale = language === 'fr' ? 'fr-FR' : 'en-GB';
+    const dayOfWeek = new Date(date).toLocaleDateString(locale, { weekday: 'long' }).toLowerCase();
     const times: string[] = [];
-    
+
     disponibilites.forEach((dispo: any) => {
       if (dispo.jour_semaine === dayOfWeek) {
         const [startH, startM] = dispo.heure_debut.split(':');
         const [endH, endM] = dispo.heure_fin.split(':');
-        
         let current = new Date();
         current.setHours(parseInt(startH), parseInt(startM), 0);
         const end = new Date();
         end.setHours(parseInt(endH), parseInt(endM), 0);
-        
         while (current < end) {
           const hours = String(current.getHours()).padStart(2, '0');
           const minutes = String(current.getMinutes()).padStart(2, '0');
@@ -71,7 +67,7 @@ export default function NewSessionPage() {
         }
       }
     });
-    
+
     return times;
   };
 
@@ -79,40 +75,36 @@ export default function NewSessionPage() {
     setSelectedDate(date);
     const times = generateTimeSlots(date);
     setAvailableTimes(times);
-    if (times.length > 0) {
-      setSelectedTime(times[0]);
-    }
+    if (times.length > 0) setSelectedTime(times[0]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedDate || !selectedTime || !sujet) {
-      toast.error('Veuillez remplir tous les champs');
+      toast.error(t('session.fields_required'));
       return;
     }
 
     const [hours, minutes] = selectedTime.split(':');
     const date = new Date(selectedDate);
     date.setHours(parseInt(hours), parseInt(minutes), 0);
-    
     const endDate = new Date(date);
     endDate.setHours(endDate.getHours() + 1);
 
     setLoading(true);
     try {
       await sessionAPI.create({
-        mentor_id: mentorId, // Utiliser l'ID utilisateur
+        mentor_id: mentorId,
         date_debut: date.toISOString(),
         date_fin: endDate.toISOString(),
-        sujet: sujet,
-        description: description
+        sujet,
+        description,
       });
-      
-      toast.success('Session réservée avec succès !');
+      toast.success(t('session.booked'));
       router.push('/sessions');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erreur lors de la réservation');
+      toast.error(error.response?.data?.message || t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -131,20 +123,20 @@ export default function NewSessionPage() {
       <div className="max-w-2xl mx-auto">
         <Link href={`/mentors/${mentorId}`} className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6">
           <ArrowLeft className="w-4 h-4" />
-          Retour au profil
+          {t('session.back')}
         </Link>
 
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
-            <h1 className="text-2xl font-bold">Nouvelle session</h1>
-            <p className="text-indigo-100 mt-1">avec {mentor.prenom} {mentor.nom}</p>
+            <h1 className="text-2xl font-bold">{t('session.new_title')}</h1>
+            <p className="text-indigo-100 mt-1">{t('session.new_with')} {mentor.prenom} {mentor.nom}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <Calendar className="w-4 h-4 inline mr-2" />
-                Date
+                {t('session.date')}
               </label>
               <input
                 type="date"
@@ -160,10 +152,10 @@ export default function NewSessionPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Clock className="w-4 h-4 inline mr-2" />
-                  Heure
+                  {t('session.time')}
                 </label>
                 {availableTimes.length === 0 ? (
-                  <p className="text-red-500 text-sm">Aucun créneau disponible pour cette date</p>
+                  <p className="text-red-500 text-sm">{t('session.no_slots')}</p>
                 ) : (
                   <div className="grid grid-cols-3 gap-2">
                     {availableTimes.map((time) => (
@@ -188,12 +180,12 @@ export default function NewSessionPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <FileText className="w-4 h-4 inline mr-2" />
-                Sujet *
+                {t('session.subject')}
               </label>
               <input
                 type="text"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="Ex: Aide sur le projet Python"
+                placeholder={t('session.subject_placeholder')}
                 value={sujet}
                 onChange={(e) => setSujet(e.target.value)}
                 required
@@ -202,12 +194,12 @@ export default function NewSessionPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description (optionnelle)
+                {t('session.desc')}
               </label>
               <textarea
                 rows={3}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="Décrivez vos attentes..."
+                placeholder={t('session.desc_placeholder')}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
@@ -221,7 +213,7 @@ export default function NewSessionPage() {
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
-                'Réserver'
+                t('session.book')
               )}
             </button>
           </form>

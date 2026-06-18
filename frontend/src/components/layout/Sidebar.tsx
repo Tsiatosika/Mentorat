@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useState, useEffect } from 'react';
 import { 
   Home, LayoutDashboard, Users, Calendar, MessageCircle, FileText, 
@@ -17,6 +18,7 @@ interface SidebarProps {
 export default function Sidebar({ onCollapseChange }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -49,57 +51,33 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
 
   if (!mounted) return null;
 
-  // Menu commun à tous les utilisateurs connectés
-  const commonMenuItems = [
-    { label: 'Accueil', href: '/', icon: Home },
-    { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  // Menu selon le rôle
+  let menuItems = [
+    { label: t('nav.home'), href: '/', icon: Home },
+    { label: t('nav.dashboard'), href: '/dashboard', icon: LayoutDashboard },
   ];
 
-  // Menu pour les mentorés
-  const mentoreMenuItems = [
-    { label: 'Mentors', href: '/mentors', icon: Users },
-  ];
-
-  // Menu pour les mentors
-  const mentorMenuItems = [
-    { label: 'Mes disponibilités', href: '/disponibilites', icon: Clock },
-  ];
-
-  // Menu commun (sessions, chat, rapports)
-  const commonMenuItems2 = [
-    { label: 'Sessions', href: '/sessions', icon: Calendar },
-    { label: 'Chat', href: '/chat', icon: MessageCircle },
-    { label: 'Rapports', href: '/reports', icon: FileText },
-  ];
-
-  // Outils communs (profil uniquement)
-  const commonToolItems = [
-    { label: 'Mon profil', href: '/profile', icon: UserCircle },
-  ];
-
-  // Outils pour mentorés (Matching IA)
-  const mentoreToolItems = [
-    { label: 'Matching IA', href: '/matching', icon: Brain },
-  ];
-
-  // Construire le menu selon le rôle
-  let menuItems = [...commonMenuItems];
-  
   if (isMentore) {
-    menuItems = [...menuItems, ...mentoreMenuItems];
+    menuItems.push({ label: t('nav.mentors'), href: '/mentors', icon: Users });
   }
-  
+
   if (isMentor) {
-    menuItems = [...menuItems, ...mentorMenuItems];
+    menuItems.push({ label: t('tools.disponibilites'), href: '/disponibilites', icon: Clock });
   }
-  
-  menuItems = [...menuItems, ...commonMenuItems2];
 
-  // Construire les outils selon le rôle
-  let toolItems = [...commonToolItems];
-  
+  menuItems = [
+    ...menuItems,
+    { label: t('nav.sessions'), href: '/sessions', icon: Calendar },
+    { label: t('nav.chat'), href: '/chat', icon: MessageCircle },
+    { label: t('nav.reports'), href: '/reports', icon: FileText },
+  ];
+
+  let toolItems = [
+    { label: t('tools.profile'), href: '/profile', icon: UserCircle },
+  ];
+
   if (isMentore) {
-    toolItems = [...toolItems, ...mentoreToolItems];
+    toolItems.push({ label: t('tools.matching'), href: '/matching', icon: Brain });
   }
 
   return (
@@ -169,7 +147,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
       <div style={{ padding: collapsed ? '16px 8px' : '20px 12px', flex: 1, overflowY: 'auto' }}>
         {!collapsed && (
           <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', padding: '0 10px 12px' }}>
-            Navigation
+            {t('nav.home')}
           </div>
         )}
         {menuItems.map(item => {
@@ -209,7 +187,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
       <div style={{ padding: collapsed ? '8px 8px' : '12px 12px' }}>
         {!collapsed && toolItems.length > 0 && (
           <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', padding: '0 10px 12px' }}>
-            Outils
+            {t('tools.matching')}
           </div>
         )}
         {toolItems.map(item => {
