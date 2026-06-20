@@ -31,12 +31,29 @@ const loginValidation = [
     .notEmpty().withMessage('Le mot de passe est requis')
 ];
 
+// Validation pour la connexion Google
+const googleAuthValidation = [
+  body('credential')
+    .notEmpty().withMessage('Le credential Google est requis')
+];
+
+// Validation pour compléter le profil (choix du rôle après Google)
+const completeProfileValidation = [
+  body('role')
+    .isIn(['mentor', 'mentore']).withMessage('Le rôle doit être mentor ou mentore')
+];
 
 // Inscription
 router.post('/register', registerValidation, authController.register);
 
 // Connexion
 router.post('/login', loginValidation, authController.login);
+
+// Connexion / inscription via Google
+router.post('/google', googleAuthValidation, authController.googleAuth);
+
+// Compléter le profil après connexion Google (choix du rôle)
+router.put('/complete-profile', authenticate, completeProfileValidation, authController.completeProfile);
 
 // Déconnexion
 router.post('/logout', authenticate, authController.logout);

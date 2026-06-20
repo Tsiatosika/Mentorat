@@ -3,15 +3,19 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { User, Mail, Lock, Eye, EyeOff, UserPlus, Sparkles, Shield, Target, FileText } from 'lucide-react';
+import { Eye, EyeOff, UserPlus, Sparkles, Shield, Target, FileText } from 'lucide-react';
+import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import toast from 'react-hot-toast';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { register, user } = useAuth();
+  const { register, loginWithGoogle, user } = useAuth();
+  const { theme } = useTheme();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [formData, setFormData] = useState({
     nom: '',
     prenom: '',
@@ -22,7 +26,7 @@ export default function RegisterPage() {
   const [passwordStrength, setPasswordStrength] = useState({ length: false, uppercase: false, number: false });
 
   useEffect(() => {
-    if (user) router.push('/dashboard');
+    if (user && user.role) router.push('/dashboard');
   }, [user, router]);
 
   const checkPasswordStrength = (password: string) => {
@@ -35,7 +39,7 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.nom || !formData.prenom || !formData.email || !formData.mot_de_passe) {
       toast.error('Veuillez remplir tous les champs');
       return;
@@ -64,6 +68,31 @@ export default function RegisterPage() {
     }
   };
 
+  const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
+    if (!credentialResponse.credential) {
+      toast.error('Erreur lors de la connexion Google');
+      return;
+    }
+
+    setGoogleLoading(true);
+    try {
+      const { needsRole } = await loginWithGoogle(credentialResponse.credential);
+      if (needsRole) {
+        router.push('/complete-profile');
+      } else {
+        router.push('/dashboard');
+      }
+    } catch (error) {
+      // déjà géré dans loginWithGoogle (toast)
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    toast.error('Connexion Google annulée ou échouée');
+  };
+
   const features = [
     { icon: Sparkles, title: 'Matching IA intelligent', desc: 'Trouvez le mentor idéal selon vos objectifs' },
     { icon: Target, title: 'Recommandations personnalisées', desc: 'Suggestions basées sur vos compétences' },
@@ -75,7 +104,6 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-12">
       <div className="max-w-7xl mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-          {/* Colonne gauche - Features */}
           <div className="space-y-6 order-2 md:order-1">
             <div>
               <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
@@ -105,11 +133,36 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Colonne droite - Formulaire */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 order-1 md:order-2">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Inscription</h2>
               <p className="text-gray-600 dark:text-gray-400">Créez votre compte gratuitement</p>
+            </div>
+
+            {/* Bouton Google */}
+            <div className="mb-6 flex justify-center">
+              {googleLoading ? (
+                <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  theme={theme === 'dark' ? 'filled_black' : 'outline'}
+                  size="large"
+                  width="320"
+                  text="signup_with"
+                  shape="rectangular"
+                />
+              )}
+            </div>
+
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200 dark:border-gray-700"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">ou</span>
+              </div>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
