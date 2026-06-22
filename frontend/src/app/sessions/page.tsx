@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Star } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { sessionAPI } from '@/services/api';
+import { sessionAPI, avisAPI } from '@/services/api';
+import { ReviewModal } from '@/components/sessions/ReviewModal';
 import toast from 'react-hot-toast';
 
 interface Session {
@@ -13,6 +15,7 @@ interface Session {
   statut: 'en_attente' | 'confirmee' | 'en_cours' | 'terminee' | 'annulee';
   lien_visio: string | null;
   mentor_nom?: string; mentor_prenom?: string; mentore_nom?: string; mentore_prenom?: string;
+  mentor_id?: string;
 }
 
 export default function SessionsPage() {
@@ -22,6 +25,8 @@ export default function SessionsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('tous');
+  const [reviewedSessionIds, setReviewedSessionIds] = useState<Set<string>>(new Set());
+  const [reviewModal, setReviewModal] = useState<{ sessionId: string; mentorName: string } | null>(null);
 
   useEffect(() => {
     if (!user) { router.push('/login'); return; }
@@ -29,9 +34,21 @@ export default function SessionsPage() {
   }, [user]);
 
   const load = async () => {
-    try { const r = await sessionAPI.getAll(); setSessions(r.data.sessions || []); }
-    catch { toast.error(t('common.error')); }
-    finally { setLoading(false); }
+    try {
+      const r = await sessionAPI.getAll();
+      const allSessions = r.data.sessions || [];
+      setSessions(allSessions);
+
+      // Un seul appel groupé au lieu d'un appel par session terminée
+      if (user?.role === 'mentore') {
+        const notedRes = await avisAPI.getMesSessionsNotees();
+        setReviewedSessionIds(new Set(notedRes.data.sessionIds || []));
+      }
+    } catch {
+      toast.error(t('common.error'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleConfirm = async (id: string) => { try { await sessionAPI.confirm(id); toast.success(t('sessions.confirmed')); load(); } catch { toast.error(t('common.error')); } };
@@ -112,9 +129,12 @@ export default function SessionsPage() {
         <div className="space-y-3">
           {filtered.map(s => {
             const isMentor = user?.role === 'mentor';
+            const isMentore = user?.role === 'mentore';
             const otherName = other(s);
             const cfg = statusConfig[s.statut] || statusConfig.en_attente;
             const statusText = filters.find(f => f.key === s.statut)?.label || s.statut;
+            const canReview = isMentore && s.statut === 'terminee' && !reviewedSessionIds.has(s.id);
+            const alreadyReviewed = isMentore && s.statut === 'terminee' && reviewedSessionIds.has(s.id);
 
             return (
               <div key={s.id} className="card bookmark p-4 flex flex-wrap justify-between items-center gap-3">
@@ -124,6 +144,15 @@ export default function SessionsPage() {
                     <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: cfg.bg, color: cfg.fg }}>
                       {statusText}
                     </span>
+                    {alreadyReviewed && (
+                      <span
+                        className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1"
+                        style={{ backgroundColor: 'var(--warm-soft)', color: 'var(--warm-text-on-soft)' }}
+                      >
+                        <Star className="w-3 h-3" style={{ fill: 'currentColor' }} />
+                        Noté
+                      </span>
+                    )}
                   </div>
                   <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                     <div>{t('sessions.with')} {otherName}</div>
@@ -158,6 +187,16 @@ export default function SessionsPage() {
                       {t('sessions.start')}
                     </button>
                   )}
+                  {canReview && (
+                    <button
+                      onClick={() => setReviewModal({ sessionId: s.id, mentorName: otherName })}
+                      className="px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5"
+                      style={{ backgroundColor: 'var(--warm)', color: '#2A1700' }}
+                    >
+                      <Star className="w-3.5 h-3.5" />
+                      Noter
+                    </button>
+                  )}
                   <Link
                     href={`/chat/${s.id}`}
                     className="px-3 py-1.5 rounded-lg text-sm font-medium"
@@ -170,6 +209,19 @@ export default function SessionsPage() {
             );
           })}
         </div>
+      )}
+
+      {reviewModal && (
+        <ReviewModal
+          isOpen={true}
+          onClose={() => setReviewModal(null)}
+          sessionId={reviewModal.sessionId}
+          mentorName={reviewModal.mentorName}
+          onSubmitted={() => {
+            load();
+            setTimeout(() => setReviewModal(null), 1500);
+          }}
+        />
       )}
     </div>
   );

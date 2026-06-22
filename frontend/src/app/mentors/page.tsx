@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Search, SlidersHorizontal, Clock, Users, Star, CalendarPlus, CheckCircle2 } from 'lucide-react';
+import { Search, SlidersHorizontal, Clock, Users, Star, CalendarPlus, ArrowUpDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { publicAPI } from '@/services/api';
 
@@ -20,7 +20,8 @@ interface Mentor {
   disponible: boolean;
 }
 
-// Palette de teintes pour les badges d'initiales — dérivée du thème, pas aléatoire
+type SortKey = 'pertinence' | 'note' | 'experience' | 'popularite';
+
 const AVATAR_PALETTE = [
   { bg: 'var(--accent-soft)', fg: 'var(--accent-text-on-soft)' },
   { bg: 'var(--warm-soft)', fg: 'var(--warm-text-on-soft)' },
@@ -40,6 +41,10 @@ export default function MentorsPage() {
   const [onlyAvailable, setOnlyAvailable] = useState(false);
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [showAllTags, setShowAllTags] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>('pertinence');
+  const [minNote, setMinNote] = useState(0);
+  const [minExperience, setMinExperience] = useState(0);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     fetchMentors();
@@ -57,7 +62,6 @@ export default function MentorsPage() {
     }
   };
 
-  // Extraction des compétences uniques depuis les mentors chargés, triées par fréquence
   const availableTags = useMemo(() => {
     const counts = new Map<string, number>();
     mentors.forEach((m) => {
@@ -78,8 +82,15 @@ export default function MentorsPage() {
     );
   };
 
+  const sortOptions: { key: SortKey; label: string }[] = [
+    { key: 'pertinence', label: 'Pertinence' },
+    { key: 'note', label: 'Meilleure note' },
+    { key: 'experience', label: "Plus d'expérience" },
+    { key: 'popularite', label: 'Plus populaire' },
+  ];
+
   const filteredMentors = useMemo(() => {
-    return mentors.filter((mentor) => {
+    let result = mentors.filter((mentor) => {
       const fullName = `${mentor.prenom} ${mentor.nom}`.toLowerCase();
       const matchesSearch =
         !searchTerm ||
@@ -93,9 +104,28 @@ export default function MentorsPage() {
         activeTags.length === 0 ||
         activeTags.every((tag) => (mentor.competences || []).includes(tag));
 
-      return matchesSearch && matchesAvailable && matchesTags;
+      const matchesNote = !minNote || Number(mentor.note_moyenne || 0) >= minNote;
+      const matchesExperience = !minExperience || Number(mentor.annees_experience || 0) >= minExperience;
+
+      return matchesSearch && matchesAvailable && matchesTags && matchesNote && matchesExperience;
     });
-  }, [mentors, searchTerm, onlyAvailable, activeTags]);
+
+    switch (sortKey) {
+      case 'note':
+        result = [...result].sort((a, b) => Number(b.note_moyenne || 0) - Number(a.note_moyenne || 0));
+        break;
+      case 'experience':
+        result = [...result].sort((a, b) => Number(b.annees_experience || 0) - Number(a.annees_experience || 0));
+        break;
+      case 'popularite':
+        result = [...result].sort((a, b) => Number(b.nb_sessions || 0) - Number(a.nb_sessions || 0));
+        break;
+      default:
+        break;
+    }
+
+    return result;
+  }, [mentors, searchTerm, onlyAvailable, activeTags, sortKey, minNote, minExperience]);
 
   const getNoteDisplay = (note: any) => {
     if (!note) return t('common.new');
@@ -108,9 +138,12 @@ export default function MentorsPage() {
     setSearchTerm('');
     setOnlyAvailable(false);
     setActiveTags([]);
+    setMinNote(0);
+    setMinExperience(0);
+    setSortKey('pertinence');
   };
 
-  const hasActiveFilters = searchTerm || onlyAvailable || activeTags.length > 0;
+  const hasActiveFilters = searchTerm || onlyAvailable || activeTags.length > 0 || minNote > 0 || minExperience > 0;
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
@@ -126,26 +159,101 @@ export default function MentorsPage() {
 
       {/* Barre de recherche + filtres */}
       <div className="max-w-7xl mx-auto px-4 mb-8 space-y-4">
-        {/* Recherche */}
-        <div className="relative">
-          <Search
-            className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5"
-            style={{ color: 'var(--text-tertiary)' }}
-          />
-          <input
-            type="text"
-            placeholder={t('mentors.search_placeholder')}
-            className="w-full pl-12 pr-4 py-4 rounded-2xl outline-none transition-all text-base"
-            style={{
-              backgroundColor: 'var(--card-bg)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-primary)',
-              boxShadow: 'var(--shadow-card)',
-            }}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        {/* Recherche + tri */}
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5"
+              style={{ color: 'var(--text-tertiary)' }}
+            />
+            <input
+              type="text"
+              placeholder={t('mentors.search_placeholder')}
+              className="w-full pl-12 pr-4 py-4 rounded-2xl outline-none transition-all text-base"
+              style={{
+                backgroundColor: 'var(--card-bg)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-primary)',
+                boxShadow: 'var(--shadow-card)',
+              }}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="relative">
+            <select
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              className="w-full md:w-56 h-full pl-11 pr-4 py-4 rounded-2xl outline-none appearance-none text-sm font-medium"
+              style={{
+                backgroundColor: 'var(--card-bg)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-primary)',
+                boxShadow: 'var(--shadow-card)',
+              }}
+            >
+              {sortOptions.map((opt) => (
+                <option key={opt.key} value={opt.key}>{opt.label}</option>
+              ))}
+            </select>
+            <ArrowUpDown
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 pointer-events-none"
+              style={{ color: 'var(--text-tertiary)' }}
+            />
+          </div>
+
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center justify-center gap-2 px-5 py-4 rounded-2xl text-sm font-medium transition-colors"
+            style={
+              showAdvanced
+                ? { backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)', border: '1px solid var(--border)' }
+                : { backgroundColor: 'var(--card-bg)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }
+            }
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            Filtres avancés
+          </button>
         </div>
+
+        {/* Panneau de filtres avancés */}
+        {showAdvanced && (
+          <div className="card p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="flex justify-between text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                <span>Note minimum</span>
+                <span className="font-mono-data" style={{ color: 'var(--accent)' }}>{minNote > 0 ? `${minNote}+` : 'Toutes'}</span>
+              </label>
+              <input
+                type="range"
+                min={0}
+                max={5}
+                step={0.5}
+                value={minNote}
+                onChange={(e) => setMinNote(parseFloat(e.target.value))}
+                className="w-full"
+                style={{ accentColor: 'var(--accent)' }}
+              />
+            </div>
+            <div>
+              <label className="flex justify-between text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                <span>Expérience minimum</span>
+                <span className="font-mono-data" style={{ color: 'var(--accent)' }}>{minExperience > 0 ? `${minExperience}+ ans` : 'Toutes'}</span>
+              </label>
+              <input
+                type="range"
+                min={0}
+                max={20}
+                step={1}
+                value={minExperience}
+                onChange={(e) => setMinExperience(parseInt(e.target.value))}
+                className="w-full"
+                style={{ accentColor: 'var(--accent)' }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Tags de filtre */}
         <div className="flex items-start gap-3 flex-wrap">
@@ -159,8 +267,7 @@ export default function MentorsPage() {
             }
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
-            {t('mentors.available')} {t('mentors.all') === t('mentors.available') ? '' : t('mentors.available') ? '' : ''}
-            uniquement
+            {t('mentors.available')} uniquement
           </button>
 
           {visibleTags.map((tag) => {

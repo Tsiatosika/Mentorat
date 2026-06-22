@@ -3,26 +3,42 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Clock, Users, Star, CheckCircle, XCircle, Mail } from 'lucide-react';
+import { ArrowLeft, Clock, Users, Star, CheckCircle, XCircle, Mail, MessageSquareQuote } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { publicAPI } from '@/services/api';
+import { publicAPI, avisAPI } from '@/services/api';
 import { QuickBooking } from '@/components/mentors/QuickBooking';
 import toast from 'react-hot-toast';
+
+interface Avis {
+  id: string;
+  note_globale: number;
+  note_ponctualite: number;
+  note_pedagogie: number;
+  note_disponibilite: number;
+  commentaire: string | null;
+  created_at: string;
+  nom: string;
+  prenom: string;
+}
 
 export default function MentorDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [mentor, setMentor] = useState<any>(null);
+  const [avis, setAvis] = useState<Avis[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const mentorId = params.id as string;
 
   useEffect(() => {
-    if (mentorId) fetchMentor();
+    if (mentorId) {
+      fetchMentor();
+      fetchAvis();
+    }
   }, [mentorId]);
 
   const fetchMentor = async () => {
@@ -44,12 +60,30 @@ export default function MentorDetailPage() {
     }
   };
 
+  const fetchAvis = async () => {
+    try {
+      const response = await avisAPI.getByMentor(mentorId);
+      setAvis(response.data.avis || []);
+    } catch (error) {
+      console.error('Erreur chargement avis:', error);
+    }
+  };
+
   const getNoteDisplay = (note: any) => {
     if (!note || note === 0) return t('common.new');
     const numNote = typeof note === 'string' ? parseFloat(note) : note;
     if (isNaN(numNote) || numNote === 0) return t('common.new');
     return numNote.toFixed(1);
   };
+
+  const avgCriteria = (key: keyof Avis) => {
+    if (avis.length === 0) return 0;
+    const sum = avis.reduce((acc, a) => acc + Number(a[key]), 0);
+    return sum / avis.length;
+  };
+
+  const formatDate = (date: string) =>
+    new Date(date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
   if (loading) {
     return (
@@ -86,6 +120,12 @@ export default function MentorDetailPage() {
     );
   }
 
+  const criteriaLabels = [
+    { key: 'note_ponctualite' as const, label: 'Ponctualité' },
+    { key: 'note_pedagogie' as const, label: 'Pédagogie' },
+    { key: 'note_disponibilite' as const, label: 'Disponibilité' },
+  ];
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -119,6 +159,9 @@ export default function MentorDetailPage() {
                     <span className="font-mono-data font-semibold" style={{ color: 'var(--text-primary)' }}>
                       {getNoteDisplay(mentor.note_moyenne)}/5
                     </span>
+                    {avis.length > 0 && (
+                      <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>({avis.length} avis)</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
                     <Users className="w-5 h-5" />
@@ -170,6 +213,71 @@ export default function MentorDetailPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Section Avis */}
+                <div>
+                  <h2
+                    className="font-display text-xl font-semibold mb-3 flex items-center gap-2"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    <MessageSquareQuote className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+                    Avis ({avis.length})
+                  </h2>
+
+                  {avis.length === 0 ? (
+                    <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                      Ce mentor n'a pas encore reçu d'avis.
+                    </p>
+                  ) : (
+                    <>
+                      {/* Moyennes par critère */}
+                      <div className="grid grid-cols-3 gap-3 mb-5">
+                        {criteriaLabels.map((c) => (
+                          <div key={c.key} className="rounded-lg p-3 text-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                            <div className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>{c.label}</div>
+                            <div className="font-mono-data font-semibold flex items-center justify-center gap-1" style={{ color: 'var(--text-primary)' }}>
+                              <Star className="w-3.5 h-3.5" style={{ color: 'var(--warm)', fill: 'var(--warm)' }} />
+                              {avgCriteria(c.key).toFixed(1)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Liste des avis */}
+                      <div className="space-y-4">
+                        {avis.map((a) => (
+                          <div key={a.id} className="card bookmark p-4">
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                                  style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+                                >
+                                  {a.prenom?.[0]}{a.nom?.[0]}
+                                </div>
+                                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                  {a.prenom} {a.nom?.[0]}.
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Star className="w-4 h-4" style={{ color: 'var(--warm)', fill: 'var(--warm)' }} />
+                                <span className="font-mono-data text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                  {Number(a.note_globale).toFixed(1)}
+                                </span>
+                              </div>
+                            </div>
+                            {a.commentaire && (
+                              <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--text-secondary)' }}>
+                                {a.commentaire}
+                              </p>
+                            )}
+                            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{formatDate(a.created_at)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-6">

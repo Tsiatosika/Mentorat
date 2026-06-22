@@ -109,6 +109,14 @@ export const publicAPI = {
   getMentorById: (id: string)  => api.get(`/mentors/${id}`),
 };
 
+export const avisAPI = {
+  create: (data: any) => api.post('/avis', data),
+  getByMentor: (mentorId: string) => api.get(`/avis/mentor/${mentorId}`),
+  getBySession: (sessionId: string) => api.get(`/avis/session/${sessionId}`),
+  getMesSessionsNotees: () => api.get('/avis/mentore/me'),
+};
+
+
 export const uploadAPI = {
   photo: (file: File) => {
     const form = new FormData();
