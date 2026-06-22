@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { PhoneOff, Mic, MicOff, Video, VideoOff, Maximize, Minimize } from 'lucide-react';
-import { CallTimer } from './CallTimer';
+import { PhoneOff, Maximize, Minimize, Video } from 'lucide-react';
 import { saveCallRecord } from './CallHistory';
 
 interface SimpleJitsiProps {
@@ -37,7 +36,6 @@ export function SimpleJitsi({ roomName, userName, contactName, contactId, onClos
     script.src = 'https://meet.jit.si/external_api.js';
     script.async = true;
     script.onload = () => {
-      console.log('Script Jitsi chargé');
       initJitsi();
     };
     script.onerror = () => {
@@ -53,7 +51,6 @@ export function SimpleJitsi({ roomName, userName, contactName, contactId, onClos
     };
   }, []);
 
-  // Minuteur
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isConnected && !loading) {
@@ -82,8 +79,6 @@ export function SimpleJitsi({ roomName, userName, contactName, contactId, onClos
     }
 
     const room = `Mentorat_${roomName.substring(0, 8)}`;
-    console.log('🎥 Salle:', room);
-    console.log('👤 Utilisateur:', userName);
 
     const options = {
       roomName: room,
@@ -107,21 +102,18 @@ export function SimpleJitsi({ roomName, userName, contactName, contactId, onClos
 
     try {
       apiRef.current = new window.JitsiMeetExternalAPI('meet.jit.si', options);
-      
+
       apiRef.current.addEventListener('videoConferenceJoined', () => {
-        console.log('✅ Conférence rejointe');
         setLoading(false);
         setIsConnected(true);
       });
 
       apiRef.current.addEventListener('videoConferenceLeft', () => {
-        console.log('👋 Participant a quitté');
         setIsConnected(false);
         onClose();
       });
 
       apiRef.current.addEventListener('readyToClose', () => {
-        console.log('🔚 Conférence prête à fermer');
         onClose();
       });
 
@@ -137,7 +129,7 @@ export function SimpleJitsi({ roomName, userName, contactName, contactId, onClos
 
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
-    
+
     if (!isFullscreen) {
       containerRef.current.requestFullscreen();
     } else {
@@ -166,8 +158,9 @@ export function SimpleJitsi({ roomName, userName, contactName, contactId, onClos
       <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 to-transparent p-4 z-20">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="bg-black/50 backdrop-blur-sm rounded-lg px-3 py-1">
-              <span className="text-white text-sm">🎥 Appel vidéo</span>
+            <div className="bg-black/50 backdrop-blur-sm rounded-lg px-3 py-1.5 flex items-center gap-2">
+              <Video className="w-4 h-4 text-white" />
+              <span className="text-white text-sm">Appel vidéo</span>
             </div>
             {isConnected && !loading && (
               <div className="bg-black/50 backdrop-blur-sm rounded-lg px-3 py-1">
@@ -202,7 +195,10 @@ export function SimpleJitsi({ roomName, userName, contactName, contactId, onClos
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
           <div className="text-center">
-            <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <div
+              className="w-16 h-16 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-4"
+              style={{ borderColor: 'var(--accent, #34D399)', borderTopColor: 'transparent' }}
+            />
             <p className="text-white">Connexion à la visioconférence...</p>
           </div>
         </div>

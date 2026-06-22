@@ -7,34 +7,31 @@ export const useSound = () => {
 
   const playRingtone = () => {
     try {
-      // Créer un contexte audio
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) return;
-      
+
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioContextClass();
       }
-      
+
       const context = audioContextRef.current;
       const now = context.currentTime;
-      
-      // Créer un oscillateur pour la sonnerie
+
       const oscillator = context.createOscillator();
       const gain = context.createGain();
-      
+
       oscillator.connect(gain);
       gain.connect(context.destination);
-      
+
       oscillator.type = 'sine';
-      oscillator.frequency.value = 440; // La4
-      
+      oscillator.frequency.value = 440;
+
       gain.gain.setValueAtTime(0.3, now);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.5);
-      
+
       oscillator.start();
       oscillator.stop(now + 1.5);
-      
-      // Deuxième son (aigu)
+
       setTimeout(() => {
         const osc2 = context.createOscillator();
         const gain2 = context.createGain();
@@ -47,7 +44,7 @@ export const useSound = () => {
         osc2.start();
         osc2.stop(context.currentTime + 0.8);
       }, 500);
-      
+
     } catch (error) {
       console.error('Erreur lecture son:', error);
     }

@@ -14,12 +14,8 @@ interface QuickBookingProps {
 export function QuickBooking({ mentorId, mentorName }: QuickBookingProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  console.log('🔍 QuickBooking - mentorId reçu:', mentorId);
-  console.log('🔍 QuickBooking - mentorName reçu:', mentorName);
-
   const handleBook = async (data: any) => {
     try {
-      console.log('📝 Réservation avec mentorId:', mentorId);
       await sessionAPI.create(data);
       toast.success('Session réservée avec succès !');
     } catch (error: any) {
@@ -30,9 +26,11 @@ export function QuickBooking({ mentorId, mentorName }: QuickBookingProps) {
   };
 
   if (!mentorId) {
-    console.warn('⚠️ QuickBooking: mentorId est undefined ou null');
     return (
-      <div className="w-full text-center px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-xl">
+      <div
+        className="w-full text-center px-4 py-3 rounded-xl"
+        style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)' }}
+      >
         Mentor non disponible
       </div>
     );
@@ -41,11 +39,9 @@ export function QuickBooking({ mentorId, mentorName }: QuickBookingProps) {
   return (
     <>
       <button
-        onClick={() => {
-          console.log('🔄 Ouverture du modal pour mentorId:', mentorId);
-          setIsModalOpen(true);
-        }}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl"
+        onClick={() => setIsModalOpen(true)}
+        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl transition-all shadow-md"
+        style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}
       >
         <Calendar className="w-5 h-5" />
         Réserver une session
@@ -53,9 +49,7 @@ export function QuickBooking({ mentorId, mentorName }: QuickBookingProps) {
 
       <BookingModal
         isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-        }}
+        onClose={() => setIsModalOpen(false)}
         mentorId={mentorId}
         mentorName={mentorName}
         onBook={handleBook}

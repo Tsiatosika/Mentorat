@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { Logo } from '@/components/ui/Logo';
 import toast from 'react-hot-toast';
 
 export default function CompleteProfilePage() {
@@ -18,7 +19,6 @@ export default function CompleteProfilePage() {
     }
   }, [user, authLoading, router]);
 
-  // Ne redirige vers /dashboard QUE quand user.role est confirmé mis à jour dans le contexte
   useEffect(() => {
     if (submitted && user && user.role) {
       router.push('/dashboard');
@@ -42,12 +42,12 @@ export default function CompleteProfilePage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      <div className="max-w-md w-full rounded-2xl shadow-2xl p-8" style={{ backgroundColor: 'var(--card-bg)' }}>
+      <div className="card max-w-md w-full p-8 animate-in">
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <span className="text-4xl">🎓</span>
+          <div className="flex justify-center mb-4">
+            <Logo size={64} />
           </div>
-          <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+          <h2 className="font-display text-2xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
             Bienvenue {user?.prenom} !
           </h2>
           <p style={{ color: 'var(--text-secondary)' }}>
@@ -60,11 +60,12 @@ export default function CompleteProfilePage() {
             type="button"
             onClick={() => setSelectedRole('mentore')}
             disabled={loading}
-            className={`py-4 rounded-lg border-2 transition-all ${
-              selectedRole === 'mentore'
-                ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
-                : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-indigo-300'
-            }`}
+            className="py-4 rounded-lg border-2 transition-all"
+            style={{
+              borderColor: selectedRole === 'mentore' ? 'var(--accent)' : 'var(--border)',
+              backgroundColor: selectedRole === 'mentore' ? 'var(--accent-soft)' : 'transparent',
+              color: selectedRole === 'mentore' ? 'var(--accent-text-on-soft)' : 'var(--text-secondary)',
+            }}
           >
             <div className="flex flex-col items-center">
               <span className="text-2xl mb-2">👨‍🎓</span>
@@ -76,11 +77,12 @@ export default function CompleteProfilePage() {
             type="button"
             onClick={() => setSelectedRole('mentor')}
             disabled={loading}
-            className={`py-4 rounded-lg border-2 transition-all ${
-              selectedRole === 'mentor'
-                ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
-                : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-indigo-300'
-            }`}
+            className="py-4 rounded-lg border-2 transition-all"
+            style={{
+              borderColor: selectedRole === 'mentor' ? 'var(--accent)' : 'var(--border)',
+              backgroundColor: selectedRole === 'mentor' ? 'var(--accent-soft)' : 'transparent',
+              color: selectedRole === 'mentor' ? 'var(--accent-text-on-soft)' : 'var(--text-secondary)',
+            }}
           >
             <div className="flex flex-col items-center">
               <span className="text-2xl mb-2">👨‍🏫</span>
@@ -93,7 +95,8 @@ export default function CompleteProfilePage() {
         <button
           onClick={handleSubmit}
           disabled={loading || !selectedRole}
-          className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="w-full py-3 rounded-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}
         >
           {loading ? (
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

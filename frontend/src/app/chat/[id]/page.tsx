@@ -3,12 +3,13 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  ArrowLeft, Download, File, X, Paperclip, Send, Smile, Video, 
-  Phone, Trash2, MoreVertical
+import {
+  ArrowLeft, Download, File, X, Paperclip, Send, Smile, Video,
+  Trash2, MoreVertical
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { sessionAPI, messageAPI } from '@/services/api';
 import { uploadFile } from '@/services/uploadService';
 import { io, Socket } from 'socket.io-client';
@@ -36,7 +37,8 @@ export default function ChatPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const { theme } = useTheme();
   const sessionId = params.id as string;
   const { playRingtone, stopRingtone } = useSound();
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -61,14 +63,14 @@ export default function ChatPage() {
   const callStartTimeRef = useRef<number | null>(null);
 
   const BACKEND_URL = 'http://localhost:5000';
+  const locale = language === 'fr' ? 'fr-FR' : 'en-GB';
 
-  // Récupérer l'autre participant
   useEffect(() => {
     const fetchOtherUser = async () => {
       try {
         const response = await sessionAPI.getById(sessionId);
         const session = response.data.session;
-        
+
         if (user?.role === 'mentor') {
           setOtherUserId(session.mentore_user_id);
           setOtherUserName(`${session.mentore_prenom} ${session.mentore_nom}`);
@@ -80,7 +82,7 @@ export default function ChatPage() {
         console.error('Erreur:', error);
       }
     };
-    
+
     if (sessionId && user) {
       fetchOtherUser();
     }
@@ -95,7 +97,6 @@ export default function ChatPage() {
     return () => { if (socket) socket.disconnect(); };
   }, [user, router, sessionId]);
 
-  // Gestion de la durée d'appel
   useEffect(() => {
     if (showVideo) {
       callStartTimeRef.current = Date.now();
@@ -114,12 +115,11 @@ export default function ChatPage() {
       auth: { token },
       transports: ['websocket', 'polling']
     });
-    
+
     newSocket.on('connect', () => {
-      console.log('✅ Socket connecté');
       newSocket.emit('get_history', { session_id: sessionId });
     });
-    
+
     newSocket.on('history', (data) => {
       if (data.success) {
         setMessages(data.messages || []);
@@ -127,25 +127,22 @@ export default function ChatPage() {
         setTimeout(() => scrollToBottom(), 100);
       }
     });
-    
+
     newSocket.on('new_message', (message) => {
       setMessages(prev => [...prev, message]);
       setTimeout(() => scrollToBottom(), 100);
     });
-    
+
     newSocket.on('user_typing', (data) => {
       setOtherTyping(data.is_typing);
     });
-    
-    // Suppression de message
+
     newSocket.on('message_deleted', (data) => {
       setMessages(prev => prev.filter(m => m.id !== data.messageId));
       toast(t('chat.message_deleted'), { icon: '🗑️' });
     });
-    
-    // Appels entrants
+
     newSocket.on('incoming_call', (data) => {
-      console.log('📞 Appel entrant:', data);
       playRingtone();
       setIncomingCall({
         from: data.from,
@@ -153,46 +150,38 @@ export default function ChatPage() {
         roomName: data.roomName
       });
     });
-    
-    newSocket.on('call_accepted', (data) => {
-      console.log('✅ Appel accepté');
+
+    newSocket.on('call_accepted', () => {
       stopRingtone();
       toast.success(t('chat.call_accepted'));
       setShowVideo(true);
     });
-    
+
     newSocket.on('call_rejected', () => {
-      console.log('❌ Appel refusé');
       stopRingtone();
       toast.error(t('chat.call_rejected'));
       if (otherUserId && otherUserName) {
         saveCallRecord(otherUserId, otherUserName, 0, 'sortant', false);
       }
     });
-    
+
     newSocket.on('call_ended', () => {
-      console.log('🔚 Appel terminé par l\'autre');
       setShowVideo(false);
       toast(t('chat.call_ended'), { icon: '📞' });
     });
-    
+
     newSocket.on('call_error', (error) => {
-      console.error('Erreur appel:', error);
       stopRingtone();
       toast.error(error.message);
     });
-    
-    newSocket.on('call_initiated', (data) => {
-      console.log('📞 Appel initié:', data);
-    });
-    
+
     newSocket.on('error', (error) => {
       console.error('Socket error:', error);
       toast.error(error.message);
       setSending(false);
       setUploading(false);
     });
-    
+
     setSocket(newSocket);
   };
 
@@ -205,7 +194,7 @@ export default function ChatPage() {
   const sendTextMessage = (text: string) => {
     if (!socket || sending) return;
     if (!text.trim()) return;
-    
+
     const tempId = Date.now().toString();
     const tempMessage: Message = {
       id: tempId,
@@ -217,12 +206,12 @@ export default function ChatPage() {
       type_message: 'texte',
       tempId: tempId
     };
-    
+
     setMessages(prev => [...prev, tempMessage]);
     setNewMessage('');
     setSending(true);
     scrollToBottom();
-    
+
     socket.emit('send_message', {
       session_id: sessionId,
       contenu: text.trim(),
@@ -237,7 +226,7 @@ export default function ChatPage() {
       if (result.success && socket) {
         const fileUrl = result.url.startsWith('http') ? result.url : `${BACKEND_URL}${result.url}`;
         const messageText = file.type.startsWith('image/') ? `📷 ${file.name}` : `📎 ${file.name}`;
-        
+
         const tempId = Date.now().toString();
         const tempMessage: Message = {
           id: tempId,
@@ -250,10 +239,10 @@ export default function ChatPage() {
           fichier_url: fileUrl,
           tempId: tempId
         };
-        
+
         setMessages(prev => [...prev, tempMessage]);
         scrollToBottom();
-        
+
         socket.emit('send_message', {
           session_id: sessionId,
           contenu: messageText,
@@ -273,43 +262,43 @@ export default function ChatPage() {
   const sendAll = async () => {
     if (sending || uploading) return;
     if (newMessage.trim() === '' && selectedFiles.length === 0) return;
-    
+
     setSending(true);
     setUploading(true);
-    
+
     const messageText = newMessage.trim();
-    
+
     if (messageText) {
       sendTextMessage(messageText);
       await new Promise(resolve => setTimeout(resolve, 300));
     }
-    
+
     for (const file of selectedFiles) {
       await sendFile(file);
       await new Promise(resolve => setTimeout(resolve, 300));
     }
-    
+
     setNewMessage('');
     setSelectedFiles([]);
     setFilePreviews([]);
     setSending(false);
     setUploading(false);
-    
+
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleMultipleFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
-    
+
     const tooLarge = files.some(f => f.size > 10 * 1024 * 1024);
     if (tooLarge) {
       toast.error('Un ou plusieurs fichiers dépassent 10MB');
       return;
     }
-    
+
     setSelectedFiles(prev => [...prev, ...files]);
-    
+
     const newPreviews = files.map(file => {
       if (file.type.startsWith('image/')) {
         const reader = new FileReader();
@@ -323,11 +312,11 @@ export default function ChatPage() {
         return Promise.resolve({ url: '', name: file.name, type: file.type });
       }
     });
-    
+
     Promise.all(newPreviews).then(previews => {
       setFilePreviews(prev => [...prev, ...previews]);
     });
-    
+
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -338,9 +327,9 @@ export default function ChatPage() {
 
   const handleTyping = () => {
     if (!socket) return;
-    
+
     socket.emit('typing', { session_id: sessionId, is_typing: true });
-    
+
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       socket.emit('typing', { session_id: sessionId, is_typing: false });
@@ -386,12 +375,10 @@ export default function ChatPage() {
 
   const deleteMessage = async (messageId: string) => {
     if (!socket) return;
-    
+
     try {
-      console.log('🗑️ Suppression du message:', messageId);
       const response = await messageAPI.deleteMessage(messageId);
-      console.log('Réponse:', response.data);
-      
+
       if (response.data.success) {
         setMessages(prev => prev.filter(m => m.id !== messageId));
         socket.emit('delete_message', { messageId, sessionId });
@@ -419,20 +406,18 @@ export default function ChatPage() {
       toast.error('Connexion socket non établie');
       return;
     }
-    
+
     if (!otherUserId) {
       toast.error('Impossible de trouver l\'autre participant');
       return;
     }
-    
-    console.log('📞 Lancement appel vers:', otherUserId);
-    
+
     socket.emit('call_user', {
       to: otherUserId,
       roomName: sessionId,
       callerName: `${user?.prenom} ${user?.nom}`
     });
-    
+
     setShowVideo(true);
     toast.success('Appel en cours...');
   };
@@ -440,7 +425,6 @@ export default function ChatPage() {
   const acceptCall = () => {
     if (incomingCall && socket) {
       stopRingtone();
-      console.log('✅ Acceptation appel de:', incomingCall.from);
       socket.emit('accept_call', { to: incomingCall.from, roomName: incomingCall.roomName });
       setShowVideo(true);
       setIncomingCall(null);
@@ -450,7 +434,6 @@ export default function ChatPage() {
   const rejectCall = () => {
     if (incomingCall && socket) {
       stopRingtone();
-      console.log('❌ Refus appel de:', incomingCall.from);
       socket.emit('reject_call', { to: incomingCall.from });
       setIncomingCall(null);
       if (otherUserId && otherUserName) {
@@ -480,8 +463,11 @@ export default function ChatPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <div
+          className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin"
+          style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
+        />
       </div>
     );
   }
@@ -489,8 +475,7 @@ export default function ChatPage() {
   const hasContent = newMessage.trim() !== '' || selectedFiles.length > 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Modal d'appel entrant */}
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-primary)' }}>
       {incomingCall && (
         <IncomingCallModal
           callerName={incomingCall.fromName}
@@ -500,22 +485,26 @@ export default function ChatPage() {
       )}
 
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white sticky top-0 z-10 shadow-md">
+      <div
+        className="sticky top-0 z-10"
+        style={{ backgroundColor: 'var(--card-bg)', borderBottom: '1px solid var(--border)' }}
+      >
         <div className="max-w-5xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link href="/chat" className="hover:text-indigo-200 transition-colors">
+              <Link href="/chat" className="transition-colors" style={{ color: 'var(--text-secondary)' }}>
                 <ArrowLeft className="w-5 h-5" />
               </Link>
               <div>
-                <h1 className="font-semibold">{t('chat.title')}</h1>
-                <p className="text-sm text-indigo-200">{t('chat.session')}</p>
+                <h1 className="font-semibold" style={{ color: 'var(--text-primary)' }}>{t('chat.title')}</h1>
+                <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>{t('chat.session')}</p>
               </div>
             </div>
-            
+
             <button
               onClick={startCall}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
+              style={{ backgroundColor: 'var(--success)', color: '#fff' }}
               title={t('chat.video_call')}
             >
               <Video className="w-5 h-5" />
@@ -529,7 +518,7 @@ export default function ChatPage() {
       <div className="flex-1 max-w-5xl mx-auto w-full px-4 py-6 overflow-y-auto">
         <div className="space-y-3">
           {messages.length === 0 ? (
-            <div className="text-center text-gray-500 py-12">
+            <div className="text-center py-12" style={{ color: 'var(--text-secondary)' }}>
               💬 {t('chat.no_messages')}
             </div>
           ) : (
@@ -538,66 +527,69 @@ export default function ChatPage() {
               const fullUrl = getFullUrl(message.fichier_url || '');
               const isImage = isImageFile(fullUrl);
               const isFile = message.type_message === 'fichier' && message.fichier_url;
-              
+
               return (
                 <div key={message.id || index} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group relative`}>
-                  <div className={`max-w-[70%] rounded-2xl px-4 py-2 ${
-                    isOwn
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-white text-gray-800 shadow-md'
-                  }`}>
+                  <div
+                    className="max-w-[70%] rounded-2xl px-4 py-2"
+                    style={
+                      isOwn
+                        ? { backgroundColor: 'var(--accent)', color: '#06231D' }
+                        : { backgroundColor: 'var(--card-bg)', color: 'var(--text-primary)', border: '1px solid var(--border)' }
+                    }
+                  >
                     {!isOwn && (
-                      <p className="text-xs text-indigo-500 mb-1 font-medium">
+                      <p className="text-xs mb-1 font-medium" style={{ color: 'var(--accent)' }}>
                         {message.prenom} {message.nom}
                       </p>
                     )}
-                    
+
                     {isFile ? (
-                      <div 
-                        onClick={() => handleFileClick(fullUrl, message.contenu, isImage)}
-                        className="cursor-pointer"
-                      >
+                      <div onClick={() => handleFileClick(fullUrl, message.contenu, isImage)} className="cursor-pointer">
                         {isImage ? (
-                          <img 
-                            src={fullUrl} 
+                          <img
+                            src={fullUrl}
                             alt={message.contenu}
                             className="max-w-[200px] max-h-[150px] rounded-lg object-cover hover:opacity-90 transition-opacity"
                           />
                         ) : (
-                          <div className="flex items-center gap-2 hover:underline p-2 bg-gray-100 rounded-lg">
-                            <File className="w-5 h-5 text-indigo-600" />
+                          <div
+                            className="flex items-center gap-2 hover:underline p-2 rounded-lg"
+                            style={{ backgroundColor: isOwn ? 'rgba(0,0,0,0.08)' : 'var(--bg-secondary)' }}
+                          >
+                            <File className="w-5 h-5" style={{ color: isOwn ? '#06231D' : 'var(--accent)' }} />
                             <span className="text-sm break-words">{message.contenu}</span>
-                            <Download className="w-4 h-4 text-gray-500" />
+                            <Download className="w-4 h-4 opacity-60" />
                           </div>
                         )}
                       </div>
                     ) : (
                       <p className="text-sm break-words whitespace-pre-wrap">{message.contenu}</p>
                     )}
-                    
+
                     <div className="flex items-center justify-between gap-2 mt-1">
-                      <p className={`text-xs ${isOwn ? 'text-indigo-200' : 'text-gray-400'}`}>
-                        {new Date(message.envoye_le).toLocaleTimeString('fr-FR', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
+                      <p className="font-mono-data text-xs" style={{ opacity: 0.7 }}>
+                        {new Date(message.envoye_le).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
                       </p>
                       {isOwn && (
                         <button
                           onClick={() => setMenuOpenFor(menuOpenFor === message.id ? null : message.id)}
                           className="opacity-0 group-hover:opacity-100 transition-opacity"
                         >
-                          <MoreVertical className="w-3 h-3 text-gray-400 hover:text-red-500" />
+                          <MoreVertical className="w-3 h-3" style={{ opacity: 0.6 }} />
                         </button>
                       )}
                     </div>
-                    
-                    {/* Menu de suppression */}
+
                     {isOwn && menuOpenFor === message.id && (
-                      <div className="absolute right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-100 overflow-hidden z-10">
+                      <div
+                        className="absolute right-0 mt-1 rounded-lg shadow-lg overflow-hidden z-10"
+                        style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}
+                      >
                         <button
                           onClick={() => deleteMessage(message.id)}
-                          className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 w-full transition-colors"
+                          className="flex items-center gap-2 px-3 py-2 text-sm w-full transition-colors"
+                          style={{ color: 'var(--danger)' }}
                         >
                           <Trash2 className="w-4 h-4" />
                           {t('chat.delete')}
@@ -609,58 +601,53 @@ export default function ChatPage() {
               );
             })
           )}
-          
+
           {otherTyping && (
             <div className="flex justify-start">
-              <div className="bg-white rounded-2xl px-4 py-2 shadow-sm">
+              <div className="rounded-2xl px-4 py-2" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
                 <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: 'var(--text-tertiary)', animationDelay: '0ms' }} />
+                  <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: 'var(--text-tertiary)', animationDelay: '150ms' }} />
+                  <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: 'var(--text-tertiary)', animationDelay: '300ms' }} />
                 </div>
               </div>
             </div>
           )}
-          
+
           {(sending || uploading) && (
             <div className="flex justify-end">
-              <div className="bg-gray-200 rounded-2xl px-4 py-2">
+              <div className="rounded-2xl px-4 py-2" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-sm text-gray-500">{t('chat.sending')}</span>
+                  <div
+                    className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"
+                    style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
+                  />
+                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{t('chat.sending')}</span>
                 </div>
               </div>
             </div>
           )}
-          
+
           <div ref={messagesEndRef} />
         </div>
       </div>
 
-      {/* Modal image en grand */}
+      {/* Modal image */}
       {selectedImage && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center"
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ backgroundColor: 'rgba(0,0,0,0.9)' }}
           onClick={() => setSelectedImage(null)}
         >
           <div className="relative max-w-4xl max-h-[90vh] p-4">
-            <button
-              onClick={() => setSelectedImage(null)}
-              className="absolute -top-10 right-0 text-white hover:text-gray-300"
-            >
+            <button onClick={() => setSelectedImage(null)} className="absolute -top-10 right-0 text-white hover:opacity-70">
               <X className="w-8 h-8" />
             </button>
-            <img 
-              src={selectedImage} 
-              alt="Agrandissement" 
-              className="max-w-full max-h-[85vh] object-contain rounded-lg"
-            />
+            <img src={selectedImage} alt="Agrandissement" className="max-w-full max-h-[85vh] object-contain rounded-lg" />
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                downloadFile(selectedImage, 'image');
-              }}
-              className="absolute -bottom-10 right-0 bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700"
+              onClick={(e) => { e.stopPropagation(); downloadFile(selectedImage, 'image'); }}
+              className="absolute -bottom-10 right-0 px-4 py-2 rounded-lg flex items-center gap-2"
+              style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}
             >
               <Download className="w-4 h-4" />
               {t('chat.download')}
@@ -669,7 +656,7 @@ export default function ChatPage() {
         </div>
       )}
 
-      {/* Visioconférence */}
+      {/* Visio */}
       {showVideo && (
         <SimpleJitsi
           roomName={sessionId}
@@ -681,28 +668,34 @@ export default function ChatPage() {
       )}
 
       {/* Zone de saisie */}
-      <div className="bg-white border-t border-gray-200 sticky bottom-0 shadow-lg">
+      <div className="sticky bottom-0" style={{ backgroundColor: 'var(--card-bg)', borderTop: '1px solid var(--border)' }}>
         <div className="max-w-5xl mx-auto px-4 py-3">
-          
+
           {filePreviews.length > 0 && (
-            <div className="mb-3 p-3 bg-gray-100 rounded-xl">
+            <div className="mb-3 p-3 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
               <div className="flex flex-wrap gap-2">
                 {filePreviews.map((preview, idx) => (
                   <div key={idx} className="relative group">
                     {preview.url ? (
                       <img src={preview.url} alt={preview.name} className="w-16 h-16 rounded-lg object-cover" />
                     ) : (
-                      <div className="w-16 h-16 bg-indigo-100 rounded-lg flex items-center justify-center">
-                        <File className="w-8 h-8 text-indigo-600" />
+                      <div
+                        className="w-16 h-16 rounded-lg flex items-center justify-center"
+                        style={{ backgroundColor: 'var(--accent-soft)' }}
+                      >
+                        <File className="w-8 h-8" style={{ color: 'var(--accent)' }} />
                       </div>
                     )}
                     <button
                       onClick={() => removeFile(idx)}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute -top-2 -right-2 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ backgroundColor: 'var(--danger)', color: '#fff' }}
                     >
                       <X className="w-3 h-3" />
                     </button>
-                    <p className="text-xs text-gray-500 mt-1 truncate w-16">{preview.name.substring(0, 10)}</p>
+                    <p className="text-xs mt-1 truncate w-16" style={{ color: 'var(--text-tertiary)' }}>
+                      {preview.name.substring(0, 10)}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -713,20 +706,22 @@ export default function ChatPage() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={sending || uploading}
-              className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              className="p-2 rounded-lg transition-colors disabled:opacity-50"
+              style={{ color: 'var(--text-secondary)' }}
               title={t('chat.attach_file')}
             >
               <Paperclip className="w-5 h-5" />
             </button>
-            
+
             <button
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 rounded-lg transition-colors"
+              style={{ color: 'var(--text-secondary)' }}
               title={t('chat.emoji')}
             >
               <Smile className="w-5 h-5" />
             </button>
-            
+
             <input
               ref={fileInputRef}
               type="file"
@@ -736,7 +731,7 @@ export default function ChatPage() {
               onChange={handleMultipleFilesSelect}
               disabled={sending || uploading}
             />
-            
+
             <textarea
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
@@ -745,47 +740,54 @@ export default function ChatPage() {
               placeholder={t('chat.message_placeholder')}
               disabled={sending || uploading}
               rows={1}
-              className="flex-1 resize-none border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100"
-              style={{ minHeight: '44px', maxHeight: '120px' }}
+              className="flex-1 resize-none border rounded-lg px-4 py-2 outline-none transition-all disabled:opacity-50"
+              style={{
+                backgroundColor: 'var(--bg-secondary)',
+                borderColor: 'var(--border)',
+                color: 'var(--text-primary)',
+                minHeight: '44px',
+                maxHeight: '120px',
+              }}
             />
-            
+
             <button
               onClick={sendAll}
               disabled={!hasContent || sending || uploading}
-              className="bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-5 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}
             >
               {sending || uploading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <span>{t('chat.send')}</span>
+                  <span className="font-medium">{t('chat.send')}</span>
                   <Send className="w-4 h-4" />
                 </>
               )}
             </button>
           </div>
-          
+
           {showEmojiPicker && (
             <div className="absolute bottom-20 right-4 z-50">
               <div className="relative">
                 <button
                   onClick={() => setShowEmojiPicker(false)}
-                  className="absolute -top-2 -right-2 bg-gray-800 text-white rounded-full p-1 z-10"
+                  className="absolute -top-2 -right-2 rounded-full p-1 z-10"
+                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--card-bg)' }}
                 >
                   <X className="w-3 h-3" />
                 </button>
-                <EmojiPicker onEmojiClick={handleEmojiClick} />
+                <EmojiPicker onEmojiClick={handleEmojiClick} theme={theme === 'dark' ? ('dark' as any) : ('light' as any)} />
               </div>
             </div>
           )}
-          
-          <p className="text-xs text-gray-400 mt-2 text-center">
+
+          <p className="text-xs mt-2 text-center" style={{ color: 'var(--text-tertiary)' }}>
             {t('chat.hint')}
           </p>
         </div>
       </div>
 
-      {/* Historique des appels */}
       {!showVideo && (
         <div className="max-w-5xl mx-auto px-4 pb-4">
           <CallHistory onCallBack={handleCallBack} />

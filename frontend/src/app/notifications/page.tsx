@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, Check, X, MessageCircle, Calendar, FileText, UserPlus } from 'lucide-react';
+import { Bell, Check, X, MessageCircle, FileText, UserPlus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import toast from 'react-hot-toast';
@@ -85,12 +85,12 @@ export default function NotificationsPage() {
 
   const getIcon = (type: string) => {
     switch (type) {
-      case 'session_confirmee': return <Check className="w-5 h-5 text-green-500" />;
-      case 'session_annulee':   return <X className="w-5 h-5 text-red-500" />;
-      case 'nouveau_message':   return <MessageCircle className="w-5 h-5 text-blue-500" />;
-      case 'nouveau_match':     return <UserPlus className="w-5 h-5 text-purple-500" />;
-      case 'rapport_disponible':return <FileText className="w-5 h-5 text-orange-500" />;
-      default:                  return <Bell className="w-5 h-5 text-gray-500" />;
+      case 'session_confirmee': return <Check className="w-5 h-5" style={{ color: 'var(--success)' }} />;
+      case 'session_annulee':   return <X className="w-5 h-5" style={{ color: 'var(--danger)' }} />;
+      case 'nouveau_message':   return <MessageCircle className="w-5 h-5" style={{ color: 'var(--info)' }} />;
+      case 'nouveau_match':     return <UserPlus className="w-5 h-5" style={{ color: 'var(--accent)' }} />;
+      case 'rapport_disponible':return <FileText className="w-5 h-5" style={{ color: 'var(--warm)' }} />;
+      default:                  return <Bell className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />;
     }
   };
 
@@ -107,7 +107,10 @@ export default function NotificationsPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <div
+          className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin"
+          style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
+        />
       </div>
     );
   }
@@ -116,41 +119,36 @@ export default function NotificationsPage() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <Bell className="w-6 h-6" />
-                {t('notif.title')}
-              </h1>
-              <p className="text-indigo-100 mt-1">
-                {notifications.length} notification{notifications.length > 1 ? 's' : ''}
-                {unreadCount > 0 && ` • ${unreadCount} ${t('notif.unread')}`}
-              </p>
-            </div>
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllAsRead}
-                className="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors text-sm"
-              >
-                {t('notif.mark_all')}
-              </button>
-            )}
+      <div className="max-w-4xl mx-auto px-4 pt-10 pb-8">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="font-display text-2xl font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              <Bell className="w-6 h-6" style={{ color: 'var(--accent)' }} />
+              {t('notif.title')}
+            </h1>
+            <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
+              {notifications.length} notification{notifications.length > 1 ? 's' : ''}
+              {unreadCount > 0 && ` • ${unreadCount} ${t('notif.unread')}`}
+            </p>
           </div>
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllAsRead}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)' }}
+            >
+              {t('notif.mark_all')}
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 pb-8">
         {notifications.length === 0 ? (
-          <div className="text-center py-12 rounded-xl" style={{ backgroundColor: 'var(--card-bg)' }}>
+          <div className="card p-12 text-center">
             <Bell className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }} />
-            <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-              {t('notif.none')}
-            </h3>
-            <p style={{ color: 'var(--text-secondary)' }}>
-              {t('notif.none_desc')}
-            </p>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{t('notif.none')}</h3>
+            <p style={{ color: 'var(--text-secondary)' }}>{t('notif.none_desc')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -158,17 +156,20 @@ export default function NotificationsPage() {
               <div
                 key={notif.id}
                 onClick={() => markAsRead(notif.id, notif.lien)}
-                className={`rounded-xl shadow-md p-4 cursor-pointer hover:shadow-lg transition-all ${
-                  !notif.lue ? 'border-l-4 border-indigo-500' : ''
-                }`}
-                style={{ backgroundColor: 'var(--card-bg)' }}
+                className={`card p-4 cursor-pointer transition-all relative ${!notif.lue ? 'bookmark' : ''}`}
               >
                 <div className="flex gap-4">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                  <div
+                    className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: 'var(--bg-secondary)' }}
+                  >
                     {getIcon(notif.type)}
                   </div>
                   <div className="flex-1">
-                    <p className={`font-medium ${!notif.lue ? 'font-semibold' : ''}`} style={{ color: 'var(--text-primary)' }}>
+                    <p
+                      className="font-medium"
+                      style={{ color: 'var(--text-primary)', fontWeight: !notif.lue ? 600 : 500 }}
+                    >
                       {notif.titre}
                     </p>
                     <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -180,7 +181,7 @@ export default function NotificationsPage() {
                   </div>
                   {!notif.lue && (
                     <div className="flex-shrink-0">
-                      <div className="w-3 h-3 bg-indigo-600 rounded-full mt-2" />
+                      <div className="w-3 h-3 rounded-full mt-2" style={{ backgroundColor: 'var(--accent)' }} />
                     </div>
                   )}
                 </div>

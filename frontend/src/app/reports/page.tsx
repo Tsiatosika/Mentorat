@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { FileText, Download, Calendar, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -11,7 +10,7 @@ import toast from 'react-hot-toast';
 
 export default function ReportsPage() {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,7 +63,7 @@ export default function ReportsPage() {
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('fr-FR', {
+    return new Date(date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
@@ -73,8 +72,11 @@ export default function ReportsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <div
+          className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin"
+          style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
+        />
       </div>
     );
   }
@@ -82,43 +84,50 @@ export default function ReportsPage() {
   const sessionsTerminees = sessions.filter(s => s.statut === 'terminee');
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <FileText className="w-6 h-6" />
-            {t('reports.title')}
-          </h1>
-          <p className="text-indigo-100 mt-1">{t('reports.subtitle')}</p>
-        </div>
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <div className="max-w-4xl mx-auto px-4 pt-10 pb-8">
+        <h1 className="font-display text-2xl font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+          <FileText className="w-6 h-6" style={{ color: 'var(--accent)' }} />
+          {t('reports.title')}
+        </h1>
+        <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>{t('reports.subtitle')}</p>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 pb-8">
         {sessionsTerminees.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-md p-12 text-center">
-            <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('reports.no_sessions')}</h3>
-            <p className="text-gray-500">{t('reports.no_sessions_desc')}</p>
+          <div className="card p-12 text-center">
+            <FileText className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }} />
+            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>{t('reports.no_sessions')}</h3>
+            <p style={{ color: 'var(--text-secondary)' }}>{t('reports.no_sessions_desc')}</p>
           </div>
         ) : (
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('sessions.completed')} ({sessionsTerminees.length})</h2>
+            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+              {t('sessions.completed')} ({sessionsTerminees.length})
+            </h2>
             {sessionsTerminees.map((session) => (
-              <div key={session.id} className="bg-white rounded-xl shadow-md p-5 flex flex-wrap justify-between items-center gap-4">
+              <div key={session.id} className="card bookmark p-5 flex flex-wrap justify-between items-center gap-4">
                 <div>
-                  <h3 className="font-semibold text-gray-900">{session.sujet}</h3>
-                  <div className="flex gap-4 text-sm text-gray-500 mt-1">
-                    <span className="flex items-center gap-1"><Calendar className="w-4 h-4" />{formatDate(session.date_debut)}</span>
-                    <span className="flex items-center gap-1"><User className="w-4 h-4" />{session.mentor_prenom || session.mentore_prenom}</span>
+                  <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>{session.sujet}</h3>
+                  <div className="flex gap-4 text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-4 h-4" />
+                      <span className="font-mono-data">{formatDate(session.date_debut)}</span>
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <User className="w-4 h-4" />
+                      {session.mentor_prenom || session.mentore_prenom}
+                    </span>
                   </div>
                 </div>
                 <button
                   onClick={() => generateAndDownload(session.id)}
                   disabled={generating === session.id}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+                  style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}
                 >
                   {generating === session.id ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <Download className="w-4 h-4" />
                   )}

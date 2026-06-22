@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Phone, PhoneOff, PhoneCall, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { Phone, PhoneOff, PhoneCall, PhoneIncoming, PhoneOutgoing, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface CallRecord {
   id: string;
@@ -51,7 +51,7 @@ export function CallHistory({ onCallBack }: CallHistoryProps) {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
+
     if (days === 0) {
       return `Aujourd'hui, ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
     } else if (days === 1) {
@@ -62,12 +62,12 @@ export function CallHistory({ onCallBack }: CallHistoryProps) {
   };
 
   const getCallIcon = (type: string, accepted: boolean) => {
-    if (!accepted) return <PhoneOff className="w-4 h-4 text-red-500" />;
-    if (type === 'entrant') return <PhoneCall className="w-4 h-4 text-green-500 transform rotate-180" />;
-    return <PhoneCall className="w-4 h-4 text-blue-500" />;
+    if (!accepted) return <PhoneOff className="w-4 h-4" style={{ color: 'var(--danger)' }} />;
+    if (type === 'entrant') return <PhoneIncoming className="w-4 h-4" style={{ color: 'var(--success)' }} />;
+    return <PhoneOutgoing className="w-4 h-4" style={{ color: 'var(--info)' }} />;
   };
 
-  const getCallStatus = (type: string, accepted: boolean, duration: number) => {
+  const getCallStatus = (type: string, accepted: boolean) => {
     if (!accepted) return 'Manqué';
     if (type === 'entrant') return 'Appel entrant';
     return 'Appel sortant';
@@ -78,53 +78,68 @@ export function CallHistory({ onCallBack }: CallHistoryProps) {
   const latestCalls = history.slice(0, isExpanded ? history.length : 3);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-4">
+    <div className="card overflow-hidden mt-4">
       {/* En-tête */}
-      <div 
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+      <div
+        className="flex items-center justify-between p-4 cursor-pointer transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-2">
-          <Clock className="w-5 h-5 text-gray-500" />
-          <span className="font-medium text-gray-700">Appels récents</span>
-          <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+          <Clock className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>Appels récents</span>
+          <span
+            className="font-mono-data text-xs px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)' }}
+          >
             {history.length}
           </span>
         </div>
-        {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+        {isExpanded ? (
+          <ChevronUp className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+        ) : (
+          <ChevronDown className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+        )}
       </div>
 
-      {/* Liste des appels */}
+      {/* Liste */}
       {isExpanded && (
-        <div className="border-t border-gray-100 divide-y divide-gray-50">
+        <div style={{ borderTop: '1px solid var(--border)' }}>
           {latestCalls.map((call) => (
-            <div key={call.id} className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
+            <div
+              key={call.id}
+              className="flex items-center justify-between p-4 transition-colors"
+              style={{ borderBottom: '1px solid var(--border)' }}
+            >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: 'var(--bg-secondary)' }}
+                >
                   {getCallIcon(call.type, call.accepted)}
                 </div>
                 <div>
-                  <p className="font-medium text-gray-900">{call.contactName}</p>
+                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{call.contactName}</p>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className={`text-xs ${
-                      !call.accepted ? 'text-red-500' : 'text-gray-500'
-                    }`}>
-                      {getCallStatus(call.type, call.accepted, call.duration)}
+                    <span className="text-xs" style={{ color: !call.accepted ? 'var(--danger)' : 'var(--text-secondary)' }}>
+                      {getCallStatus(call.type, call.accepted)}
                     </span>
                     {call.accepted && call.duration > 0 && (
                       <>
-                        <span className="text-xs text-gray-300">•</span>
-                        <span className="text-xs text-gray-500">{formatDuration(call.duration)}</span>
+                        <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>•</span>
+                        <span className="font-mono-data text-xs" style={{ color: 'var(--text-secondary)' }}>
+                          {formatDuration(call.duration)}
+                        </span>
                       </>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">{formatDate(call.timestamp)}</p>
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>{formatDate(call.timestamp)}</p>
                 </div>
               </div>
               {onCallBack && call.accepted && (
                 <button
                   onClick={() => onCallBack(call.contactId, call.contactName)}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 rounded-lg transition-colors text-white text-sm"
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors text-sm"
+                  style={{ backgroundColor: 'var(--success)', color: '#fff' }}
                 >
                   <Phone className="w-3 h-3" />
                   Rappeler
@@ -153,7 +168,6 @@ export const saveCallRecord = (contactId: string, contactName: string, duration:
   };
   const updated = [newCall, ...history].slice(0, 50);
   localStorage.setItem('callHistory', JSON.stringify(updated));
-  
-  // Déclencher un événement pour mettre à jour l'interface
+
   window.dispatchEvent(new CustomEvent('callHistoryUpdated'));
 };

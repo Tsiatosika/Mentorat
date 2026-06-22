@@ -13,7 +13,7 @@ export function CallTimer({ isActive, onStart, onStop }: CallTimerProps) {
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    
+
     if (isActive) {
       setDuration(0);
       if (onStart) onStart();
@@ -23,7 +23,7 @@ export function CallTimer({ isActive, onStart, onStop }: CallTimerProps) {
     } else {
       if (onStop && duration > 0) onStop();
     }
-    
+
     return () => {
       if (interval) clearInterval(interval);
     };

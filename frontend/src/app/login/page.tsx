@@ -3,10 +3,11 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Mail, Lock, Eye, EyeOff, LogIn, Sparkles, Shield, Target, FileText, Sun, Moon } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, LogIn, Sparkles, Target, Shield, FileText, Sun, Moon } from 'lucide-react';
 import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { Logo } from '@/components/ui/Logo';
 import toast from 'react-hot-toast';
 
 function LoginForm() {
@@ -87,40 +88,55 @@ function LoginForm() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-12 relative">
+    <div className="min-h-screen relative" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <button
         onClick={toggleTheme}
-        className="fixed top-4 right-4 p-2 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors z-50"
+        className="fixed top-4 right-4 p-2 rounded-lg transition-colors z-50"
+        style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}
       >
-        {theme === 'dark' ? <Sun className="w-5 h-5 text-yellow-500" /> : <Moon className="w-5 h-5 text-gray-700" />}
+        {theme === 'dark' ? (
+          <Sun className="w-5 h-5" style={{ color: 'var(--warm)' }} />
+        ) : (
+          <Moon className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+        )}
       </button>
 
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
           {/* Colonne gauche - Features */}
-          <div className="space-y-6 order-2 md:order-1">
+          <div className="space-y-6 order-2 md:order-1 animate-in">
             <div>
-              <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-                <span className="text-3xl">🎓</span>
-              </div>
-              <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+              <Logo size={56} />
+              <h1
+                className="font-display text-4xl md:text-5xl font-semibold mt-6 mb-4"
+                style={{ color: 'var(--text-primary)' }}
+              >
                 Reconnectez-vous à votre communauté de mentorat
               </h1>
-              <p className="text-lg text-gray-600 dark:text-gray-400">
+              <p className="text-lg" style={{ color: 'var(--text-secondary)' }}>
                 Accédez à votre espace personnel et poursuivez votre progression
                 grâce à notre algorithme de matching par Intelligence Artificielle.
               </p>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {features.map((feature, idx) => (
-                <div key={idx} className="flex items-start gap-3 p-3 rounded-lg hover:bg-white/50 dark:hover:bg-gray-800/50 transition-colors">
-                  <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <feature.icon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <div
+                  key={idx}
+                  className="flex items-start gap-3 p-3 rounded-xl transition-colors"
+                  style={{ backgroundColor: 'transparent' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: 'var(--accent-soft)' }}
+                  >
+                    <feature.icon className="w-5 h-5" style={{ color: 'var(--accent)' }} />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-white">{feature.title}</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{feature.desc}</p>
+                    <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>{feature.title}</h3>
+                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{feature.desc}</p>
                   </div>
                 </div>
               ))}
@@ -128,16 +144,23 @@ function LoginForm() {
           </div>
 
           {/* Colonne droite - Formulaire */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 order-1 md:order-2">
+          <div
+            className="card order-1 md:order-2 p-8 animate-in"
+            style={{ animationDelay: '0.1s' }}
+          >
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Connexion</h2>
-              <p className="text-gray-600 dark:text-gray-400">Connectez-vous à votre compte</p>
+              <h2 className="font-display text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+                Connexion
+              </h2>
+              <p style={{ color: 'var(--text-secondary)' }}>Connectez-vous à votre compte</p>
             </div>
 
-            {/* Bouton Google */}
             <div className="mb-6 flex justify-center">
               {googleLoading ? (
-                <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                <div
+                  className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin"
+                  style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
+                />
               ) : (
                 <GoogleLogin
                   onSuccess={handleGoogleSuccess}
@@ -153,22 +176,34 @@ function LoginForm() {
 
             <div className="relative mb-6">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200 dark:border-gray-700"></div>
+                <div className="w-full border-t" style={{ borderColor: 'var(--border)' }}></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">ou</span>
+                <span className="px-2" style={{ backgroundColor: 'var(--card-bg)', color: 'var(--text-tertiary)' }}>
+                  ou
+                </span>
               </div>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+                  Email
+                </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Mail
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  />
                   <input
                     type="email"
                     placeholder="votre@email.com"
-                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:border-transparent outline-none transition-all"
+                    style={{
+                      backgroundColor: 'var(--bg-secondary)',
+                      borderColor: 'var(--border)',
+                      color: 'var(--text-primary)',
+                    }}
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     required
@@ -177,13 +212,23 @@ function LoginForm() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mot de passe</label>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+                  Mot de passe
+                </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Lock
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••"
-                    className="w-full pl-10 pr-10 py-2 rounded-lg border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full pl-10 pr-10 py-2 rounded-lg border focus:ring-2 focus:border-transparent outline-none transition-all"
+                    style={{
+                      backgroundColor: 'var(--bg-secondary)',
+                      borderColor: 'var(--border)',
+                      color: 'var(--text-primary)',
+                    }}
                     value={formData.mot_de_passe}
                     onChange={(e) => setFormData({ ...formData, mot_de_passe: e.target.value })}
                     required
@@ -193,15 +238,31 @@ function LoginForm() {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+                    ) : (
+                      <Eye className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+                    )}
                   </button>
+                </div>
+                <div className="text-right mt-1">
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs font-medium hover:underline"
+                    style={{ color: 'var(--accent)' }}
+                  >
+                    Mot de passe oublié ?
+                  </Link>
                 </div>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-lg font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{ backgroundColor: 'var(--accent)', color: theme === 'dark' ? '#06231D' : '#FFFFFF' }}
+                onMouseEnter={(e) => !loading && (e.currentTarget.style.backgroundColor = 'var(--accent-hover)')}
+                onMouseLeave={(e) => !loading && (e.currentTarget.style.backgroundColor = 'var(--accent)')}
               >
                 {loading ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -214,10 +275,10 @@ function LoginForm() {
               </button>
             </form>
 
-            <div className="mt-6 text-center pt-6 border-t border-gray-200 dark:border-gray-700">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+            <div className="mt-6 text-center pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                 Pas encore de compte ?{' '}
-                <Link href="/register" className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
+                <Link href="/register" className="font-medium hover:underline" style={{ color: 'var(--accent)' }}>
                   Inscrivez-vous gratuitement
                 </Link>
               </p>
@@ -231,7 +292,14 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Chargement...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <div
+          className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin"
+          style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
+        />
+      </div>
+    }>
       <LoginForm />
     </Suspense>
   );

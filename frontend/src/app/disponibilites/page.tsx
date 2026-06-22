@@ -28,10 +28,7 @@ export default function DisponibilitesPage() {
   });
 
   useEffect(() => {
-    if (!user) {
-      router.push('/login');
-      return;
-    }
+    if (!user) { router.push('/login'); return; }
     if (user.role !== 'mentor') {
       router.push('/dashboard');
       toast.error(t('common.error'));
@@ -76,43 +73,57 @@ export default function DisponibilitesPage() {
     }
   };
 
+  const inputStyle = {
+    backgroundColor: 'var(--bg-secondary)',
+    borderColor: 'var(--border)',
+    color: 'var(--text-primary)',
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <div
+          className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin"
+          style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
+        />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold">{t('disponibilites.title')}</h1>
-              <p className="text-indigo-100 mt-1">{t('disponibilites.subtitle')}</p>
-            </div>
-            <button
-              onClick={() => setShowForm(!showForm)}
-              className="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
-            >
-              {showForm ? t('disponibilites.cancel') : '+ ' + t('disponibilites.add')}
-            </button>
+      <div className="max-w-4xl mx-auto px-4 pt-10 pb-8">
+        <div className="flex justify-between items-center flex-wrap gap-4">
+          <div>
+            <p className="font-mono-data text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--accent)' }}>
+              {t('disponibilites.subtitle')}
+            </p>
+            <h1 className="font-display text-3xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {t('disponibilites.title')}
+            </h1>
           </div>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="px-4 py-2 rounded-lg font-medium transition-colors"
+            style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}
+          >
+            {showForm ? t('disponibilites.cancel') : '+ ' + t('disponibilites.add')}
+          </button>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 pb-8">
         {showForm && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('disponibilites.add_disponibilite')}</h2>
+          <div className="card p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+              {t('disponibilites.add_disponibilite')}
+            </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('disponibilites.jour')}</label>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('disponibilites.jour')}</label>
                 <select
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                  className="w-full px-4 py-2 border rounded-lg outline-none"
+                  style={inputStyle}
                   value={formData.jour_semaine}
                   onChange={(e) => setFormData({ ...formData, jour_semaine: e.target.value })}
                 >
@@ -123,21 +134,21 @@ export default function DisponibilitesPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('disponibilites.heure_debut')}</label>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('disponibilites.heure_debut')}</label>
                   <input
                     type="time"
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                    className="w-full px-4 py-2 border rounded-lg outline-none"
+                    style={inputStyle}
                     value={formData.heure_debut}
                     onChange={(e) => setFormData({ ...formData, heure_debut: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('disponibilites.heure_fin')}</label>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('disponibilites.heure_fin')}</label>
                   <input
                     type="time"
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                    className="w-full px-4 py-2 border rounded-lg outline-none"
+                    style={inputStyle}
                     value={formData.heure_fin}
                     onChange={(e) => setFormData({ ...formData, heure_fin: e.target.value })}
                   />
@@ -148,13 +159,15 @@ export default function DisponibilitesPage() {
                   type="checkbox"
                   checked={formData.recurrent}
                   onChange={(e) => setFormData({ ...formData, recurrent: e.target.checked })}
-                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  className="rounded"
+                  style={{ accentColor: 'var(--accent)' }}
                 />
-                <label className="text-sm text-gray-700 dark:text-gray-300">{t('disponibilites.recurrent')}</label>
+                <label className="text-sm" style={{ color: 'var(--text-secondary)' }}>{t('disponibilites.recurrent')}</label>
               </div>
               <button
                 type="submit"
-                className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                className="w-full px-4 py-2 rounded-lg font-medium transition-colors"
+                style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}
               >
                 {t('disponibilites.add')}
               </button>
@@ -163,26 +176,32 @@ export default function DisponibilitesPage() {
         )}
 
         {disponibilites.length === 0 ? (
-          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl shadow-md">
-            <p className="text-gray-500 dark:text-gray-400">{t('disponibilites.no_disponibilites')}</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('disponibilites.no_disponibilites_desc')}</p>
+          <div className="card p-12 text-center">
+            <p style={{ color: 'var(--text-secondary)' }}>{t('disponibilites.no_disponibilites')}</p>
+            <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>{t('disponibilites.no_disponibilites_desc')}</p>
           </div>
         ) : (
           <div className="space-y-3">
             {disponibilites.map((dispo) => (
-              <div key={dispo.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 flex justify-between items-center">
+              <div key={dispo.id} className="card bookmark p-4 flex justify-between items-center">
                 <div>
-                  <span className="font-medium text-gray-900 dark:text-white">{JOURS_LABEL[dispo.jour_semaine]}</span>
-                  <span className="text-gray-600 dark:text-gray-400 ml-4">
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{JOURS_LABEL[dispo.jour_semaine]}</span>
+                  <span className="font-mono-data ml-4" style={{ color: 'var(--text-secondary)' }}>
                     {dispo.heure_debut.substring(0, 5)} - {dispo.heure_fin.substring(0, 5)}
                   </span>
                   {dispo.recurrent && (
-                    <span className="ml-2 text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full">{t('disponibilites.recurrent')}</span>
+                    <span
+                      className="ml-2 text-xs px-2 py-1 rounded-full"
+                      style={{ backgroundColor: 'var(--success-soft)', color: 'var(--success)' }}
+                    >
+                      {t('disponibilites.recurrent')}
+                    </span>
                   )}
                 </div>
                 <button
                   onClick={() => handleDelete(dispo.id)}
-                  className="text-red-500 hover:text-red-700 transition-colors"
+                  className="transition-colors"
+                  style={{ color: 'var(--danger)' }}
                 >
                   ✕
                 </button>

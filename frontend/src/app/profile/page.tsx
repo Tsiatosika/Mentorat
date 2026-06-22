@@ -154,8 +154,11 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <div
+          className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin"
+          style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
+        />
       </div>
     );
   }
@@ -163,30 +166,46 @@ export default function ProfilePage() {
   const isMentor = user?.role === 'mentor';
   const displayPhotoUrl = getPhotoUrl(photoUrl || user?.photo_url || null);
 
+  const inputStyle = {
+    backgroundColor: 'var(--bg-secondary)',
+    borderColor: 'var(--border)',
+    color: 'var(--text-primary)',
+  };
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <h1 className="text-2xl font-bold">{t('profile.title')}</h1>
-          <p className="text-indigo-100 mt-1">{t('profile.info')}</p>
-        </div>
+      <div className="max-w-4xl mx-auto px-4 pt-10 pb-8">
+        <p className="font-mono-data text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--accent)' }}>
+          {t('profile.info')}
+        </p>
+        <h1 className="font-display text-3xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+          {t('profile.title')}
+        </h1>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
-        {/* Photo card */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <User className="w-5 h-5 text-indigo-600" /> {t('profile.photo')}
+      <div className="max-w-4xl mx-auto px-4 pb-8 space-y-6">
+        {/* Photo */}
+        <div className="card p-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+            <User className="w-5 h-5" style={{ color: 'var(--accent)' }} /> {t('profile.photo')}
           </h2>
           <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0">
+            <div
+              className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: 'var(--accent-soft)' }}
+            >
               {displayPhotoUrl ? (
                 <img src={displayPhotoUrl} alt="Photo de profil" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-2xl font-bold text-white">{user?.prenom?.[0]}{user?.nom?.[0]}</span>
+                <span className="text-2xl font-bold" style={{ color: 'var(--accent-text-on-soft)' }}>
+                  {user?.prenom?.[0]}{user?.nom?.[0]}
+                </span>
               )}
             </div>
-            <label className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-indigo-300 rounded-lg cursor-pointer hover:border-indigo-500 transition-colors text-sm text-indigo-600 w-fit">
+            <label
+              className="flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-colors text-sm w-fit"
+              style={{ border: '2px dashed var(--accent)', color: 'var(--accent)' }}
+            >
               <Upload className="w-4 h-4" />
               {t('profile.photo')}
               <input type="file" accept="image/jpeg,image/png,image/jpg" className="hidden" onChange={handlePhotoUpload} />
@@ -195,36 +214,47 @@ export default function ProfilePage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Informations personnelles */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <User className="w-5 h-5 text-indigo-600" /> {t('profile.info')}
+          {/* Infos personnelles */}
+          <div className="card p-6">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              <User className="w-5 h-5" style={{ color: 'var(--accent)' }} /> {t('profile.info')}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('profile.nom_complet')}</label>
-                <input disabled value={`${user?.prenom} ${user?.nom}`}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400" />
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.nom_complet')}</label>
+                <input
+                  disabled
+                  value={`${user?.prenom} ${user?.nom}`}
+                  className="w-full px-4 py-2 rounded-lg"
+                  style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-                <input disabled value={user?.email || ''}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400" />
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Email</label>
+                <input
+                  disabled
+                  value={user?.email || ''}
+                  className="w-full px-4 py-2 rounded-lg"
+                  style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}
+                />
               </div>
             </div>
           </div>
 
           {/* Profil spécifique */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              {isMentor ? <Briefcase className="w-5 h-5 text-indigo-600" /> : <BookOpen className="w-5 h-5 text-indigo-600" />}
+          <div className="card p-6">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              {isMentor ? <Briefcase className="w-5 h-5" style={{ color: 'var(--accent)' }} /> : <BookOpen className="w-5 h-5" style={{ color: 'var(--accent)' }} />}
               {isMentor ? t('profile.experience') : t('profile.academic')}
             </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('profile.domaine')}</label>
-                <input type="text" placeholder={t('profile.domaine_placeholder')}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.domaine')}</label>
+                <input
+                  type="text"
+                  placeholder={t('profile.domaine_placeholder')}
+                  className="w-full px-4 py-2 border rounded-lg outline-none transition-all"
+                  style={inputStyle}
                   value={formData.domaine}
                   onChange={(e) => setFormData({ ...formData, domaine: e.target.value })}
                 />
@@ -233,18 +263,25 @@ export default function ProfilePage() {
               {isMentor ? (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('profile.bio')}</label>
-                    <textarea rows={4} placeholder={t('profile.bio_placeholder')}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.bio')}</label>
+                    <textarea
+                      rows={4}
+                      placeholder={t('profile.bio_placeholder')}
+                      className="w-full px-4 py-2 border rounded-lg outline-none transition-all resize-none"
+                      style={inputStyle}
                       value={formData.bio}
                       onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                     />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('profile.annees_experience')}</label>
-                      <input type="number" min={0} max={50}
-                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.annees_experience')}</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={50}
+                        className="w-full px-4 py-2 border rounded-lg outline-none transition-all"
+                        style={inputStyle}
                         value={formData.annees_experience}
                         onChange={(e) => setFormData({ ...formData, annees_experience: parseInt(e.target.value) || 0 })}
                       />
@@ -252,26 +289,39 @@ export default function ProfilePage() {
                     <div className="flex items-center">
                       <label className="flex items-center gap-3 cursor-pointer">
                         <div
-                          className={`relative w-11 h-6 rounded-full transition-colors ${formData.disponible ? 'bg-indigo-600' : 'bg-gray-300'}`}
-                          onClick={() => setFormData(prev => ({ ...prev, disponible: !prev.disponible }))}>
-                          <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${formData.disponible ? 'translate-x-5' : ''}`} />
+                          className="relative w-11 h-6 rounded-full transition-colors"
+                          style={{ backgroundColor: formData.disponible ? 'var(--accent)' : 'var(--bg-tertiary)' }}
+                          onClick={() => setFormData(prev => ({ ...prev, disponible: !prev.disponible }))}
+                        >
+                          <div
+                            className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform"
+                            style={{ transform: formData.disponible ? 'translateX(20px)' : 'translateX(0)' }}
+                          />
                         </div>
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                           {formData.disponible ? t('profile.disponible') : t('profile.indisponible')}
                         </span>
                       </label>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('profile.cv')}</label>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.cv')}</label>
                     <div className="flex flex-wrap items-center gap-3">
                       {profile?.cv_url && (
-                        <a href={getPhotoUrl(profile.cv_url)} target="_blank" rel="noopener noreferrer"
-                          className="text-sm text-indigo-600 hover:underline">
+                        <a
+                          href={getPhotoUrl(profile.cv_url)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm hover:underline"
+                          style={{ color: 'var(--accent)' }}
+                        >
                           {t('profile.view_cv')}
                         </a>
                       )}
-                      <label className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-indigo-300 rounded-lg cursor-pointer hover:border-indigo-500 transition-colors text-sm text-indigo-600">
+                      <label
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-colors text-sm"
+                        style={{ border: '2px dashed var(--accent)', color: 'var(--accent)' }}
+                      >
                         <Upload className="w-4 h-4" />
                         {profile?.cv_url ? t('profile.replace_cv') : t('profile.upload_cv')}
                         <input type="file" accept="application/pdf" className="hidden" onChange={handleCVUpload} />
@@ -282,32 +332,42 @@ export default function ProfilePage() {
               ) : (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('profile.niveau_etude')}</label>
-                    <input type="text" placeholder={t('profile.niveau_etude_placeholder')}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.niveau_etude')}</label>
+                    <input
+                      type="text"
+                      placeholder={t('profile.niveau_etude_placeholder')}
+                      className="w-full px-4 py-2 border rounded-lg outline-none transition-all"
+                      style={inputStyle}
                       value={formData.niveau_etude}
                       onChange={(e) => setFormData({ ...formData, niveau_etude: e.target.value })}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('profile.objectifs')}</label>
-                    <textarea rows={3} placeholder={t('profile.objectifs_placeholder')}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.objectifs')}</label>
+                    <textarea
+                      rows={3}
+                      placeholder={t('profile.objectifs_placeholder')}
+                      className="w-full px-4 py-2 border rounded-lg outline-none transition-all resize-none"
+                      style={inputStyle}
                       value={formData.objectifs}
                       onChange={(e) => setFormData({ ...formData, objectifs: e.target.value })}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1">
+                    <label className="block text-sm font-medium mb-1 flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
                       <Tag className="w-4 h-4" /> {t('profile.tags')}
                     </label>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">{t('profile.tags_desc')}</p>
+                    <p className="text-xs mb-2" style={{ color: 'var(--text-tertiary)' }}>{t('profile.tags_desc')}</p>
                     {formData.objectifs_tags.length > 0 && (
                       <div className="flex flex-wrap gap-2 mb-2">
                         {formData.objectifs_tags.map((tag) => (
-                          <span key={tag} className="flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full text-sm">
+                          <span
+                            key={tag}
+                            className="flex items-center gap-1 px-3 py-1 rounded-full text-sm"
+                            style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)' }}
+                          >
                             {tag}
-                            <button type="button" onClick={() => removeTag(tag)} className="hover:text-red-500 transition-colors">
+                            <button type="button" onClick={() => removeTag(tag)} className="hover:opacity-70">
                               <X className="w-3 h-3" />
                             </button>
                           </span>
@@ -315,18 +375,25 @@ export default function ProfilePage() {
                       </div>
                     )}
                     <div className="flex gap-2">
-                      <input type="text" placeholder={t('profile.tags_placeholder')}
-                        className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                      <input
+                        type="text"
+                        placeholder={t('profile.tags_placeholder')}
+                        className="flex-1 px-4 py-2 border rounded-lg outline-none transition-all text-sm"
+                        style={inputStyle}
                         value={tagInput}
                         onChange={(e) => setTagInput(e.target.value)}
                         onKeyDown={handleTagKeyDown}
                       />
-                      <button type="button" onClick={addTag}
-                        className="px-3 py-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 transition-colors">
+                      <button
+                        type="button"
+                        onClick={addTag}
+                        className="px-3 py-2 rounded-lg transition-colors"
+                        style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)' }}
+                      >
                         <Plus className="w-4 h-4" />
                       </button>
                     </div>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('profile.tags_hint')}</p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>{t('profile.tags_hint')}</p>
                   </div>
                 </>
               )}
@@ -334,8 +401,12 @@ export default function ProfilePage() {
           </div>
 
           <div className="flex justify-end">
-            <button type="submit" disabled={saving}
-              className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 font-medium">
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50"
+              style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}
+            >
               <Save className="w-4 h-4" />
               {saving ? t('common.saving') : t('profile.save')}
             </button>

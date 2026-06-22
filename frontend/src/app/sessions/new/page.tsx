@@ -110,37 +110,55 @@ export default function NewSessionPage() {
     }
   };
 
+  const inputStyle = {
+    backgroundColor: 'var(--bg-secondary)',
+    borderColor: 'var(--border)',
+    color: 'var(--text-primary)',
+  };
+
   if (!mentor) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <div
+          className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin"
+          style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
+        />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen p-6" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div className="max-w-2xl mx-auto">
-        <Link href={`/mentors/${mentorId}`} className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6">
+        <Link
+          href={`/mentors/${mentorId}`}
+          className="inline-flex items-center gap-2 mb-6 transition-colors"
+          style={{ color: 'var(--text-secondary)' }}
+        >
           <ArrowLeft className="w-4 h-4" />
           {t('session.back')}
         </Link>
 
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
-            <h1 className="text-2xl font-bold">{t('session.new_title')}</h1>
-            <p className="text-indigo-100 mt-1">{t('session.new_with')} {mentor.prenom} {mentor.nom}</p>
+        <div className="card overflow-hidden">
+          <div className="p-6" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+            <h1 className="font-display text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {t('session.new_title')}
+            </h1>
+            <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
+              {t('session.new_with')} {mentor.prenom} {mentor.nom}
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Calendar className="w-4 h-4 inline mr-2" />
+              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                <Calendar className="w-4 h-4 inline mr-2" style={{ color: 'var(--accent)' }} />
                 {t('session.date')}
               </label>
               <input
                 type="date"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-2 border rounded-lg outline-none transition-all"
+                style={inputStyle}
                 value={selectedDate}
                 onChange={(e) => handleDateChange(e.target.value)}
                 min={new Date().toISOString().split('T')[0]}
@@ -150,12 +168,12 @@ export default function NewSessionPage() {
 
             {selectedDate && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Clock className="w-4 h-4 inline mr-2" />
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                  <Clock className="w-4 h-4 inline mr-2" style={{ color: 'var(--accent)' }} />
                   {t('session.time')}
                 </label>
                 {availableTimes.length === 0 ? (
-                  <p className="text-red-500 text-sm">{t('session.no_slots')}</p>
+                  <p className="text-sm" style={{ color: 'var(--danger)' }}>{t('session.no_slots')}</p>
                 ) : (
                   <div className="grid grid-cols-3 gap-2">
                     {availableTimes.map((time) => (
@@ -163,11 +181,12 @@ export default function NewSessionPage() {
                         key={time}
                         type="button"
                         onClick={() => setSelectedTime(time)}
-                        className={`p-2 rounded-lg border-2 transition-all ${
+                        className="p-2 rounded-lg border-2 font-mono-data transition-all"
+                        style={
                           selectedTime === time
-                            ? 'border-indigo-600 bg-indigo-50 text-indigo-600'
-                            : 'border-gray-200 hover:border-indigo-300 text-gray-700'
-                        }`}
+                            ? { borderColor: 'var(--accent)', backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)' }
+                            : { borderColor: 'var(--border)', color: 'var(--text-secondary)' }
+                        }
                       >
                         {time}
                       </button>
@@ -178,13 +197,14 @@ export default function NewSessionPage() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <FileText className="w-4 h-4 inline mr-2" />
+              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                <FileText className="w-4 h-4 inline mr-2" style={{ color: 'var(--accent)' }} />
                 {t('session.subject')}
               </label>
               <input
                 type="text"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-2 border rounded-lg outline-none transition-all"
+                style={inputStyle}
                 placeholder={t('session.subject_placeholder')}
                 value={sujet}
                 onChange={(e) => setSujet(e.target.value)}
@@ -193,12 +213,13 @@ export default function NewSessionPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
                 {t('session.desc')}
               </label>
               <textarea
                 rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-2 border rounded-lg outline-none transition-all resize-none"
+                style={inputStyle}
                 placeholder={t('session.desc_placeholder')}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -208,7 +229,8 @@ export default function NewSessionPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full px-4 py-2 rounded-lg font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Search, Filter, Clock, Users, Star } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { Search, SlidersHorizontal, Clock, Users, Star, CalendarPlus, CheckCircle2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { publicAPI } from '@/services/api';
 
@@ -13,6 +12,7 @@ interface Mentor {
   prenom: string;
   domaine: string;
   note_moyenne: number;
+  nb_avis?: number;
   nb_sessions: number;
   annees_experience: number;
   photo_url: string;
@@ -20,28 +20,35 @@ interface Mentor {
   disponible: boolean;
 }
 
+// Palette de teintes pour les badges d'initiales — dérivée du thème, pas aléatoire
+const AVATAR_PALETTE = [
+  { bg: 'var(--accent-soft)', fg: 'var(--accent-text-on-soft)' },
+  { bg: 'var(--warm-soft)', fg: 'var(--warm-text-on-soft)' },
+  { bg: 'var(--info-soft)', fg: 'var(--info)' },
+];
+
+function avatarTone(seed: string) {
+  const index = seed.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % AVATAR_PALETTE.length;
+  return AVATAR_PALETTE[index];
+}
+
 export default function MentorsPage() {
-  const { user } = useAuth();
   const { t } = useLanguage();
   const [mentors, setMentors] = useState<Mentor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [domaine, setDomaine] = useState('');
-  const [disponible, setDisponible] = useState('');
+  const [onlyAvailable, setOnlyAvailable] = useState(false);
+  const [activeTags, setActiveTags] = useState<string[]>([]);
+  const [showAllTags, setShowAllTags] = useState(false);
 
   useEffect(() => {
     fetchMentors();
-  }, [searchTerm, domaine, disponible]);
+  }, []);
 
   const fetchMentors = async () => {
     setLoading(true);
     try {
-      const params: any = {};
-      if (searchTerm) params.search = searchTerm;
-      if (domaine) params.domaine = domaine;
-      if (disponible === 'true') params.disponible = true;
-      
-      const response = await publicAPI.searchMentors(params);
+      const response = await publicAPI.searchMentors({});
       setMentors(response.data.data || []);
     } catch (error) {
       console.error('Erreur:', error);
@@ -50,6 +57,46 @@ export default function MentorsPage() {
     }
   };
 
+  // Extraction des compétences uniques depuis les mentors chargés, triées par fréquence
+  const availableTags = useMemo(() => {
+    const counts = new Map<string, number>();
+    mentors.forEach((m) => {
+      (m.competences || []).forEach((c) => {
+        counts.set(c, (counts.get(c) || 0) + 1);
+      });
+    });
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([tag]) => tag);
+  }, [mentors]);
+
+  const visibleTags = showAllTags ? availableTags : availableTags.slice(0, 9);
+
+  const toggleTag = (tag: string) => {
+    setActiveTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const filteredMentors = useMemo(() => {
+    return mentors.filter((mentor) => {
+      const fullName = `${mentor.prenom} ${mentor.nom}`.toLowerCase();
+      const matchesSearch =
+        !searchTerm ||
+        fullName.includes(searchTerm.toLowerCase()) ||
+        (mentor.domaine || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (mentor.competences || []).some((c) => c.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      const matchesAvailable = !onlyAvailable || mentor.disponible;
+
+      const matchesTags =
+        activeTags.length === 0 ||
+        activeTags.every((tag) => (mentor.competences || []).includes(tag));
+
+      return matchesSearch && matchesAvailable && matchesTags;
+    });
+  }, [mentors, searchTerm, onlyAvailable, activeTags]);
+
   const getNoteDisplay = (note: any) => {
     if (!note) return t('common.new');
     const numNote = Number(note);
@@ -57,134 +104,217 @@ export default function MentorsPage() {
     return numNote.toFixed(1);
   };
 
+  const resetFilters = () => {
+    setSearchTerm('');
+    setOnlyAvailable(false);
+    setActiveTags([]);
+  };
+
+  const hasActiveFilters = searchTerm || onlyAvailable || activeTags.length > 0;
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 py-16">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">{t('nav.mentors')}</h1>
-          <p className="text-xl text-indigo-100">{t('mentors.subtitle')}</p>
-        </div>
+      <div className="max-w-7xl mx-auto px-4 pt-12 pb-8">
+        <p className="font-mono-data text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--accent)' }}>
+          {t('mentors.subtitle')}
+        </p>
+        <h1 className="font-display text-4xl md:text-5xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+          {t('nav.mentors')}
+        </h1>
       </div>
 
-      {/* Filtres */}
-      <div className="max-w-7xl mx-auto px-4 -mt-8 mb-8">
-        <div className="rounded-2xl shadow-lg p-6" style={{ backgroundColor: 'var(--card-bg)' }}>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder={t('mentors.search_placeholder')}
-                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                style={{ 
-                  backgroundColor: 'var(--bg-secondary)',
-                  borderColor: 'var(--border)',
-                  color: 'var(--text-primary)'
-                }}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <input
-              type="text"
-              placeholder={t('mentors.domaine_placeholder')}
-              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              style={{ 
-                backgroundColor: 'var(--bg-secondary)',
-                borderColor: 'var(--border)',
-                color: 'var(--text-primary)'
-              }}
-              value={domaine}
-              onChange={(e) => setDomaine(e.target.value)}
-            />
-            <select
-              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              style={{ 
-                backgroundColor: 'var(--bg-secondary)',
-                borderColor: 'var(--border)',
-                color: 'var(--text-primary)'
-              }}
-              value={disponible}
-              onChange={(e) => setDisponible(e.target.value)}
-            >
-              <option value="">{t('mentors.all')}</option>
-              <option value="true">{t('mentors.available')}</option>
-            </select>
+      {/* Barre de recherche + filtres */}
+      <div className="max-w-7xl mx-auto px-4 mb-8 space-y-4">
+        {/* Recherche */}
+        <div className="relative">
+          <Search
+            className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5"
+            style={{ color: 'var(--text-tertiary)' }}
+          />
+          <input
+            type="text"
+            placeholder={t('mentors.search_placeholder')}
+            className="w-full pl-12 pr-4 py-4 rounded-2xl outline-none transition-all text-base"
+            style={{
+              backgroundColor: 'var(--card-bg)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-primary)',
+              boxShadow: 'var(--shadow-card)',
+            }}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        {/* Tags de filtre */}
+        <div className="flex items-start gap-3 flex-wrap">
+          <button
+            onClick={() => setOnlyAvailable(!onlyAvailable)}
+            className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all"
+            style={
+              onlyAvailable
+                ? { backgroundColor: 'var(--accent)', color: '#06231D' }
+                : { backgroundColor: 'var(--card-bg)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }
+            }
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            {t('mentors.available')} {t('mentors.all') === t('mentors.available') ? '' : t('mentors.available') ? '' : ''}
+            uniquement
+          </button>
+
+          {visibleTags.map((tag) => {
+            const active = activeTags.includes(tag);
+            return (
+              <button
+                key={tag}
+                onClick={() => toggleTag(tag)}
+                className="px-4 py-2 rounded-full text-sm font-medium transition-all"
+                style={
+                  active
+                    ? { backgroundColor: 'var(--warm)', color: '#2A1700' }
+                    : { backgroundColor: 'var(--card-bg)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }
+                }
+              >
+                {tag}
+              </button>
+            );
+          })}
+
+          {availableTags.length > 9 && (
             <button
-              onClick={() => {
-                setSearchTerm('');
-                setDomaine('');
-                setDisponible('');
-              }}
-              className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
-              style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
+              onClick={() => setShowAllTags(!showAllTags)}
+              className="px-4 py-2 rounded-full text-sm font-medium transition-all"
+              style={{ color: 'var(--accent)' }}
+            >
+              {showAllTags ? 'Voir moins' : `+${availableTags.length - 9} autres`}
+            </button>
+          )}
+
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              className="px-4 py-2 rounded-full text-sm font-medium transition-all"
+              style={{ color: 'var(--danger)' }}
             >
               {t('mentors.reset')}
             </button>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Liste des mentors */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      {/* Résultats */}
+      <div className="max-w-7xl mx-auto px-4 pb-12">
         {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+          <div className="flex justify-center py-16">
+            <div
+              className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin"
+              style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
+            />
           </div>
-        ) : mentors.length === 0 ? (
-          <div className="text-center py-12 rounded-2xl shadow-md" style={{ backgroundColor: 'var(--card-bg)' }}>
-            <p style={{ color: 'var(--text-secondary)' }} className="text-lg">{t('mentors.no_results')}</p>
+        ) : filteredMentors.length === 0 ? (
+          <div className="card p-12 text-center">
+            <p className="text-lg" style={{ color: 'var(--text-secondary)' }}>{t('mentors.no_results')}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mentors.map((mentor) => (
-              <div key={mentor.id} className="rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1" style={{ backgroundColor: 'var(--card-bg)' }}>
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center shadow-lg">
-                      <span className="text-2xl font-bold text-white">
-                        {mentor.prenom?.[0]}{mentor.nom?.[0]}
+          <>
+            <p className="text-sm mb-4" style={{ color: 'var(--text-tertiary)' }}>
+              {filteredMentors.length} mentor{filteredMentors.length > 1 ? 's' : ''} trouvé{filteredMentors.length > 1 ? 's' : ''}
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+              {filteredMentors.map((mentor) => {
+                const initials = `${mentor.prenom?.[0] || ''}${mentor.nom?.[0] || ''}`.toUpperCase();
+                const tone = avatarTone(mentor.id);
+                const extraCompetences = (mentor.competences || []).slice(4);
+
+                return (
+                  <div key={mentor.id} className="card card-hover bookmark p-5 flex flex-col">
+                    <div className="flex items-start gap-3 mb-3">
+                      <div
+                        className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 font-mono-data font-bold text-lg"
+                        style={{ backgroundColor: tone.bg, color: tone.fg }}
+                      >
+                        {initials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold leading-tight truncate" style={{ color: 'var(--text-primary)' }}>
+                          {mentor.prenom} {mentor.nom}
+                        </h3>
+                        <p className="text-sm truncate" style={{ color: 'var(--text-secondary)' }}>
+                          {mentor.domaine || t('mentors.expert')}
+                        </p>
+                        <div className="flex items-center gap-1 mt-1">
+                          <Star className="w-3.5 h-3.5" style={{ color: 'var(--warm)', fill: 'var(--warm)' }} />
+                          <span className="font-mono-data text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                            {getNoteDisplay(mentor.note_moyenne)}
+                          </span>
+                          {mentor.nb_avis !== undefined && (
+                            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                              ({mentor.nb_avis} avis)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {mentor.competences && mentor.competences.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {mentor.competences.slice(0, 4).map((comp, idx) => (
+                          <span
+                            key={idx}
+                            className="text-xs px-2.5 py-1 rounded-full font-medium"
+                            style={{ backgroundColor: 'var(--warm-soft)', color: 'var(--warm-text-on-soft)' }}
+                          >
+                            {comp}
+                          </span>
+                        ))}
+                        {extraCompetences.length > 0 && (
+                          <span
+                            className="text-xs px-2.5 py-1 rounded-full font-medium"
+                            style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+                          >
+                            +{extraCompetences.length}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+                      <span className="font-mono-data">{mentor.nb_sessions || 0} sessions</span>
+                      <span
+                        className="flex items-center gap-1.5 text-xs font-medium"
+                        style={{ color: mentor.disponible ? 'var(--success)' : 'var(--text-tertiary)' }}
+                      >
+                        <span
+                          className="w-1.5 h-1.5 rounded-full"
+                          style={{ backgroundColor: mentor.disponible ? 'var(--success)' : 'var(--text-tertiary)' }}
+                        />
+                        {mentor.disponible ? t('mentors.available') : 'Indisponible'}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Star className="w-5 h-5 text-yellow-500 fill-current" />
-                      <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{getNoteDisplay(mentor.note_moyenne)}</span>
+
+                    <div className="flex gap-2 mt-auto">
+                      <Link
+                        href={`/mentors/${mentor.id}`}
+                        className="flex-1 text-center px-3 py-2.5 rounded-xl font-medium text-sm transition-colors"
+                        style={{ backgroundColor: 'var(--text-primary)', color: 'var(--bg-primary)' }}
+                      >
+                        {t('mentors.view_profile')}
+                      </Link>
+                      <Link
+                        href={`/sessions/new?mentor=${mentor.id}`}
+                        className="px-3 py-2.5 rounded-xl flex items-center justify-center transition-colors"
+                        style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--accent)' }}
+                        title="Réserver une session"
+                      >
+                        <CalendarPlus className="w-4 h-4" />
+                      </Link>
                     </div>
                   </div>
-                  <h3 className="text-xl font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
-                    {mentor.prenom} {mentor.nom}
-                  </h3>
-                  <p className="text-indigo-600 text-sm font-medium mb-2">{mentor.domaine || t('mentors.expert')}</p>
-                  <div className="flex items-center gap-4 text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
-                      {mentor.annees_experience || 0} {t('mentors.years')}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Users className="w-4 h-4" />
-                      {mentor.nb_sessions || 0} {t('mentors.sessions')}
-                    </span>
-                  </div>
-                  {mentor.competences && mentor.competences.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {mentor.competences.slice(0, 3).map((comp, idx) => (
-                        <span key={idx} className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
-                          {comp}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <Link
-                    href={`/mentors/${mentor.id}`}
-                    className="block w-full text-center px-4 py-2 rounded-lg border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 transition-colors font-medium"
-                  >
-                    {t('mentors.view_profile')}
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { NotificationBell } from './NotificationBell';
 import { LogOut, Sun, Moon, Globe, ChevronDown, Info } from 'lucide-react';
 import { useState } from 'react';
+import { Logo } from '@/components/ui/Logo';
 
 export function TopNavbar() {
   const { user, logout } = useAuth();
@@ -15,31 +16,49 @@ export function TopNavbar() {
   const [showLangDropdown, setShowLangDropdown] = useState(false);
 
   return (
-    <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-50">
+    <nav
+      className="sticky top-0 z-50"
+      style={{
+        backgroundColor: 'var(--card-bg)',
+        borderBottom: '1px solid var(--border)',
+      }}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
+          {/* Logo */}
           <Link href="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
-            <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
-              <span className="text-lg">🎓</span>
-            </div>
-            <span className="text-lg font-bold text-gray-900 dark:text-white">MentorIPath</span>
-            <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">UAZ — Informatique</span>
+            <Logo size={32} />
+            <span className="font-display text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              MentorIPath
+            </span>
+            <span className="text-xs hidden sm:inline" style={{ color: 'var(--text-tertiary)' }}>
+              UAZ — Informatique
+            </span>
           </Link>
 
+          {/* Actions */}
           <div className="flex items-center space-x-2">
+            {/* À propos */}
             <Link
               href="/about"
-              className="hidden md:flex items-center gap-1 px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm"
+              className="hidden md:flex items-center gap-1 px-3 py-2 rounded-lg text-sm transition-colors"
+              style={{ color: 'var(--text-secondary)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-secondary)')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
               title={t('nav.about')}
             >
               <Info className="w-4 h-4" />
               <span>{t('nav.about')}</span>
             </Link>
 
+            {/* Langue */}
             <div className="relative">
               <button
                 onClick={() => setShowLangDropdown(!showLangDropdown)}
-                className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm"
+                className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm transition-colors"
+                style={{ color: 'var(--text-secondary)' }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-secondary)')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
                 <Globe className="w-4 h-4" />
                 <span className="font-medium">{language.toUpperCase()}</span>
@@ -47,20 +66,27 @@ export function TopNavbar() {
               </button>
 
               {showLangDropdown && (
-                <div className="absolute right-0 mt-2 w-32 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
+                <div
+                  className="absolute right-0 mt-2 w-32 rounded-lg shadow-lg z-50 overflow-hidden"
+                  style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}
+                >
                   <button
                     onClick={() => { setLanguage('fr'); setShowLangDropdown(false); }}
-                    className={`w-full px-4 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-                      language === 'fr' ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-gray-300'
-                    }`}
+                    className="w-full px-4 py-2 text-sm text-left transition-colors"
+                    style={{
+                      backgroundColor: language === 'fr' ? 'var(--accent-soft)' : 'transparent',
+                      color: language === 'fr' ? 'var(--accent-text-on-soft)' : 'var(--text-secondary)',
+                    }}
                   >
                     🇫🇷 Français
                   </button>
                   <button
                     onClick={() => { setLanguage('en'); setShowLangDropdown(false); }}
-                    className={`w-full px-4 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-                      language === 'en' ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-gray-300'
-                    }`}
+                    className="w-full px-4 py-2 text-sm text-left transition-colors"
+                    style={{
+                      backgroundColor: language === 'en' ? 'var(--accent-soft)' : 'transparent',
+                      color: language === 'en' ? 'var(--accent-text-on-soft)' : 'var(--text-secondary)',
+                    }}
                   >
                     🇬🇧 English
                   </button>
@@ -68,13 +94,17 @@ export function TopNavbar() {
               )}
             </div>
 
+            {/* Thème */}
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              title={theme === 'dark' ? t('theme.light') : t('theme.dark')}
+              className="p-2 rounded-lg transition-colors"
+              style={{ color: 'var(--text-secondary)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-secondary)')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+              title={theme === 'dark' ? 'Mode clair' : 'Mode sombre'}
             >
               {theme === 'dark' ? (
-                <Sun className="w-5 h-5 text-yellow-400" />
+                <Sun className="w-5 h-5" style={{ color: 'var(--warm)' }} />
               ) : (
                 <Moon className="w-5 h-5" />
               )}
@@ -86,33 +116,43 @@ export function TopNavbar() {
               <div className="flex items-center gap-2">
                 <Link
                   href="/login"
-                  className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                  style={{ color: 'var(--text-secondary)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-secondary)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
-                  {t('common.login')}
+                  Connexion
                 </Link>
                 <Link
                   href="/register"
-                  className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm"
+                  className="px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+                  style={{ backgroundColor: 'var(--accent)', color: theme === 'dark' ? '#06231D' : '#FFFFFF' }}
                 >
-                  {t('common.register')}
+                  Inscription
                 </Link>
               </div>
             )}
 
             {user && (
               <div className="flex items-center gap-2 ml-2">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center">
-                  <span className="text-xs font-bold text-white">
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: 'var(--accent-soft)' }}
+                >
+                  <span className="text-xs font-bold" style={{ color: 'var(--accent-text-on-soft)' }}>
                     {user.prenom?.[0]}{user.nom?.[0]}
                   </span>
                 </div>
-                <span className="text-sm text-gray-700 dark:text-gray-300 hidden sm:inline">
+                <span className="text-sm hidden sm:inline" style={{ color: 'var(--text-secondary)' }}>
                   {user.prenom}
                 </span>
                 <button
                   onClick={logout}
-                  className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                  title={t('common.logout')}
+                  className="p-2 rounded-lg transition-colors"
+                  style={{ color: 'var(--danger)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--danger-soft)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  title="Déconnexion"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>

@@ -21,8 +21,15 @@ module.exports = {
           800: '#3730a3',
           900: '#312e81',
         },
+        accent: 'var(--accent)',
+        warm: 'var(--warm)',
+      },
+      fontFamily: {
+        display: ['Fraunces', 'serif'],
+        sans: ['Inter', 'sans-serif'],
+        mono: ['JetBrains Mono', 'monospace'],
       },
     },
   },
   plugins: [],
-}
+};

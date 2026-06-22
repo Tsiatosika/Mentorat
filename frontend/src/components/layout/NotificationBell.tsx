@@ -6,6 +6,7 @@ import { Bell, BellDot, X, Check, MessageCircle, FileText, UserPlus } from 'luci
 import { formatDistanceToNow } from 'date-fns';
 import { fr, enGB } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface Notification {
   id: string;
@@ -20,6 +21,7 @@ interface Notification {
 export function NotificationBell({ collapsed = false }: { collapsed?: boolean }) {
   const router = useRouter();
   const { t, language } = useLanguage();
+  const { theme } = useTheme();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -107,12 +109,12 @@ export function NotificationBell({ collapsed = false }: { collapsed?: boolean })
 
   const getIcon = (type: string) => {
     switch (type) {
-      case 'session_confirmee':  return <Check className="w-4 h-4 text-green-500" />;
-      case 'session_annulee':    return <X className="w-4 h-4 text-red-500" />;
-      case 'nouveau_message':    return <MessageCircle className="w-4 h-4 text-blue-500" />;
-      case 'nouveau_match':      return <UserPlus className="w-4 h-4 text-purple-500" />;
-      case 'rapport_disponible': return <FileText className="w-4 h-4 text-orange-500" />;
-      default:                   return <Bell className="w-4 h-4 text-gray-500" />;
+      case 'session_confirmee':  return <Check className="w-4 h-4" style={{ color: 'var(--success)' }} />;
+      case 'session_annulee':    return <X className="w-4 h-4" style={{ color: 'var(--danger)' }} />;
+      case 'nouveau_message':    return <MessageCircle className="w-4 h-4" style={{ color: 'var(--info)' }} />;
+      case 'nouveau_match':      return <UserPlus className="w-4 h-4" style={{ color: 'var(--accent)' }} />;
+      case 'rapport_disponible': return <FileText className="w-4 h-4" style={{ color: 'var(--warm)' }} />;
+      default:                   return <Bell className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />;
     }
   };
 
@@ -135,31 +137,46 @@ export function NotificationBell({ collapsed = false }: { collapsed?: boolean })
   const buttonContent = (
     <button
       onClick={toggleDropdown}
-      className="relative p-2 rounded-lg hover:bg-white/10 transition-colors focus:outline-none w-full flex items-center justify-center"
+      className="relative p-2 rounded-lg transition-colors focus:outline-none w-full flex items-center justify-center"
+      style={{ color: 'var(--text-secondary)' }}
+      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-secondary)')}
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
       title={t('notif.title')}
     >
       {unreadCount > 0 ? (
         <>
-          <BellDot className="w-5 h-5 text-white" />
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+          <BellDot className="w-5 h-5" style={{ color: 'var(--warm)' }} />
+          <span
+            className="absolute -top-1 -right-1 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1"
+            style={{ backgroundColor: 'var(--danger)' }}
+          >
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         </>
       ) : (
-        <Bell className="w-5 h-5 text-white" />
+        <Bell className="w-5 h-5" />
       )}
     </button>
   );
 
   const dropdownContent = isOpen && (
-    <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
+    <div
+      className="absolute right-0 mt-2 w-80 sm:w-96 rounded-xl shadow-2xl z-50 overflow-hidden"
+      style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}
+    >
       {/* Header */}
-      <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-        <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+      <div
+        className="flex justify-between items-center p-4"
+        style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--bg-secondary)' }}
+      >
+        <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
           <Bell className="w-4 h-4" />
           {t('notif.title')}
           {unreadCount > 0 && (
-            <span className="bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 text-xs px-2 py-0.5 rounded-full">
+            <span
+              className="text-xs px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)' }}
+            >
               {unreadCount} {t('notif.unread')}
             </span>
           )}
@@ -167,7 +184,8 @@ export function NotificationBell({ collapsed = false }: { collapsed?: boolean })
         {unreadCount > 0 && (
           <button
             onClick={markAllAsRead}
-            className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium"
+            className="text-xs font-medium hover:underline"
+            style={{ color: 'var(--accent)' }}
           >
             {t('notif.mark_all')}
           </button>
@@ -178,44 +196,71 @@ export function NotificationBell({ collapsed = false }: { collapsed?: boolean })
       <div className="max-h-96 overflow-y-auto">
         {loading ? (
           <div className="p-8 text-center">
-            <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-            <p className="text-gray-500 dark:text-gray-400 text-sm">{t('common.loading')}</p>
+            <div
+              className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-2"
+              style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
+            />
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{t('common.loading')}</p>
           </div>
         ) : notifications.length === 0 ? (
           <div className="p-8 text-center">
-            <Bell className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-            <p className="text-gray-500 dark:text-gray-400 text-sm">{t('notif.none')}</p>
-            <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">{t('notif.none_desc')}</p>
+            <Bell className="w-10 h-10 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{t('notif.none')}</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>{t('notif.none_desc')}</p>
           </div>
         ) : (
           notifications.map((notif) => (
             <div
               key={notif.id}
               onClick={() => markAsRead(notif.id, notif.lien)}
-              className={`p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 ${
-                !notif.lue ? 'bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-500' : ''
-              }`}
+              className="p-4 cursor-pointer transition-colors relative"
+              style={{
+                borderBottom: '1px solid var(--border)',
+                backgroundColor: !notif.lue ? 'var(--accent-soft)' : 'transparent',
+              }}
+              onMouseEnter={(e) => {
+                if (notif.lue) e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
+              }}
+              onMouseLeave={(e) => {
+                if (notif.lue) e.currentTarget.style.backgroundColor = 'transparent';
+              }}
             >
+              {!notif.lue && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: '3px',
+                    backgroundColor: 'var(--accent)',
+                  }}
+                />
+              )}
               <div className="flex gap-3">
-                <div className="flex-shrink-0 mt-0.5 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                <div
+                  className="flex-shrink-0 mt-0.5 w-8 h-8 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: 'var(--bg-secondary)' }}
+                >
                   {getIcon(notif.type)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm ${!notif.lue ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
+                  <p
+                    className="text-sm"
+                    style={{
+                      fontWeight: !notif.lue ? 600 : 400,
+                      color: 'var(--text-primary)',
+                    }}
+                  >
                     {notif.titre}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">
+                  <p className="text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
                     {notif.message}
                   </p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
                     {formatDate(notif.created_at)}
                   </p>
                 </div>
-                {!notif.lue && (
-                  <div className="flex-shrink-0">
-                    <div className="w-2 h-2 bg-indigo-600 rounded-full mt-2" />
-                  </div>
-                )}
               </div>
             </div>
           ))
@@ -224,10 +269,14 @@ export function NotificationBell({ collapsed = false }: { collapsed?: boolean })
 
       {/* Footer */}
       {notifications.length > 0 && (
-        <div className="p-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-center">
+        <div
+          className="p-2 text-center"
+          style={{ borderTop: '1px solid var(--border)', backgroundColor: 'var(--bg-secondary)' }}
+        >
           <button
             onClick={() => { setIsOpen(false); router.push('/notifications'); }}
-            className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium"
+            className="text-xs font-medium hover:underline"
+            style={{ color: 'var(--accent)' }}
           >
             {t('notif.see_all')}
           </button>
