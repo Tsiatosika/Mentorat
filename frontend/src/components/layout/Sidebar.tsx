@@ -10,6 +10,7 @@ import {
   Brain, UserCircle, Clock, LogOut, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
+import { Avatar } from '@/components/ui/Avatar';
 
 interface SidebarProps {
   onCollapseChange?: (collapsed: boolean) => void;
@@ -42,10 +43,6 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
 
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href);
-
-  const initials = user
-    ? `${user.prenom?.[0] ?? ''}${user.nom?.[0] ?? ''}`.toUpperCase()
-    : '??';
 
   const sidebarWidth = collapsed ? '72px' : '260px';
 
@@ -87,6 +84,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
         <div
           className="bookmark"
           style={{
+            position: 'relative',
             display: 'flex',
             alignItems: 'center',
             justifyContent: collapsed ? 'center' : 'flex-start',
@@ -224,22 +222,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: collapsed ? '0' : '12px', flex: collapsed ? 'none' : 1 }}>
-            <div
-              style={{
-                width: collapsed ? '36px' : '38px',
-                height: collapsed ? '36px' : '38px',
-                borderRadius: '12px',
-                backgroundColor: 'var(--accent-soft)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: collapsed ? '12px' : '14px',
-                fontWeight: 600,
-                color: 'var(--accent-text-on-soft)',
-              }}
-            >
-              {initials}
-            </div>
+            <Avatar photoUrl={user?.photo_url} prenom={user?.prenom} nom={user?.nom} size={collapsed ? 36 : 38} />
             {!collapsed && (
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>

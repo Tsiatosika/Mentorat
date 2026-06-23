@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Search, SlidersHorizontal, Clock, Users, Star, CalendarPlus, ArrowUpDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { publicAPI } from '@/services/api';
+import { Avatar } from '@/components/ui/Avatar';
 
 interface Mentor {
   id: string;
@@ -337,13 +338,7 @@ export default function MentorsPage() {
                 return (
                   <div key={mentor.id} className="card card-hover bookmark p-5 flex flex-col">
                     <div className="flex items-start gap-3 mb-3">
-                      <div
-                        className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 font-mono-data font-bold text-lg"
-                        style={{ backgroundColor: tone.bg, color: tone.fg }}
-                      >
-                        {initials}
-                      </div>
-                      <div className="flex-1 min-w-0">
+                      <Avatar photoUrl={mentor.photo_url} prenom={mentor.prenom} nom={mentor.nom} size={56} rounded="xl" />                      <div className="flex-1 min-w-0">
                         <h3 className="font-semibold leading-tight truncate" style={{ color: 'var(--text-primary)' }}>
                           {mentor.prenom} {mentor.nom}
                         </h3>

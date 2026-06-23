@@ -6,24 +6,21 @@ const fs = require('fs');
 const { authenticate } = require('../middlewares/auth');
 const { query } = require('../config/db');
 
-// Créer les dossiers nécessaires
-const uploadDir = 'uploads/chat/';
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Configuration du stockage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+['uploads/chat/', 'uploads/photos/', 'uploads/cv/'].forEach((dir) => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
 });
 
-// Filtre des fichiers
+const makeStorage = (destination) =>
+  multer.diskStorage({
+    destination: (req, file, cb) => cb(null, destination),
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      cb(null, uniqueSuffix + path.extname(file.originalname));
+    },
+  });
+
 const fileFilter = (req, file, cb) => {
   const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf', 'text/plain'];
   if (allowedTypes.includes(file.mimetype)) {
@@ -33,50 +30,57 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-const upload = multer({ 
-  storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-  fileFilter: fileFilter
+const uploadChat = multer({
+  storage: makeStorage('uploads/chat/'),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter,
 });
 
-// Upload de fichier pour le chat
-router.post('/chat', authenticate, upload.single('file'), async (req, res) => {
+const uploadPhoto = multer({
+  storage: makeStorage('uploads/photos/'),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter,
+});
+
+const uploadCV = multer({
+  storage: makeStorage('uploads/cv/'),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter,
+});
+
+router.post('/chat', authenticate, uploadChat.single('file'), async (req, res) => {
   try {
-    console.log('📎 Upload request received');
-    
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'Aucun fichier' });
     }
-    
+
     const fileUrl = `/uploads/chat/${req.file.filename}`;
-    console.log(`✅ Fichier uploadé: ${fileUrl}`);
-    
-    res.json({ 
-      success: true, 
-      url: fileUrl, 
+
+    res.json({
+      success: true,
+      url: fileUrl,
       filename: req.file.originalname,
-      size: req.file.size
+      size: req.file.size,
     });
   } catch (error) {
-    console.error('❌ Erreur upload:', error);
+    console.error('❌ Erreur upload chat:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// Upload de photo de profil
-router.post('/photo', authenticate, upload.single('photo'), async (req, res) => {
+router.post('/photo', authenticate, uploadPhoto.single('photo'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'Aucun fichier' });
     }
-    
-    const fileUrl = `/uploads/${req.file.filename}`;
-    
+
+    const fileUrl = `/uploads/photos/${req.file.filename}`;
+
     await query(
       'UPDATE utilisateurs SET photo_url = $1 WHERE id = $2',
       [fileUrl, req.user.id]
     );
-    
+
     res.json({ success: true, url: fileUrl });
   } catch (error) {
     console.error('❌ Erreur upload photo:', error);
@@ -84,20 +88,19 @@ router.post('/photo', authenticate, upload.single('photo'), async (req, res) => 
   }
 });
 
-// Upload de CV
-router.post('/cv', authenticate, upload.single('cv'), async (req, res) => {
+router.post('/cv', authenticate, uploadCV.single('cv'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'Aucun fichier' });
     }
-    
-    const fileUrl = `/uploads/${req.file.filename}`;
-    
+
+    const fileUrl = `/uploads/cv/${req.file.filename}`;
+
     await query(
       'UPDATE profils_mentor SET cv_url = $1 WHERE utilisateur_id = $2',
       [fileUrl, req.user.id]
     );
-    
+
     res.json({ success: true, url: fileUrl });
   } catch (error) {
     console.error('❌ Erreur upload CV:', error);

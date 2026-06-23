@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { mentorAPI, mentoreAPI, uploadAPI, BACKEND_URL } from '@/services/api';
 import toast from 'react-hot-toast';
+import { Avatar } from '@/components/ui/Avatar';
 
 export default function ProfilePage() {
   const { user, updateUser } = useAuth();
@@ -190,18 +191,7 @@ export default function ProfilePage() {
             <User className="w-5 h-5" style={{ color: 'var(--accent)' }} /> {t('profile.photo')}
           </h2>
           <div className="flex items-center gap-4">
-            <div
-              className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: 'var(--accent-soft)' }}
-            >
-              {displayPhotoUrl ? (
-                <img src={displayPhotoUrl} alt="Photo de profil" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-2xl font-bold" style={{ color: 'var(--accent-text-on-soft)' }}>
-                  {user?.prenom?.[0]}{user?.nom?.[0]}
-                </span>
-              )}
-            </div>
+            <Avatar photoUrl={photoUrl || user?.photo_url} prenom={user?.prenom} nom={user?.nom} size={80} />
             <label
               className="flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-colors text-sm w-fit"
               style={{ border: '2px dashed var(--accent)', color: 'var(--accent)' }}

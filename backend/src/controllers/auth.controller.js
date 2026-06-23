@@ -77,7 +77,8 @@ const register = async (req, res, next) => {
         email: result.email,
         role: result.role,
         nom,
-        prenom
+        prenom,
+        photo_url: null
       }
     });
   } catch (error) {
@@ -98,7 +99,7 @@ const login = async (req, res, next) => {
 
   try {
     const result = await query(
-      `SELECT id, email, mot_de_passe, role, actif, nom, prenom 
+      `SELECT id, email, mot_de_passe, role, actif, nom, prenom, photo_url 
        FROM utilisateurs 
        WHERE email = $1`,
       [email]
@@ -120,7 +121,6 @@ const login = async (req, res, next) => {
       });
     }
 
-    // Compte créé via Google sans mot de passe
     if (!user.mot_de_passe) {
       return res.status(401).json({
         success: false,
@@ -152,7 +152,8 @@ const login = async (req, res, next) => {
         email: user.email,
         role: user.role,
         nom: user.nom,
-        prenom: user.prenom
+        prenom: user.prenom,
+        photo_url: user.photo_url
       }
     });
   } catch (error) {
@@ -172,7 +173,6 @@ const googleAuth = async (req, res, next) => {
   const { credential } = req.body;
 
   try {
-    // Vérification du token auprès de Google
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
       audience: process.env.GOOGLE_CLIENT_ID,
@@ -189,7 +189,7 @@ const googleAuth = async (req, res, next) => {
 
     // 1. Compte déjà lié via google_id
     let result = await query(
-      `SELECT id, email, role, nom, prenom, actif 
+      `SELECT id, email, role, nom, prenom, actif, photo_url 
        FROM utilisateurs 
        WHERE google_id = $1`,
       [googleId]
@@ -216,7 +216,8 @@ const googleAuth = async (req, res, next) => {
           email: user.email,
           role: user.role,
           nom: user.nom,
-          prenom: user.prenom
+          prenom: user.prenom,
+          photo_url: user.photo_url
         },
         needsRole: !user.role
       });
@@ -224,7 +225,7 @@ const googleAuth = async (req, res, next) => {
 
     // 2. Email existant (inscrit via mot de passe) → on lie le compte Google
     result = await query(
-      `SELECT id, email, role, nom, prenom, actif 
+      `SELECT id, email, role, nom, prenom, actif, photo_url 
        FROM utilisateurs 
        WHERE email = $1`,
       [email]
@@ -254,7 +255,8 @@ const googleAuth = async (req, res, next) => {
           email: user.email,
           role: user.role,
           nom: user.nom,
-          prenom: user.prenom
+          prenom: user.prenom,
+          photo_url: user.photo_url
         },
         needsRole: !user.role
       });
@@ -264,7 +266,7 @@ const googleAuth = async (req, res, next) => {
     const insertResult = await query(
       `INSERT INTO utilisateurs (nom, prenom, email, google_id, role, email_verifie)
        VALUES ($1, $2, $3, $4, NULL, true)
-       RETURNING id, email, role, nom, prenom`,
+       RETURNING id, email, role, nom, prenom, photo_url`,
       [family_name || '', given_name || '', email, googleId]
     );
 
@@ -279,7 +281,8 @@ const googleAuth = async (req, res, next) => {
         email: newUser.email,
         role: newUser.role,
         nom: newUser.nom,
-        prenom: newUser.prenom
+        prenom: newUser.prenom,
+        photo_url: null
       },
       needsRole: true
     });
@@ -368,7 +371,7 @@ const getMe = async (req, res, next) => {
   try {
     const result = await query(
       `SELECT id, nom, prenom, email, role, actif, email_verifie, 
-              created_at, derniere_connexion
+              photo_url, created_at, derniere_connexion
        FROM utilisateurs 
        WHERE id = $1`,
       [req.user.id]

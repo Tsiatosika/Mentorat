@@ -8,6 +8,7 @@ import { NotificationBell } from './NotificationBell';
 import { LogOut, Sun, Moon, Globe, ChevronDown, Info } from 'lucide-react';
 import { useState } from 'react';
 import { Logo } from '@/components/ui/Logo';
+import { Avatar } from '@/components/ui/Avatar';
 
 export function TopNavbar() {
   const { user, logout } = useAuth();
@@ -25,7 +26,6 @@ export function TopNavbar() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
           <Link href="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
             <Logo size={32} />
             <span className="font-display text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
@@ -36,9 +36,7 @@ export function TopNavbar() {
             </span>
           </Link>
 
-          {/* Actions */}
           <div className="flex items-center space-x-2">
-            {/* À propos */}
             <Link
               href="/about"
               className="hidden md:flex items-center gap-1 px-3 py-2 rounded-lg text-sm transition-colors"
@@ -51,7 +49,6 @@ export function TopNavbar() {
               <span>{t('nav.about')}</span>
             </Link>
 
-            {/* Langue */}
             <div className="relative">
               <button
                 onClick={() => setShowLangDropdown(!showLangDropdown)}
@@ -94,7 +91,6 @@ export function TopNavbar() {
               )}
             </div>
 
-            {/* Thème */}
             <button
               onClick={toggleTheme}
               className="p-2 rounded-lg transition-colors"
@@ -135,14 +131,7 @@ export function TopNavbar() {
 
             {user && (
               <div className="flex items-center gap-2 ml-2">
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: 'var(--accent-soft)' }}
-                >
-                  <span className="text-xs font-bold" style={{ color: 'var(--accent-text-on-soft)' }}>
-                    {user.prenom?.[0]}{user.nom?.[0]}
-                  </span>
-                </div>
+                <Avatar photoUrl={user.photo_url} prenom={user.prenom} nom={user.nom} size={32} />
                 <span className="text-sm hidden sm:inline" style={{ color: 'var(--text-secondary)' }}>
                   {user.prenom}
                 </span>

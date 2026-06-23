@@ -6,7 +6,7 @@ export interface User {
   prenom: string;
   email: string;
   role: UserRole | null;
-  photo_url?: string;
+  photo_url?: string | null;
   actif: boolean;
   email_verifie: boolean;
   created_at: string;

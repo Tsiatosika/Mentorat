@@ -9,6 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { publicAPI, avisAPI } from '@/services/api';
 import { QuickBooking } from '@/components/mentors/QuickBooking';
 import toast from 'react-hot-toast';
+import { Avatar } from '@/components/ui/Avatar';
 
 interface Avis {
   id: string;
@@ -142,13 +143,7 @@ export default function MentorDetailPage() {
           {/* Header profil */}
           <div className="px-8 py-8" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
             <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-              <div
-                className="w-32 h-32 rounded-full flex items-center justify-center text-5xl font-bold flex-shrink-0"
-                style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)' }}
-              >
-                {mentor.prenom?.[0]}{mentor.nom?.[0]}
-              </div>
-              <div className="flex-1 text-center md:text-left">
+              <Avatar photoUrl={mentor.photo_url} prenom={mentor.prenom} nom={mentor.nom} size={128} />              <div className="flex-1 text-center md:text-left">
                 <h1 className="font-display text-3xl font-semibold" style={{ color: 'var(--text-primary)' }}>
                   {mentor.prenom} {mentor.nom}
                 </h1>
