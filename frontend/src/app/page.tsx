@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { publicAPI } from '@/services/api';
 import { Logo } from '@/components/ui/Logo';
+import { DOMAINES, ACCENT_COLORS } from '@/lib/domaines';
 
 export default function Home() {
   const { user } = useAuth();
@@ -185,6 +186,45 @@ export default function Home() {
                 <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>{t(f.titleKey)}</h3>
                 <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{t(f.descKey)}</p>
               </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Explorer par domaine */}
+      <div className="max-w-6xl mx-auto px-4 py-16" style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="flex justify-between items-end mb-8 flex-wrap gap-4">
+          <div>
+            <h2 className="font-display text-3xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+              Explorer par domaine
+            </h2>
+            <p style={{ color: 'var(--text-secondary)' }}>Trouvez un mentor dans votre domaine d'intérêt</p>
+          </div>
+          <Link
+            href="/domaines"
+            className="text-sm font-medium flex items-center gap-1 transition-colors"
+            style={{ color: 'var(--accent)' }}
+          >
+            Voir tous les domaines
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {DOMAINES.slice(0, 4).map((d) => {
+            const colors = ACCENT_COLORS[d.accent];
+            const Icon = d.icon;
+            return (
+              <Link key={d.key} href={`/mentors?domaine=${encodeURIComponent(d.key)}`} className="block">
+                <div className="card card-hover p-5 text-center h-full">
+                  <div
+                    className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3"
+                    style={{ backgroundColor: colors.bg }}
+                  >
+                    <Icon className="w-6 h-6" style={{ color: colors.fg }} />
+                  </div>
+                  <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{d.label}</h3>
+                </div>
+              </Link>
             );
           })}
         </div>

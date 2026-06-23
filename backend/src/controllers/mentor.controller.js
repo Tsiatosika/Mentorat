@@ -332,11 +332,41 @@ const getMentorById = async (req, res, next) => {
   }
 };
 
+// ============================================
+// STATISTIQUES PAR DOMAINE (PUBLIC)
+// ============================================
+const getDomainesStats = async (req, res, next) => {
+  try {
+    const result = await query(
+      `SELECT pm.domaine, COUNT(*) as total
+       FROM profils_mentor pm
+       JOIN utilisateurs u ON u.id = pm.utilisateur_id
+       WHERE u.role = 'mentor' AND u.actif = true AND pm.domaine IS NOT NULL AND pm.domaine != ''
+       GROUP BY pm.domaine`
+    );
+
+    const domaines = result.rows.map((r) => ({
+      domaine: r.domaine,
+      total: parseInt(r.total, 10),
+    }));
+
+    res.json({ success: true, domaines });
+  } catch (error) {
+    console.error('❌ Erreur getDomainesStats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors du chargement des statistiques',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getProfile,
   updateProfile,
   addCompetence,
   removeCompetence,
   searchMentors,
-  getMentorById
+  getMentorById,
+  getDomainesStats
 };

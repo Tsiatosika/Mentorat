@@ -2,9 +2,11 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Search, SlidersHorizontal, Clock, Users, Star, CalendarPlus, ArrowUpDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { publicAPI } from '@/services/api';
+import { DOMAINES } from '@/lib/domaines';
 import { Avatar } from '@/components/ui/Avatar';
 
 interface Mentor {
@@ -23,19 +25,9 @@ interface Mentor {
 
 type SortKey = 'pertinence' | 'note' | 'experience' | 'popularite';
 
-const AVATAR_PALETTE = [
-  { bg: 'var(--accent-soft)', fg: 'var(--accent-text-on-soft)' },
-  { bg: 'var(--warm-soft)', fg: 'var(--warm-text-on-soft)' },
-  { bg: 'var(--info-soft)', fg: 'var(--info)' },
-];
-
-function avatarTone(seed: string) {
-  const index = seed.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % AVATAR_PALETTE.length;
-  return AVATAR_PALETTE[index];
-}
-
 export default function MentorsPage() {
   const { t } = useLanguage();
+  const searchParams = useSearchParams();
   const [mentors, setMentors] = useState<Mentor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -46,8 +38,18 @@ export default function MentorsPage() {
   const [minNote, setMinNote] = useState(0);
   const [minExperience, setMinExperience] = useState(0);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [activeDomaineLabel, setActiveDomaineLabel] = useState<string | null>(null);
 
   useEffect(() => {
+    // Pré-remplit la recherche si on arrive depuis une catégorie de domaine (page d'accueil ou /domaines)
+    const domaineParam = searchParams.get('domaine');
+    if (domaineParam) {
+      const category = DOMAINES.find((d) => d.key === domaineParam);
+      if (category) {
+        setSearchTerm(category.keywords[0] || category.label);
+        setActiveDomaineLabel(category.label);
+      }
+    }
     fetchMentors();
   }, []);
 
@@ -142,6 +144,7 @@ export default function MentorsPage() {
     setMinNote(0);
     setMinExperience(0);
     setSortKey('pertinence');
+    setActiveDomaineLabel(null);
   };
 
   const hasActiveFilters = searchTerm || onlyAvailable || activeTags.length > 0 || minNote > 0 || minExperience > 0;
@@ -156,6 +159,20 @@ export default function MentorsPage() {
         <h1 className="font-display text-4xl md:text-5xl font-semibold" style={{ color: 'var(--text-primary)' }}>
           {t('nav.mentors')}
         </h1>
+        {activeDomaineLabel && (
+          <div
+            className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-full text-sm font-medium"
+            style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)' }}
+          >
+            Domaine : {activeDomaineLabel}
+            <button
+              onClick={resetFilters}
+              className="hover:opacity-70 transition-opacity font-bold"
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Barre de recherche + filtres */}
@@ -178,7 +195,10 @@ export default function MentorsPage() {
                 boxShadow: 'var(--shadow-card)',
               }}
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setActiveDomaineLabel(null);
+              }}
             />
           </div>
 
@@ -331,14 +351,19 @@ export default function MentorsPage() {
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
               {filteredMentors.map((mentor) => {
-                const initials = `${mentor.prenom?.[0] || ''}${mentor.nom?.[0] || ''}`.toUpperCase();
-                const tone = avatarTone(mentor.id);
                 const extraCompetences = (mentor.competences || []).slice(4);
 
                 return (
                   <div key={mentor.id} className="card card-hover bookmark p-5 flex flex-col">
                     <div className="flex items-start gap-3 mb-3">
-                      <Avatar photoUrl={mentor.photo_url} prenom={mentor.prenom} nom={mentor.nom} size={56} rounded="xl" />                      <div className="flex-1 min-w-0">
+                      <Avatar
+                        photoUrl={mentor.photo_url}
+                        prenom={mentor.prenom}
+                        nom={mentor.nom}
+                        size={56}
+                        rounded="xl"
+                      />
+                      <div className="flex-1 min-w-0">
                         <h3 className="font-semibold leading-tight truncate" style={{ color: 'var(--text-primary)' }}>
                           {mentor.prenom} {mentor.nom}
                         </h3>

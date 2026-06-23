@@ -45,6 +45,7 @@ router.delete('/mentors/competences/:competence_id',
   authenticate, authorize('mentor'),
   mentorController.removeCompetence);
 
+router.get('/mentors/domaines-stats', mentorController.getDomainesStats);
 // Routes publiques - AVANT les routes avec paramètres
 router.get('/mentors',        mentorController.searchMentors);
 router.get('/mentors/search', mentorController.searchMentors);

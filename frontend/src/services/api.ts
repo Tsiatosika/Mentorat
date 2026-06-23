@@ -107,6 +107,7 @@ export const rapportAPI = {
 export const publicAPI = {
   searchMentors: (params: any) => api.get('/mentors', { params }),
   getMentorById: (id: string)  => api.get(`/mentors/${id}`),
+  getDomainesStats: () => api.get('/mentors/domaines-stats'),
 };
 
 export const avisAPI = {
