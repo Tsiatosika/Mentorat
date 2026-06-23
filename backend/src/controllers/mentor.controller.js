@@ -187,11 +187,13 @@ const searchMentors = async (req, res, next) => {
         u.id, u.nom, u.prenom, u.email, u.photo_url,
         pm.id as profil_id, pm.bio, pm.domaine, 
         pm.annees_experience, pm.note_moyenne, pm.nb_sessions, pm.disponible,
-        ARRAY_AGG(DISTINCT c.nom) FILTER (WHERE c.nom IS NOT NULL) as competences
+        ARRAY_AGG(DISTINCT c.nom) FILTER (WHERE c.nom IS NOT NULL) as competences,
+        COUNT(DISTINCT a.id) as nb_avis
       FROM utilisateurs u
       JOIN profils_mentor pm ON pm.utilisateur_id = u.id
       LEFT JOIN mentor_competences mc ON mc.mentor_id = pm.id
       LEFT JOIN competences c ON c.id = mc.competence_id
+      LEFT JOIN avis a ON a.mentor_id = u.id
       WHERE u.role = 'mentor' AND u.actif = true
     `;
 
@@ -225,13 +227,19 @@ const searchMentors = async (req, res, next) => {
 
     const result = await query(queryText, params);
 
+    // nb_avis revient en string depuis COUNT() — on le convertit en nombre
+    const data = result.rows.map((row) => ({
+      ...row,
+      nb_avis: parseInt(row.nb_avis, 10) || 0,
+    }));
+
     res.json({
       success: true,
-      data: result.rows,
+      data,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total: result.rows.length
+        total: data.length
       }
     });
   } catch (error) {
@@ -249,12 +257,9 @@ const searchMentors = async (req, res, next) => {
 // ============================================
 const getMentorById = async (req, res, next) => {
   const { id } = req.params;
-  
-  console.log(`🔍 getMentorById appelé avec ID: ${id}`);
-  
+
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
-    console.log(`❌ ID invalide: ${id}`);
     return res.status(400).json({
       success: false,
       message: 'ID mentor invalide'
@@ -264,26 +269,26 @@ const getMentorById = async (req, res, next) => {
   try {
     const result = await query(
       `SELECT 
-        u.id,
-        u.nom, 
-        u.prenom, 
-        u.email, 
-        u.photo_url,
-        pm.id as profil_id, 
-        pm.bio, 
-        pm.domaine, 
-        pm.annees_experience, 
-        pm.note_moyenne, 
-        pm.nb_sessions, 
-        pm.disponible
-      FROM utilisateurs u
-      JOIN profils_mentor pm ON pm.utilisateur_id = u.id
-      WHERE u.id = $1 AND u.role = 'mentor' AND u.actif = true`,
+         u.id, 
+         u.nom, 
+         u.prenom, 
+         u.email, 
+         u.photo_url,
+         pm.id as profil_id, 
+         pm.bio, 
+         pm.domaine, 
+         pm.annees_experience, 
+         pm.note_moyenne, 
+         pm.nb_sessions, 
+         pm.disponible,
+         (SELECT COUNT(*) FROM avis a WHERE a.mentor_id = u.id) as nb_avis
+       FROM utilisateurs u
+       JOIN profils_mentor pm ON pm.utilisateur_id = u.id
+       WHERE u.id = $1 AND u.role = 'mentor' AND u.actif = true`,
       [id]
     );
 
     if (result.rows.length === 0) {
-      console.log(`❌ Mentor non trouvé pour ID: ${id}`);
       return res.status(404).json({
         success: false,
         message: 'Mentor non trouvé'
@@ -291,11 +296,9 @@ const getMentorById = async (req, res, next) => {
     }
 
     const mentor = result.rows[0];
-    
-    // Ajouter un champ id identique à u.id pour compatibilité
+    mentor.nb_avis = parseInt(mentor.nb_avis, 10) || 0;
     mentor.id = mentor.user_id || mentor.id;
-    
-    // Récupérer les compétences
+
     const competencesResult = await query(
       `SELECT c.nom 
        FROM mentor_competences mc
@@ -303,21 +306,18 @@ const getMentorById = async (req, res, next) => {
        WHERE mc.mentor_id = $1`,
       [mentor.profil_id]
     );
-    
+
     mentor.competences = competencesResult.rows.map(r => r.nom);
-    
-    // Récupérer les disponibilités
+
     const dispoResult = await query(
       `SELECT id, jour_semaine, heure_debut, heure_fin, recurrent
        FROM disponibilites
        WHERE mentor_id = $1`,
       [mentor.profil_id]
     );
-    
+
     mentor.disponibilites = dispoResult.rows;
 
-    console.log(`✅ Mentor trouvé: ${mentor.prenom} ${mentor.nom} (ID: ${mentor.id})`);
-    
     res.json({
       success: true,
       mentor: mentor
