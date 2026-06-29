@@ -284,7 +284,8 @@ const getSessions = async (req, res, next) => {
 
       queryText = `
         SELECT s.*, 
-               u.nom as mentore_nom, u.prenom as mentore_prenom, u.email as mentore_email
+               u.nom as mentore_nom, u.prenom as mentore_prenom, u.email as mentore_email,
+               u.photo_url as mentore_photo_url
         FROM sessions s
         JOIN profils_mentore pme ON pme.id = s.mentore_id
         JOIN utilisateurs u ON u.id = pme.utilisateur_id
@@ -307,7 +308,8 @@ const getSessions = async (req, res, next) => {
 
       queryText = `
         SELECT s.*, 
-               u.nom as mentor_nom, u.prenom as mentor_prenom, u.email as mentor_email
+               u.nom as mentor_nom, u.prenom as mentor_prenom, u.email as mentor_email,
+               u.photo_url as mentor_photo_url
         FROM sessions s
         JOIN profils_mentor pm ON pm.id = s.mentor_id
         JOIN utilisateurs u ON u.id = pm.utilisateur_id
@@ -352,8 +354,10 @@ const getSessionById = async (req, res, next) => {
   try {
     const result = await query(
       `SELECT s.*,
-              um.id as mentor_user_id, um.nom as mentor_nom, um.prenom as mentor_prenom, um.email as mentor_email,
-              ume.id as mentore_user_id, ume.nom as mentore_nom, ume.prenom as mentore_prenom, ume.email as mentore_email
+              um.id as mentor_user_id, um.nom as mentor_nom, um.prenom as mentor_prenom,
+              um.email as mentor_email, um.photo_url as mentor_photo_url,
+              ume.id as mentore_user_id, ume.nom as mentore_nom, ume.prenom as mentore_prenom,
+              ume.email as mentore_email, ume.photo_url as mentore_photo_url
        FROM sessions s
        JOIN profils_mentor pm ON pm.id = s.mentor_id
        JOIN utilisateurs um ON um.id = pm.utilisateur_id

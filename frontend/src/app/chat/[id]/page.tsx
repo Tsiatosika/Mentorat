@@ -1,16 +1,16 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, Download, File, X, Paperclip, Send, Smile, Video,
-  Trash2, MoreVertical
+  Trash2, MoreVertical, ChevronDown, Check, CheckCheck
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { sessionAPI, messageAPI } from '@/services/api';
+import { sessionAPI, messageAPI, BACKEND_URL } from '@/services/api';
 import { uploadFile } from '@/services/uploadService';
 import { io, Socket } from 'socket.io-client';
 import toast from 'react-hot-toast';
@@ -31,6 +31,24 @@ interface Message {
   fichier_url?: string;
   lu?: boolean;
   tempId?: string;
+}
+
+const AVATAR_COLORS = ['#0A2463', '#1D4ED8', '#7C3AED', '#059669', '#DC2626'];
+
+function getInitials(name: string) {
+  return name
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function colorForName(name: string) {
+  const code = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return AVATAR_COLORS[code % AVATAR_COLORS.length];
 }
 
 export default function ChatPage() {
@@ -57,12 +75,22 @@ export default function ChatPage() {
   const [otherUserId, setOtherUserId] = useState<string | null>(null);
   const [otherUserName, setOtherUserName] = useState<string>('');
   const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [otherOnline, setOtherOnline] = useState(false);
+  const [otherUserPhoto, setOtherUserPhoto] = useState<string | null>(null);
+  const [photoFailed, setPhotoFailed] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const callStartTimeRef = useRef<number | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const emojiRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [availableHeight, setAvailableHeight] = useState<number | null>(null);
 
-  const BACKEND_URL = 'http://localhost:5000';
   const locale = language === 'fr' ? 'fr-FR' : 'en-GB';
 
   useEffect(() => {
@@ -74,9 +102,11 @@ export default function ChatPage() {
         if (user?.role === 'mentor') {
           setOtherUserId(session.mentore_user_id);
           setOtherUserName(`${session.mentore_prenom} ${session.mentore_nom}`);
+          setOtherUserPhoto(session.mentore_photo_url || null);
         } else {
           setOtherUserId(session.mentor_user_id);
           setOtherUserName(`${session.mentor_prenom} ${session.mentor_nom}`);
+          setOtherUserPhoto(session.mentor_photo_url || null);
         }
       } catch (error) {
         console.error('Erreur:', error);
@@ -109,9 +139,50 @@ export default function ChatPage() {
     }
   }, [showVideo, otherUserId, otherUserName]);
 
+  // Fermer le menu contextuel / les emoji au clic extérieur
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuOpenFor && menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpenFor(null);
+      }
+      if (showEmojiPicker && emojiRef.current && !emojiRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpenFor, showEmojiPicker]);
+
+  // Auto-resize du textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+    }
+  }, [newMessage]);
+
+  useEffect(() => {
+    setPhotoFailed(false);
+  }, [otherUserPhoto]);
+
+  // Mesure la hauteur réellement disponible (viewport - position du composant - marge basse
+  // du padding du layout parent), pour que le header de chat reste toujours visible quelle
+  // que soit la hauteur du TopNavbar.
+  useEffect(() => {
+    const computeHeight = () => {
+      if (!rootRef.current) return;
+      const top = rootRef.current.getBoundingClientRect().top;
+      const bottomMargin = window.innerWidth >= 640 ? 24 : 16; // p-6 vs p-4 du layout parent
+      setAvailableHeight(Math.max(window.innerHeight - top - bottomMargin, 480));
+    };
+    computeHeight();
+    window.addEventListener('resize', computeHeight);
+    return () => window.removeEventListener('resize', computeHeight);
+  }, [loading]);
+
   const initSocket = () => {
     const token = localStorage.getItem('token');
-    const newSocket = io('http://localhost:5000', {
+    const newSocket = io(BACKEND_URL, {
       auth: { token },
       transports: ['websocket', 'polling']
     });
@@ -124,17 +195,21 @@ export default function ChatPage() {
       if (data.success) {
         setMessages(data.messages || []);
         setLoading(false);
-        setTimeout(() => scrollToBottom(), 100);
+        setTimeout(() => scrollToBottom(false), 100);
       }
     });
 
     newSocket.on('new_message', (message) => {
       setMessages(prev => [...prev, message]);
-      setTimeout(() => scrollToBottom(), 100);
+      setTimeout(() => scrollToBottom(true), 100);
     });
 
     newSocket.on('user_typing', (data) => {
       setOtherTyping(data.is_typing);
+    });
+
+    newSocket.on('user_status', (data) => {
+      if (data.userId === otherUserId) setOtherOnline(!!data.online);
     });
 
     newSocket.on('message_deleted', (data) => {
@@ -185,10 +260,17 @@ export default function ChatPage() {
     setSocket(newSocket);
   };
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (smooth = true) => {
     setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
     }, 100);
+  };
+
+  const handleScroll = () => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setIsAtBottom(distanceFromBottom < 120);
   };
 
   const sendTextMessage = (text: string) => {
@@ -393,7 +475,7 @@ export default function ChatPage() {
 
   const getFullUrl = (url: string) => {
     if (!url) return '';
-    if (url.startsWith('http')) return url;
+    if (url.startsWith('http') || url.startsWith('data:')) return url;
     return `${BACKEND_URL}${url}`;
   };
 
@@ -408,7 +490,7 @@ export default function ChatPage() {
     }
 
     if (!otherUserId) {
-      toast.error('Impossible de trouver l\'autre participant');
+      toast.error("Impossible de trouver l'autre participant");
       return;
     }
 
@@ -461,9 +543,55 @@ export default function ChatPage() {
     }
   };
 
+  // --- Préparation de l'affichage : groupement + séparateurs de date ---
+  const dayLabel = (iso: string) => {
+    const d = new Date(iso);
+    const now = new Date();
+    const diffDays = Math.floor(
+      (new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() -
+        new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86400000
+    );
+    if (diffDays === 0) return t('chat.today') || "Aujourd'hui";
+    if (diffDays === 1) return t('chat.yesterday') || 'Hier';
+    return d.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: diffDays > 300 ? 'numeric' : undefined });
+  };
+
+  type Row =
+    | { kind: 'date'; key: string; label: string }
+    | { kind: 'msg'; key: string; message: Message; isFirstInGroup: boolean; isLastInGroup: boolean };
+
+  const rows: Row[] = useMemo(() => {
+    const out: Row[] = [];
+    let lastDay = '';
+    messages.forEach((m, idx) => {
+      const day = new Date(m.envoye_le).toDateString();
+      if (day !== lastDay) {
+        out.push({ kind: 'date', key: `date-${day}`, label: dayLabel(m.envoye_le) });
+        lastDay = day;
+      }
+      const prev = messages[idx - 1];
+      const next = messages[idx + 1];
+      const sameAsPrev = prev && prev.expediteur_id === m.expediteur_id &&
+        new Date(m.envoye_le).toDateString() === new Date(prev.envoye_le).toDateString() &&
+        (new Date(m.envoye_le).getTime() - new Date(prev.envoye_le).getTime()) < 5 * 60 * 1000;
+      const sameAsNext = next && next.expediteur_id === m.expediteur_id &&
+        new Date(m.envoye_le).toDateString() === new Date(next.envoye_le).toDateString() &&
+        (new Date(next.envoye_le).getTime() - new Date(m.envoye_le).getTime()) < 5 * 60 * 1000;
+      out.push({
+        kind: 'msg',
+        key: m.id || `msg-${idx}`,
+        message: m,
+        isFirstInGroup: !sameAsPrev,
+        isLastInGroup: !sameAsNext,
+      });
+    });
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, locale]);
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <div className="flex items-center justify-center rounded-2xl" style={{ backgroundColor: 'var(--bg-primary)', height: '480px' }}>
         <div
           className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin"
           style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
@@ -473,9 +601,19 @@ export default function ChatPage() {
   }
 
   const hasContent = newMessage.trim() !== '' || selectedFiles.length > 0;
+  const otherInitials = getInitials(otherUserName || '?');
+  const otherAvatarColor = colorForName(otherUserName || 'x');
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-primary)' }}>
+    <div
+      ref={rootRef}
+      className="flex flex-col overflow-hidden rounded-2xl"
+      style={{
+        backgroundColor: 'var(--bg-primary)',
+        height: availableHeight ? `${availableHeight}px` : 'calc(100vh - 8rem)',
+        minHeight: '480px',
+      }}
+    >
       {incomingCall && (
         <IncomingCallModal
           callerName={incomingCall.fromName}
@@ -486,167 +624,296 @@ export default function ChatPage() {
 
       {/* Header */}
       <div
-        className="sticky top-0 z-10"
+        className="flex-shrink-0 z-20 backdrop-blur-md"
         style={{ backgroundColor: 'var(--card-bg)', borderBottom: '1px solid var(--border)' }}
       >
-        <div className="max-w-5xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/chat" className="transition-colors" style={{ color: 'var(--text-secondary)' }}>
+        <div className="max-w-5xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <Link
+                href="/chat"
+                className="p-2 -ml-2 rounded-full transition-colors hover:bg-[var(--bg-secondary)]"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 <ArrowLeft className="w-5 h-5" />
               </Link>
-              <div>
-                <h1 className="font-semibold" style={{ color: 'var(--text-primary)' }}>{t('chat.title')}</h1>
-                <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>{t('chat.session')}</p>
+
+              <div className="relative flex-shrink-0">
+                {otherUserPhoto && !photoFailed ? (
+                  <img
+                    src={getFullUrl(otherUserPhoto)}
+                    alt={otherUserName}
+                    onError={() => setPhotoFailed(true)}
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                    style={{ backgroundColor: otherAvatarColor }}
+                  >
+                    {otherInitials}
+                  </div>
+                )}
+                <span
+                  className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
+                  style={{
+                    backgroundColor: otherOnline ? 'var(--success)' : 'var(--text-tertiary)',
+                    borderColor: 'var(--card-bg)',
+                  }}
+                />
+              </div>
+
+              <div className="min-w-0">
+                <h1 className="font-semibold truncate leading-tight" style={{ color: 'var(--text-primary)' }}>
+                  {otherUserName || t('chat.title')}
+                </h1>
+                <p className="text-xs leading-tight" style={{ color: otherOnline ? 'var(--success)' : 'var(--text-tertiary)' }}>
+                  {otherTyping
+                    ? (t('chat.typing') || 'écrit...')
+                    : otherOnline
+                      ? (t('chat.online') || 'En ligne')
+                      : t('chat.session')}
+                </p>
               </div>
             </div>
 
             <button
               onClick={startCall}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
+              className="flex-shrink-0 flex items-center justify-center w-10 h-10 sm:w-auto sm:px-4 sm:gap-2 rounded-full sm:rounded-xl transition-transform hover:scale-105 active:scale-95"
               style={{ backgroundColor: 'var(--success)', color: '#fff' }}
               title={t('chat.video_call')}
             >
               <Video className="w-5 h-5" />
-              <span className="text-sm font-medium">{t('chat.video_call')}</span>
+              <span className="hidden sm:inline text-sm font-medium">{t('chat.video_call')}</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 max-w-5xl mx-auto w-full px-4 py-6 overflow-y-auto">
-        <div className="space-y-3">
-          {messages.length === 0 ? (
-            <div className="text-center py-12" style={{ color: 'var(--text-secondary)' }}>
-              💬 {t('chat.no_messages')}
-            </div>
-          ) : (
-            messages.map((message, index) => {
-              const isOwn = message.expediteur_id === user?.id;
-              const fullUrl = getFullUrl(message.fichier_url || '');
-              const isImage = isImageFile(fullUrl);
-              const isFile = message.type_message === 'fichier' && message.fichier_url;
+      <div className="relative flex-1 min-h-0">
+        <div
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="h-full max-w-5xl mx-auto w-full px-3 sm:px-4 py-5 overflow-y-auto"
+        >
+          <div className="space-y-0.5">
+            {rows.length === 0 ? (
+              <div className="flex flex-col items-center justify-center text-center py-20 gap-3">
+                <div
+                  className="w-16 h-16 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: 'var(--bg-secondary)' }}
+                >
+                  <span className="text-2xl">💬</span>
+                </div>
+                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {t('chat.no_messages')}
+                </p>
+                <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                  {otherUserName ? `Dites bonjour à ${otherUserName.split(' ')[0]}` : ''}
+                </p>
+              </div>
+            ) : (
+              rows.map((row) => {
+                if (row.kind === 'date') {
+                  return (
+                    <div key={row.key} className="flex items-center gap-3 my-5 select-none">
+                      <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border)' }} />
+                      <span
+                        className="text-xs font-medium px-3 py-1 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-tertiary)' }}
+                      >
+                        {row.label}
+                      </span>
+                      <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border)' }} />
+                    </div>
+                  );
+                }
 
-              return (
-                <div key={message.id || index} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group relative`}>
+                const message = row.message;
+                const isOwn = message.expediteur_id === user?.id;
+                const fullUrl = getFullUrl(message.fichier_url || '');
+                const isImage = isImageFile(fullUrl);
+                const isFile = message.type_message === 'fichier' && message.fichier_url;
+
+                const radius = isOwn
+                  ? `${row.isFirstInGroup ? '1.25rem' : '0.45rem'} 1.25rem 1.25rem ${row.isLastInGroup ? '1.25rem' : '0.45rem'}`
+                  : `1.25rem ${row.isFirstInGroup ? '1.25rem' : '0.45rem'} ${row.isLastInGroup ? '1.25rem' : '0.45rem'} 1.25rem`;
+
+                return (
                   <div
-                    className="max-w-[70%] rounded-2xl px-4 py-2"
-                    style={
-                      isOwn
-                        ? { backgroundColor: 'var(--accent)', color: '#06231D' }
-                        : { backgroundColor: 'var(--card-bg)', color: 'var(--text-primary)', border: '1px solid var(--border)' }
-                    }
+                    key={row.key}
+                    className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group relative animate-message-in`}
+                    style={{ marginTop: row.isFirstInGroup ? '0.65rem' : '0.15rem' }}
                   >
-                    {!isOwn && (
-                      <p className="text-xs mb-1 font-medium" style={{ color: 'var(--accent)' }}>
-                        {message.prenom} {message.nom}
-                      </p>
-                    )}
-
-                    {isFile ? (
-                      <div onClick={() => handleFileClick(fullUrl, message.contenu, isImage)} className="cursor-pointer">
-                        {isImage ? (
+                    <div className={`flex items-end gap-2 max-w-[78%] sm:max-w-[65%] ${isOwn ? 'flex-row-reverse' : ''}`}>
+                      {!isOwn && (
+                        otherUserPhoto && !photoFailed ? (
                           <img
-                            src={fullUrl}
-                            alt={message.contenu}
-                            className="max-w-[200px] max-h-[150px] rounded-lg object-cover hover:opacity-90 transition-opacity"
+                            src={getFullUrl(otherUserPhoto)}
+                            alt={otherUserName}
+                            onError={() => setPhotoFailed(true)}
+                            className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                            style={{ visibility: row.isLastInGroup ? 'visible' : 'hidden' }}
                           />
                         ) : (
                           <div
-                            className="flex items-center gap-2 hover:underline p-2 rounded-lg"
-                            style={{ backgroundColor: isOwn ? 'rgba(0,0,0,0.08)' : 'var(--bg-secondary)' }}
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                            style={{
+                              backgroundColor: otherAvatarColor,
+                              visibility: row.isLastInGroup ? 'visible' : 'hidden',
+                            }}
                           >
-                            <File className="w-5 h-5" style={{ color: isOwn ? '#06231D' : 'var(--accent)' }} />
-                            <span className="text-sm break-words">{message.contenu}</span>
-                            <Download className="w-4 h-4 opacity-60" />
+                            {otherInitials}
+                          </div>
+                        )
+                      )}
+
+                      <div
+                        className="relative px-4 py-2.5"
+                        style={{
+                          background: isOwn
+                            ? 'linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 85%, #0a0a0a))'
+                            : 'var(--card-bg)',
+                          color: isOwn ? '#06231D' : 'var(--text-primary)',
+                          border: isOwn ? 'none' : '1px solid var(--border)',
+                          borderRadius: radius,
+                          boxShadow: isOwn
+                            ? '0 1px 2px rgba(0,0,0,0.12)'
+                            : '0 1px 2px rgba(0,0,0,0.06)',
+                        }}
+                      >
+                        {isFile ? (
+                          <div onClick={() => handleFileClick(fullUrl, message.contenu, !!isImage)} className="cursor-pointer">
+                            {isImage ? (
+                              <img
+                                src={fullUrl}
+                                alt={message.contenu}
+                                className="max-w-[220px] max-h-[180px] rounded-lg object-cover hover:opacity-90 transition-opacity"
+                              />
+                            ) : (
+                              <div
+                                className="flex items-center gap-2 p-2 rounded-lg transition-colors"
+                                style={{ backgroundColor: isOwn ? 'rgba(0,0,0,0.08)' : 'var(--bg-secondary)' }}
+                              >
+                                <File className="w-5 h-5 flex-shrink-0" style={{ color: isOwn ? '#06231D' : 'var(--accent)' }} />
+                                <span className="text-sm break-words underline-offset-2 hover:underline">{message.contenu}</span>
+                                <Download className="w-4 h-4 opacity-60 flex-shrink-0" />
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">{message.contenu}</p>
+                        )}
+
+                        <div className={`flex items-center gap-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                          <span className="font-mono-data text-[11px]" style={{ opacity: 0.65 }}>
+                            {new Date(message.envoye_le).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          {isOwn && (
+                            message.lu
+                              ? <CheckCheck className="w-3.5 h-3.5" style={{ opacity: 0.65 }} />
+                              : <Check className="w-3.5 h-3.5" style={{ opacity: 0.5 }} />
+                          )}
+                        </div>
+
+                        {isOwn && (
+                          <button
+                            onClick={() => setMenuOpenFor(menuOpenFor === message.id ? null : message.id)}
+                            className="absolute -left-7 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-[var(--bg-secondary)]"
+                          >
+                            <MoreVertical className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />
+                          </button>
+                        )}
+
+                        {isOwn && menuOpenFor === message.id && (
+                          <div
+                            ref={menuRef}
+                            className="absolute right-0 top-full mt-1 rounded-lg shadow-lg overflow-hidden z-30 animate-pop-in"
+                            style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}
+                          >
+                            <button
+                              onClick={() => deleteMessage(message.id)}
+                              className="flex items-center gap-2 px-3 py-2 text-sm w-full transition-colors hover:bg-[var(--bg-secondary)] whitespace-nowrap"
+                              style={{ color: 'var(--danger)' }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              {t('chat.delete')}
+                            </button>
                           </div>
                         )}
                       </div>
-                    ) : (
-                      <p className="text-sm break-words whitespace-pre-wrap">{message.contenu}</p>
-                    )}
-
-                    <div className="flex items-center justify-between gap-2 mt-1">
-                      <p className="font-mono-data text-xs" style={{ opacity: 0.7 }}>
-                        {new Date(message.envoye_le).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                      {isOwn && (
-                        <button
-                          onClick={() => setMenuOpenFor(menuOpenFor === message.id ? null : message.id)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <MoreVertical className="w-3 h-3" style={{ opacity: 0.6 }} />
-                        </button>
-                      )}
                     </div>
+                  </div>
+                );
+              })
+            )}
 
-                    {isOwn && menuOpenFor === message.id && (
-                      <div
-                        className="absolute right-0 mt-1 rounded-lg shadow-lg overflow-hidden z-10"
-                        style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}
-                      >
-                        <button
-                          onClick={() => deleteMessage(message.id)}
-                          className="flex items-center gap-2 px-3 py-2 text-sm w-full transition-colors"
-                          style={{ color: 'var(--danger)' }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          {t('chat.delete')}
-                        </button>
-                      </div>
-                    )}
+            {otherTyping && (
+              <div className="flex justify-start items-end gap-2 mt-2 animate-message-in">
+                {otherUserPhoto && !photoFailed ? (
+                  <img
+                    src={getFullUrl(otherUserPhoto)}
+                    alt={otherUserName}
+                    onError={() => setPhotoFailed(true)}
+                    className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                    style={{ backgroundColor: otherAvatarColor }}
+                  >
+                    {otherInitials}
+                  </div>
+                )}
+                <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
+                  <div className="flex gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: 'var(--text-tertiary)', animationDelay: '0ms' }} />
+                    <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: 'var(--text-tertiary)', animationDelay: '150ms' }} />
+                    <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: 'var(--text-tertiary)', animationDelay: '300ms' }} />
                   </div>
                 </div>
-              );
-            })
-          )}
-
-          {otherTyping && (
-            <div className="flex justify-start">
-              <div className="rounded-2xl px-4 py-2" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: 'var(--text-tertiary)', animationDelay: '0ms' }} />
-                  <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: 'var(--text-tertiary)', animationDelay: '150ms' }} />
-                  <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: 'var(--text-tertiary)', animationDelay: '300ms' }} />
-                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {(sending || uploading) && (
-            <div className="flex justify-end">
-              <div className="rounded-2xl px-4 py-2" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"
-                    style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
-                  />
-                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{t('chat.sending')}</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
+            <div ref={messagesEndRef} />
+          </div>
         </div>
+
+        {/* Fade en haut de la zone de scroll */}
+        <div
+          className="pointer-events-none absolute top-0 left-0 right-0 h-6"
+          style={{ background: 'linear-gradient(to bottom, var(--bg-primary), transparent)' }}
+        />
+
+        {/* Bouton retour en bas */}
+        {!isAtBottom && (
+          <button
+            onClick={() => scrollToBottom(true)}
+            className="absolute bottom-5 right-6 sm:right-10 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 animate-pop-in z-10"
+            style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-secondary)', boxShadow: '0 4px 12px rgba(0,0,0,0.18)' }}
+            title="Aller en bas"
+          >
+            <ChevronDown className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Modal image */}
       {selectedImage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ backgroundColor: 'rgba(0,0,0,0.9)' }}
+          className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in"
+          style={{ backgroundColor: 'rgba(0,0,0,0.92)' }}
           onClick={() => setSelectedImage(null)}
         >
           <div className="relative max-w-4xl max-h-[90vh] p-4">
-            <button onClick={() => setSelectedImage(null)} className="absolute -top-10 right-0 text-white hover:opacity-70">
+            <button onClick={() => setSelectedImage(null)} className="absolute -top-10 right-0 text-white hover:opacity-70 transition-opacity">
               <X className="w-8 h-8" />
             </button>
             <img src={selectedImage} alt="Agrandissement" className="max-w-full max-h-[85vh] object-contain rounded-lg" />
             <button
               onClick={(e) => { e.stopPropagation(); downloadFile(selectedImage, 'image'); }}
-              className="absolute -bottom-10 right-0 px-4 py-2 rounded-lg flex items-center gap-2"
+              className="absolute -bottom-10 right-0 px-4 py-2 rounded-lg flex items-center gap-2 transition-transform hover:scale-105"
               style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}
             >
               <Download className="w-4 h-4" />
@@ -668,11 +935,11 @@ export default function ChatPage() {
       )}
 
       {/* Zone de saisie */}
-      <div className="sticky bottom-0" style={{ backgroundColor: 'var(--card-bg)', borderTop: '1px solid var(--border)' }}>
-        <div className="max-w-5xl mx-auto px-4 py-3">
+      <div className="flex-shrink-0 relative" style={{ backgroundColor: 'var(--card-bg)', borderTop: '1px solid var(--border)' }}>
+        <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3">
 
           {filePreviews.length > 0 && (
-            <div className="mb-3 p-3 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+            <div className="mb-3 p-3 rounded-xl animate-pop-in" style={{ backgroundColor: 'var(--bg-secondary)' }}>
               <div className="flex flex-wrap gap-2">
                 {filePreviews.map((preview, idx) => (
                   <div key={idx} className="relative group">
@@ -688,7 +955,7 @@ export default function ChatPage() {
                     )}
                     <button
                       onClick={() => removeFile(idx)}
-                      className="absolute -top-2 -right-2 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute -top-2 -right-2 rounded-full p-1 transition-opacity"
                       style={{ backgroundColor: 'var(--danger)', color: '#fff' }}
                     >
                       <X className="w-3 h-3" />
@@ -702,25 +969,35 @@ export default function ChatPage() {
             </div>
           )}
 
-          <div className="flex gap-3">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={sending || uploading}
-              className="p-2 rounded-lg transition-colors disabled:opacity-50"
-              style={{ color: 'var(--text-secondary)' }}
-              title={t('chat.attach_file')}
-            >
-              <Paperclip className="w-5 h-5" />
-            </button>
+          <div className="flex items-end gap-2">
+            <div className="flex items-center gap-1 flex-shrink-0 pb-1.5">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={sending || uploading}
+                className="p-2 rounded-full transition-colors disabled:opacity-50 hover:bg-[var(--bg-secondary)]"
+                style={{ color: 'var(--text-secondary)' }}
+                title={t('chat.attach_file')}
+              >
+                <Paperclip className="w-5 h-5" />
+              </button>
 
-            <button
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="p-2 rounded-lg transition-colors"
-              style={{ color: 'var(--text-secondary)' }}
-              title={t('chat.emoji')}
-            >
-              <Smile className="w-5 h-5" />
-            </button>
+              <div className="relative" ref={emojiRef}>
+                <button
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className="p-2 rounded-full transition-colors hover:bg-[var(--bg-secondary)]"
+                  style={{ color: 'var(--text-secondary)' }}
+                  title={t('chat.emoji')}
+                >
+                  <Smile className="w-5 h-5" />
+                </button>
+
+                {showEmojiPicker && (
+                  <div className="absolute bottom-12 left-0 z-50 animate-pop-in">
+                    <EmojiPicker onEmojiClick={handleEmojiClick} theme={theme === 'dark' ? ('dark' as any) : ('light' as any)} />
+                  </div>
+                )}
+              </div>
+            </div>
 
             <input
               ref={fileInputRef}
@@ -733,6 +1010,7 @@ export default function ChatPage() {
             />
 
             <textarea
+              ref={textareaRef}
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyDown={handleKeyPress}
@@ -740,47 +1018,31 @@ export default function ChatPage() {
               placeholder={t('chat.message_placeholder')}
               disabled={sending || uploading}
               rows={1}
-              className="flex-1 resize-none border rounded-lg px-4 py-2 outline-none transition-all disabled:opacity-50"
+              className="flex-1 resize-none border rounded-2xl px-4 py-2.5 outline-none transition-all disabled:opacity-50 focus:ring-2"
               style={{
                 backgroundColor: 'var(--bg-secondary)',
                 borderColor: 'var(--border)',
                 color: 'var(--text-primary)',
                 minHeight: '44px',
                 maxHeight: '120px',
-              }}
+                '--tw-ring-color': 'var(--accent)',
+              } as React.CSSProperties}
             />
 
             <button
               onClick={sendAll}
               disabled={!hasContent || sending || uploading}
-              className="px-5 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="flex-shrink-0 w-11 h-11 rounded-full transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center hover:scale-105 active:scale-95"
               style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}
+              title={t('chat.send')}
             >
               {sending || uploading ? (
-                <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
               ) : (
-                <>
-                  <span className="font-medium">{t('chat.send')}</span>
-                  <Send className="w-4 h-4" />
-                </>
+                <Send className="w-4 h-4" />
               )}
             </button>
           </div>
-
-          {showEmojiPicker && (
-            <div className="absolute bottom-20 right-4 z-50">
-              <div className="relative">
-                <button
-                  onClick={() => setShowEmojiPicker(false)}
-                  className="absolute -top-2 -right-2 rounded-full p-1 z-10"
-                  style={{ backgroundColor: 'var(--text-primary)', color: 'var(--card-bg)' }}
-                >
-                  <X className="w-3 h-3" />
-                </button>
-                <EmojiPicker onEmojiClick={handleEmojiClick} theme={theme === 'dark' ? ('dark' as any) : ('light' as any)} />
-              </div>
-            </div>
-          )}
 
           <p className="text-xs mt-2 text-center" style={{ color: 'var(--text-tertiary)' }}>
             {t('chat.hint')}
@@ -789,10 +1051,39 @@ export default function ChatPage() {
       </div>
 
       {!showVideo && (
-        <div className="max-w-5xl mx-auto px-4 pb-4">
+        <div className="max-w-5xl mx-auto px-4 pb-2 flex-shrink-0">
           <CallHistory onCallBack={handleCallBack} />
         </div>
       )}
+
+      <style jsx global>{`
+        @keyframes message-in {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-message-in {
+          animation: message-in 0.18s ease-out;
+        }
+        @keyframes pop-in {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .animate-pop-in {
+          animation: pop-in 0.15s ease-out;
+        }
+        @keyframes fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .animate-fade-in {
+          animation: fade-in 0.15s ease-out;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .animate-message-in, .animate-pop-in, .animate-fade-in {
+            animation: none;
+          }
+        }
+      `}</style>
     </div>
   );
 }
