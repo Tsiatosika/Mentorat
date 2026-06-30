@@ -100,13 +100,19 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300">
-      <TopNavbar />
+      {/* TopNavbar avec ajustement de la marge gauche */}
+      <div style={{ marginLeft: showSidebar ? sidebarWidth : '0', transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+        <TopNavbar />
+      </div>
 
       <div className="flex">
         {showSidebar && <Sidebar onCollapseChange={setSidebarCollapsed} />}
         <main
           className="flex-1 transition-all duration-300"
-          style={{ marginLeft: showSidebar ? sidebarWidth : '0' }}
+          style={{ 
+            marginLeft: showSidebar ? sidebarWidth : '0',
+            paddingTop: '0',
+          }}
         >
           <div className="p-4 sm:p-6">
             {children}

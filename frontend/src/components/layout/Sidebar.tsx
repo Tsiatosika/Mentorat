@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import {
   Home, LayoutDashboard, Users, Calendar, MessageCircle, FileText,
   Brain, UserCircle, Clock, LogOut, ChevronLeft, ChevronRight,
+  Menu, X
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { Avatar } from '@/components/ui/Avatar';
@@ -37,13 +38,10 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
     setMounted(true);
   }, []);
 
-  // Ferme le tiroir mobile automatiquement à chaque changement de page.
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
 
-  // Bloque le scroll de la page tant que le tiroir mobile est ouvert,
-  // et permet de le fermer avec la touche Échap.
   useEffect(() => {
     if (mobileOpen) {
       document.body.style.overflow = 'hidden';
@@ -107,7 +105,8 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
     return (
       <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
         <div
-          className="bookmark"
+          className="sidebar-menu-item"
+          data-active={active}
           style={{
             position: 'relative',
             display: 'flex',
@@ -121,12 +120,6 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
             color: active ? 'var(--accent-text-on-soft)' : 'var(--text-secondary)',
             transition: 'background-color 0.2s, color 0.2s',
             cursor: 'pointer',
-          }}
-          onMouseEnter={(e) => {
-            if (!active) e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
-          }}
-          onMouseLeave={(e) => {
-            if (!active) e.currentTarget.style.backgroundColor = 'transparent';
           }}
         >
           {active && (
@@ -151,128 +144,69 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
 
   return (
     <>
-      {/* Déclencheur hamburger (mobile uniquement) — se transforme en croix à l'ouverture */}
+      {/* Burger menu mobile */}
       <button
-        aria-label={mobileOpen ? t('common.close_menu') : t('common.open_menu')}
+        aria-label={mobileOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
         aria-expanded={mobileOpen}
         onClick={() => setMobileOpen((v) => !v)}
-        className={`sidebar-burger ${mobileOpen ? 'is-open' : ''}`}
-        style={{
-          left: mobileOpen ? `${MOBILE_DRAWER_WIDTH - 52}px` : '16px',
-        }}
+        className="sidebar-burger"
       >
-        <span className="sidebar-burger-line" />
-        <span className="sidebar-burger-line" />
-        <span className="sidebar-burger-line" />
+        {mobileOpen ? <X size={20} /> : <Menu size={20} />}
       </button>
 
-      {/* Overlay (mobile uniquement) — cliquer dessus ferme le tiroir */}
+      {/* Overlay mobile */}
       <div
         className={`sidebar-overlay ${mobileOpen ? 'is-visible' : ''}`}
         onClick={() => setMobileOpen(false)}
         aria-hidden="true"
       />
 
+      {/* Sidebar */}
       <aside
         className={`sidebar-aside ${mobileOpen ? 'is-open' : ''}`}
-        style={{
-          width: sidebarWidth,
-          minHeight: '100vh',
-          backgroundColor: 'var(--card-bg)',
-          borderRight: '1px solid var(--border)',
-          display: 'flex',
-          flexDirection: 'column',
-          flexShrink: 0,
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          bottom: 0,
-          zIndex: 40,
-          transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s',
-          overflow: 'visible',
-        }}
+        style={{ width: sidebarWidth }}
       >
-        {/* Bouton flottant de réduction (desktop uniquement) */}
-        <button
-          onClick={toggleSidebar}
-          aria-label={collapsed ? t('common.expand_sidebar') : t('common.collapse_sidebar')}
-          className="sidebar-collapse-btn"
-        >
-          {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
-        </button>
-
-        {/* Logo */}
-        <div
-          style={{
-            padding: collapsed ? '20px 12px' : '20px 20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-start',
-            borderBottom: '1px solid var(--border)',
-            overflow: 'hidden',
-          }}
-        >
-          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
-            <Logo size={36} />
-            {!collapsed && (
-              <div>
-                <div className="font-display" style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  MentorIPath
-                </div>
-                <div style={{ fontSize: '9px', color: 'var(--text-tertiary)' }}>UAZ — Informatique</div>
-              </div>
-            )}
-          </Link>
+        {/* En-tête avec logo et bouton toggle */}
+        <div className="sidebar-header">
+          {/* Bouton de réduction/agrandissement - BIEN VISIBLE */}
+          <button
+            onClick={toggleSidebar}
+            aria-label={collapsed ? 'Agrandir la barre latérale' : 'Réduire la barre latérale'}
+            className="sidebar-toggle-btn"
+            title={collapsed ? 'Agrandir' : 'Réduire'}
+          >
+            {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          </button>
         </div>
 
-        {/* Navigation */}
-        <div style={{ padding: collapsed ? '16px 8px' : '20px 12px', flex: 1, overflowY: 'auto' }}>
+        {/* Menu principal */}
+        <div className="sidebar-menu-section">
           {!collapsed && (
-            <div
-              className="font-mono-data"
-              style={{ fontSize: '10px', letterSpacing: '0.05em', color: 'var(--text-tertiary)', padding: '0 10px 12px', textTransform: 'uppercase' }}
-            >
-              {t('nav.home')}
-            </div>
+            <div className="sidebar-section-title">Accueil</div>
           )}
           {menuItems.map(renderItem)}
         </div>
 
         {/* Outils */}
-        <div style={{ padding: collapsed ? '8px 8px' : '12px 12px' }}>
+        <div className="sidebar-tools-section">
           {!collapsed && toolItems.length > 0 && (
-            <div
-              className="font-mono-data"
-              style={{ fontSize: '10px', letterSpacing: '0.05em', color: 'var(--text-tertiary)', padding: '0 10px 12px', textTransform: 'uppercase' }}
-            >
-              {t('tools.matching')}
-            </div>
+            <div className="sidebar-section-title">MATCHING IA</div>
           )}
           {toolItems.map(renderItem)}
         </div>
 
-        {/* User profile + logout */}
-        <div style={{ padding: collapsed ? '12px 12px' : '16px 16px', borderTop: '1px solid var(--border)' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: collapsed ? 'center' : 'space-between',
-              gap: collapsed ? '0' : '12px',
-              padding: collapsed ? '0' : '10px',
-              borderRadius: '12px',
-              backgroundColor: 'var(--bg-secondary)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: collapsed ? '0' : '12px', flex: collapsed ? 'none' : 1 }}>
+        {/* Profil utilisateur */}
+        <div className="sidebar-profile">
+          <div className="sidebar-profile-inner">
+            <div className="sidebar-profile-avatar">
               <Avatar photoUrl={user?.photo_url} prenom={user?.prenom} nom={user?.nom} size={collapsed ? 36 : 38} />
               {!collapsed && (
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {user ? `${user.prenom} ${user.nom}` : t('common.guest')}
+                <div className="sidebar-profile-info">
+                  <div className="sidebar-profile-name">
+                    {user ? `${user.prenom} ${user.nom}` : 'Invité'}
                   </div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
-                    {user?.role === 'mentor' ? t('common.role_mentor') : t('common.role_mentee')}
+                  <div className="sidebar-profile-role">
+                    {user?.role === 'mentor' ? 'Mentor' : 'Mentoré(e)'}
                   </div>
                 </div>
               )}
@@ -280,51 +214,221 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
             {!collapsed && (
               <button
                 onClick={logout}
-                style={{
-                  background: 'var(--danger-soft)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  padding: '6px 10px',
-                  color: 'var(--danger)',
-                  transition: 'opacity 0.2s',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                className="sidebar-logout-btn"
+                title="Déconnexion"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut size={16} />
               </button>
             )}
           </div>
           {collapsed && (
             <button
               onClick={logout}
-              style={{
-                width: '100%',
-                marginTop: '12px',
-                background: 'var(--danger-soft)',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                padding: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--danger)',
-              }}
+              className="sidebar-logout-collapsed"
+              title="Déconnexion"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut size={16} />
             </button>
           )}
         </div>
       </aside>
 
-      <style jsx global>{`
-        /* ================= Hamburger (mobile) ================= */
+      <style jsx>{`
+        .sidebar-aside {
+          min-height: 100vh;
+          background-color: var(--card-bg);
+          border-right: 1px solid var(--border);
+          display: flex;
+          flex-direction: column;
+          flex-shrink: 0;
+          position: fixed;
+          top: 0;
+          left: 0;
+          bottom: 0;
+          z-index: 40;
+          transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          overflow: hidden;
+        }
+
+        .sidebar-header {
+          padding: ${collapsed ? '16px 10px' : '16px 16px'};
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-bottom: 1px solid var(--border);
+          min-height: 72px;
+          gap: 8px;
+        }
+
+        .sidebar-logo-link {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          text-decoration: none;
+          flex: 1;
+          overflow: hidden;
+          min-width: 0;
+        }
+
+        .sidebar-brand-text {
+          overflow: hidden;
+          white-space: nowrap;
+        }
+
+        .sidebar-brand-name {
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .sidebar-brand-subtitle {
+          font-size: 9px;
+          color: var(--text-tertiary);
+        }
+
+        /* Bouton de toggle - BIEN VISIBLE */
+        .sidebar-toggle-btn {
+          display: flex !important;
+          align-items: center;
+          justify-content: center;
+          width: 30px;
+          height: 30px;
+          border-radius: 8px;
+          border: 1px solid var(--border);
+          background-color: var(--card-bg);
+          color: var(--text-secondary);
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: all 0.2s ease;
+          position: relative;
+          z-index: 10;
+        }
+
+        .sidebar-toggle-btn:hover {
+          background-color: var(--accent-soft);
+          color: var(--accent);
+          border-color: var(--accent);
+          transform: scale(1.1);
+        }
+
+        .sidebar-toggle-btn:active {
+          transform: scale(0.95);
+        }
+
+        .sidebar-menu-section {
+          padding: ${collapsed ? '12px 6px' : '16px 12px'};
+          flex: 1;
+          overflow-y: auto;
+        }
+
+        .sidebar-menu-section::-webkit-scrollbar {
+          width: 3px;
+        }
+
+        .sidebar-menu-section::-webkit-scrollbar-thumb {
+          background-color: var(--border);
+          border-radius: 3px;
+        }
+
+        .sidebar-section-title {
+          font-size: 10px;
+          letter-spacing: 0.05em;
+          color: var(--text-tertiary);
+          padding: 0 10px 12px;
+          text-transform: uppercase;
+          font-weight: 600;
+        }
+
+        .sidebar-tools-section {
+          padding: ${collapsed ? '8px 6px' : '12px 12px'};
+          border-top: 1px solid var(--border);
+          margin-top: 4px;
+        }
+
+        .sidebar-profile {
+          padding: ${collapsed ? '12px 10px' : '16px 16px'};
+          border-top: 1px solid var(--border);
+        }
+
+        .sidebar-profile-inner {
+          display: flex;
+          align-items: center;
+          justify-content: ${collapsed ? 'center' : 'space-between'};
+          gap: ${collapsed ? '0' : '12px'};
+          padding: ${collapsed ? '4px 0' : '10px'};
+          border-radius: 12px;
+          background-color: ${collapsed ? 'transparent' : 'var(--bg-secondary)'};
+        }
+
+        .sidebar-profile-avatar {
+          display: flex;
+          align-items: center;
+          gap: ${collapsed ? '0' : '12px'};
+          flex: ${collapsed ? 'none' : 1};
+          min-width: 0;
+        }
+
+        .sidebar-profile-info {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .sidebar-profile-name {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--text-primary);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .sidebar-profile-role {
+          font-size: 10px;
+          color: var(--text-tertiary);
+        }
+
+        .sidebar-logout-btn {
+          background: var(--danger-soft);
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          padding: 6px 10px;
+          color: var(--danger);
+          transition: opacity 0.2s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .sidebar-logout-btn:hover {
+          opacity: 0.7;
+        }
+
+        .sidebar-logout-collapsed {
+          width: 100%;
+          margin-top: 8px;
+          background: var(--danger-soft);
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          padding: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--danger);
+        }
+
+        .sidebar-logout-collapsed:hover {
+          opacity: 0.7;
+        }
+
+        /* Styles pour le menu burger mobile */
         .sidebar-burger {
           display: none;
           position: fixed;
           top: 16px;
+          left: 16px;
           width: 40px;
           height: 40px;
           border-radius: 10px;
@@ -333,34 +437,12 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
           z-index: 60;
           cursor: pointer;
-          flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 5px;
-          transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s;
-        }
-        .sidebar-burger-line {
-          display: block;
-          width: 18px;
-          height: 2px;
-          border-radius: 2px;
-          background-color: var(--text-primary);
-          transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s, width 0.3s;
-        }
-        /* Morphing trois traits -> croix */
-        .sidebar-burger.is-open .sidebar-burger-line:nth-child(1) {
-          transform: translateY(7px) rotate(45deg);
-        }
-        .sidebar-burger.is-open .sidebar-burger-line:nth-child(2) {
-          opacity: 0;
-          width: 0;
-        }
-        .sidebar-burger.is-open .sidebar-burger-line:nth-child(3) {
-          transform: translateY(-7px) rotate(-45deg);
         }
 
-        /* ================= Overlay (mobile) ================= */
         .sidebar-overlay {
+          display: none;
           position: fixed;
           inset: 0;
           background-color: rgba(0, 0, 0, 0.45);
@@ -370,64 +452,35 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
           pointer-events: none;
           transition: opacity 0.3s ease;
         }
+
         .sidebar-overlay.is-visible {
           opacity: 1;
           pointer-events: auto;
         }
 
-        /* ================= Bouton flottant de réduction (desktop) ================= */
-        /* Visible par défaut ; masqué uniquement sur mobile (voir media query plus bas). */
-        .sidebar-collapse-btn {
-          display: flex;
-          position: absolute;
-          top: 28px;
-          right: -13px;
-          width: 26px;
-          height: 26px;
-          border-radius: 9999px;
-          border: 1px solid var(--border);
-          background-color: var(--card-bg);
-          color: var(--text-secondary);
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          z-index: 50;
-          transition: transform 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-        }
-        .sidebar-collapse-btn:hover {
-          transform: scale(1.12);
-          color: var(--accent);
-          border-color: var(--accent);
-          box-shadow: 0 3px 10px rgba(0, 0, 0, 0.16);
-        }
-
-        /* ================= Breakpoints ================= */
-        @media (max-width: 768px) {
+        @media (max-width: 640px) {
           .sidebar-burger {
             display: flex;
           }
-          .sidebar-collapse-btn {
-            display: none !important;
+
+          .sidebar-overlay {
+            display: block;
           }
+
           .sidebar-aside {
             width: ${MOBILE_DRAWER_WIDTH}px !important;
-            transform: translateX(-100%) !important;
-            box-shadow: 0 0 0 rgba(0, 0, 0, 0);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease, width 0.3s ease !important;
           }
+
           .sidebar-aside.is-open {
-            transform: translateX(0) !important;
+            transform: translateX(0);
             box-shadow: 4px 0 24px rgba(0, 0, 0, 0.18);
           }
-        }
 
-        @media (prefers-reduced-motion: reduce) {
-          .sidebar-burger-line,
-          .sidebar-aside,
-          .sidebar-overlay,
-          .sidebar-collapse-btn {
-            transition: none !important;
+          /* Cacher le bouton de toggle sur mobile car on a le burger */
+          .sidebar-toggle-btn {
+            display: none !important;
           }
         }
       `}</style>
