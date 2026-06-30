@@ -150,19 +150,25 @@ export default function MentorsPage() {
   const hasActiveFilters = searchTerm || onlyAvailable || activeTags.length > 0 || minNote > 0 || minExperience > 0;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
+    <div className="min-h-screen relative mentors-ambient" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      {/* Fond ambiant discret, cohérent avec le dashboard */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="mentors-orb mentors-orb-1" style={{ backgroundColor: 'var(--accent-soft)' }} />
+        <div className="mentors-orb mentors-orb-2" style={{ backgroundColor: 'var(--warm-soft)' }} />
+      </div>
+
       {/* Header */}
-      <div className="max-w-7xl mx-auto px-4 pt-12 pb-8">
-        <p className="font-mono-data text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--accent)' }}>
+      <div className="relative z-10 max-w-7xl mx-auto px-4 pt-12 pb-8">
+        <p className="font-mono-data text-xs uppercase tracking-wide mb-2 fade-in-up" style={{ color: 'var(--accent)' }}>
           {t('mentors.subtitle')}
         </p>
-        <h1 className="font-display text-4xl md:text-5xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+        <h1 className="font-display text-4xl md:text-5xl font-semibold fade-in-up" style={{ color: 'var(--text-primary)', animationDelay: '0.05s' }}>
           {t('nav.mentors')}
         </h1>
         {activeDomaineLabel && (
           <div
-            className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-full text-sm font-medium"
-            style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)' }}
+            className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-full text-sm font-medium fade-in-up"
+            style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)', animationDelay: '0.1s' }}
           >
             Domaine : {activeDomaineLabel}
             <button
@@ -176,7 +182,7 @@ export default function MentorsPage() {
       </div>
 
       {/* Barre de recherche + filtres */}
-      <div className="max-w-7xl mx-auto px-4 mb-8 space-y-4">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 mb-8 space-y-4 fade-in-up" style={{ animationDelay: '0.12s' }}>
         {/* Recherche + tri */}
         <div className="flex flex-col md:flex-row gap-3">
           <div className="relative flex-1">
@@ -187,7 +193,7 @@ export default function MentorsPage() {
             <input
               type="text"
               placeholder={t('mentors.search_placeholder')}
-              className="w-full pl-12 pr-4 py-4 rounded-2xl outline-none transition-all text-base"
+              className="mentors-input w-full pl-12 pr-4 py-4 rounded-2xl outline-none text-base"
               style={{
                 backgroundColor: 'var(--card-bg)',
                 border: '1px solid var(--border)',
@@ -206,7 +212,7 @@ export default function MentorsPage() {
             <select
               value={sortKey}
               onChange={(e) => setSortKey(e.target.value as SortKey)}
-              className="w-full md:w-56 h-full pl-11 pr-4 py-4 rounded-2xl outline-none appearance-none text-sm font-medium"
+              className="mentors-input w-full md:w-56 h-full pl-11 pr-4 py-4 rounded-2xl outline-none appearance-none text-sm font-medium"
               style={{
                 backgroundColor: 'var(--card-bg)',
                 border: '1px solid var(--border)',
@@ -226,7 +232,7 @@ export default function MentorsPage() {
 
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center justify-center gap-2 px-5 py-4 rounded-2xl text-sm font-medium transition-colors"
+            className="mentors-filter-btn flex items-center justify-center gap-2 px-5 py-4 rounded-2xl text-sm font-medium transition-colors"
             style={
               showAdvanced
                 ? { backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)', border: '1px solid var(--border)' }
@@ -234,17 +240,17 @@ export default function MentorsPage() {
             }
           >
             <SlidersHorizontal className="w-4 h-4" />
-            Filtres avancés
+            {t('mentors.advanced_filters')}
           </button>
         </div>
 
         {/* Panneau de filtres avancés */}
         {showAdvanced && (
-          <div className="card p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="card p-5 grid grid-cols-1 md:grid-cols-2 gap-6 panel-in">
             <div>
               <label className="flex justify-between text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                <span>Note minimum</span>
-                <span className="font-mono-data" style={{ color: 'var(--accent)' }}>{minNote > 0 ? `${minNote}+` : 'Toutes'}</span>
+                <span>{t('mentors.min_rating')}</span>
+                <span className="font-mono-data" style={{ color: 'var(--accent)' }}>{minNote > 0 ? `${minNote}+` : t('mentors.all')}</span>
               </label>
               <input
                 type="range"
@@ -259,8 +265,8 @@ export default function MentorsPage() {
             </div>
             <div>
               <label className="flex justify-between text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                <span>Expérience minimum</span>
-                <span className="font-mono-data" style={{ color: 'var(--accent)' }}>{minExperience > 0 ? `${minExperience}+ ans` : 'Toutes'}</span>
+                <span>{t('mentors.min_experience')}</span>
+                <span className="font-mono-data" style={{ color: 'var(--accent)' }}>{minExperience > 0 ? `${minExperience}+ ${t('mentors.years')}` : t('mentors.all')}</span>
               </label>
               <input
                 type="range"
@@ -280,7 +286,7 @@ export default function MentorsPage() {
         <div className="flex items-start gap-3 flex-wrap">
           <button
             onClick={() => setOnlyAvailable(!onlyAvailable)}
-            className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all"
+            className="mentors-tag-btn flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium"
             style={
               onlyAvailable
                 ? { backgroundColor: 'var(--accent)', color: '#06231D' }
@@ -297,7 +303,7 @@ export default function MentorsPage() {
               <button
                 key={tag}
                 onClick={() => toggleTag(tag)}
-                className="px-4 py-2 rounded-full text-sm font-medium transition-all"
+                className="mentors-tag-btn px-4 py-2 rounded-full text-sm font-medium"
                 style={
                   active
                     ? { backgroundColor: 'var(--warm)', color: '#2A1700' }
@@ -315,7 +321,7 @@ export default function MentorsPage() {
               className="px-4 py-2 rounded-full text-sm font-medium transition-all"
               style={{ color: 'var(--accent)' }}
             >
-              {showAllTags ? 'Voir moins' : `+${availableTags.length - 9} autres`}
+              {showAllTags ? t('mentors.show_less') : `+${availableTags.length - 9} ${t('mentors.show_more_others')}`}
             </button>
           )}
 
@@ -332,7 +338,7 @@ export default function MentorsPage() {
       </div>
 
       {/* Résultats */}
-      <div className="max-w-7xl mx-auto px-4 pb-12">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 pb-12">
         {loading ? (
           <div className="flex justify-center py-16">
             <div
@@ -341,20 +347,24 @@ export default function MentorsPage() {
             />
           </div>
         ) : filteredMentors.length === 0 ? (
-          <div className="card p-12 text-center">
+          <div className="card p-12 text-center fade-in-up">
             <p className="text-lg" style={{ color: 'var(--text-secondary)' }}>{t('mentors.no_results')}</p>
           </div>
         ) : (
           <>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-tertiary)' }}>
-              {filteredMentors.length} mentor{filteredMentors.length > 1 ? 's' : ''} trouvé{filteredMentors.length > 1 ? 's' : ''}
+            <p className="text-sm mb-4 fade-in-up" style={{ color: 'var(--text-tertiary)' }}>
+              {filteredMentors.length} {t('mentors.found_label')}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-              {filteredMentors.map((mentor) => {
+              {filteredMentors.map((mentor, idx) => {
                 const extraCompetences = (mentor.competences || []).slice(4);
 
                 return (
-                  <div key={mentor.id} className="card card-hover bookmark p-5 flex flex-col">
+                  <div
+                    key={mentor.id}
+                    className="card card-hover bookmark p-5 flex flex-col mentor-card-in"
+                    style={{ animationDelay: `${Math.min(idx, 12) * 0.04}s` }}
+                  >
                     <div className="flex items-start gap-3 mb-3">
                       <Avatar
                         photoUrl={mentor.photo_url}
@@ -386,9 +396,9 @@ export default function MentorsPage() {
 
                     {mentor.competences && mentor.competences.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mb-3">
-                        {mentor.competences.slice(0, 4).map((comp, idx) => (
+                        {mentor.competences.slice(0, 4).map((comp, ci) => (
                           <span
-                            key={idx}
+                            key={ci}
                             className="text-xs px-2.5 py-1 rounded-full font-medium"
                             style={{ backgroundColor: 'var(--warm-soft)', color: 'var(--warm-text-on-soft)' }}
                           >
@@ -416,21 +426,21 @@ export default function MentorsPage() {
                           className="w-1.5 h-1.5 rounded-full"
                           style={{ backgroundColor: mentor.disponible ? 'var(--success)' : 'var(--text-tertiary)' }}
                         />
-                        {mentor.disponible ? t('mentors.available') : 'Indisponible'}
+                        {mentor.disponible ? t('mentors.available') : t('mentors.unavailable')}
                       </span>
                     </div>
 
                     <div className="flex gap-2 mt-auto">
                       <Link
                         href={`/mentors/${mentor.id}`}
-                        className="flex-1 text-center px-3 py-2.5 rounded-xl font-medium text-sm transition-colors"
+                        className="mentors-cta-btn flex-1 text-center px-3 py-2.5 rounded-xl font-medium text-sm"
                         style={{ backgroundColor: 'var(--text-primary)', color: 'var(--bg-primary)' }}
                       >
                         {t('mentors.view_profile')}
                       </Link>
                       <Link
                         href={`/sessions/new?mentor=${mentor.id}`}
-                        className="px-3 py-2.5 rounded-xl flex items-center justify-center transition-colors"
+                        className="mentors-cta-btn px-3 py-2.5 rounded-xl flex items-center justify-center"
                         style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--accent)' }}
                         title="Réserver une session"
                       >
@@ -444,6 +454,82 @@ export default function MentorsPage() {
           </>
         )}
       </div>
+
+      <style jsx global>{`
+        .mentors-orb {
+          position: absolute;
+          border-radius: 9999px;
+          filter: blur(80px);
+          opacity: 0.35;
+          will-change: transform;
+        }
+        .mentors-orb-1 { width: 22rem; height: 22rem; top: -8rem; right: -6rem; animation: mentorsFloat1 26s ease-in-out infinite; }
+        .mentors-orb-2 { width: 18rem; height: 18rem; bottom: -6rem; left: -4rem; animation: mentorsFloat2 30s ease-in-out infinite; }
+
+        @keyframes mentorsFloat1 {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(-30px, 30px) scale(1.06); }
+        }
+        @keyframes mentorsFloat2 {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(25px, -20px) scale(1.08); }
+        }
+
+        .fade-in-up {
+          opacity: 0;
+          transform: translateY(12px);
+          animation: mentorsFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes mentorsFadeUp {
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .mentor-card-in {
+          opacity: 0;
+          transform: translateY(16px) scale(0.98);
+          animation: mentorsCardIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes mentorsCardIn {
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .panel-in {
+          opacity: 0;
+          transform: translateY(-6px);
+          animation: mentorsFadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .mentors-input {
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .mentors-input:focus {
+          border-color: var(--accent) !important;
+        }
+
+        .mentors-filter-btn,
+        .mentors-tag-btn,
+        .mentors-cta-btn {
+          transition: transform 0.15s ease, filter 0.15s ease;
+        }
+        .mentors-filter-btn:hover,
+        .mentors-tag-btn:hover,
+        .mentors-cta-btn:hover {
+          transform: translateY(-1px);
+        }
+        .mentors-filter-btn:active,
+        .mentors-tag-btn:active,
+        .mentors-cta-btn:active {
+          transform: scale(0.97);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .mentors-orb, .fade-in-up, .mentor-card-in, .panel-in {
+            animation: none !important;
+            opacity: 1 !important;
+            transform: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

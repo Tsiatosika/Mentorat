@@ -25,7 +25,7 @@ const translations: Record<Language, Record<string, string>> = {
     'tools.matching': 'Matching IA',
     'tools.profile': 'Mon profil',
     'tools.disponibilites': 'Mes disponibilités',
-    
+
     // Home page
     'home.badge': 'Plateforme de mentorat nouvelle génération',
     'home.hero_title': 'Trouvez le mentor qui',
@@ -52,12 +52,15 @@ const translations: Record<Language, Record<string, string>> = {
     'home.feature_security': 'Sécurisé',
     'home.feature_security_desc': 'Plateforme sécurisée et confidentielle',
     'home.cta_title': 'Prêt à commencer votre parcours ?',
-    'home.cta_description': 'Rejoignez des milliers d\'étudiants qui ont déjà trouvé leur mentor idéal',
+    'home.cta_description': "Rejoignez des milliers d'étudiants qui ont déjà trouvé leur mentor idéal",
     'home.cta_button': 'Inscription gratuite',
     'home.find_mentor': 'Trouver un mentor',
+    'home.explore_by_domain': 'Explorer par domaine',
+    'home.explore_by_domain_desc': "Trouvez un mentor dans votre domaine d'intérêt",
+    'home.view_all_domains': 'Voir tous les domaines',
     'footer.title': 'Plateforme de Mentorat Académique',
-    'footer.project': 'Projet de Fin d\'Études',
-    
+    'footer.project': "Projet de Fin d'Études",
+
     // Dashboard
     'dashboard.welcome': 'Bienvenue',
     'dashboard.activity': 'Votre activité',
@@ -72,7 +75,9 @@ const translations: Record<Language, Record<string, string>> = {
     'dashboard.reports_desc': 'Télécharger vos rapports',
     'dashboard.find_mentor_desc': 'Rechercher des mentors',
     'dashboard.recommendations_desc': 'Mentors suggérés pour vous',
-    
+    'dashboard.recent_sessions': 'Sessions récentes',
+    'dashboard.unread': 'Non lus',
+
     // Profile
     'profile.title': 'Mon profil',
     'profile.edit': 'Modifier',
@@ -89,24 +94,74 @@ const translations: Record<Language, Record<string, string>> = {
     'profile.domaine_placeholder': 'Ex: Informatique, Marketing, Design...',
     'profile.bio': 'Biographie',
     'profile.bio_placeholder': 'Présentez votre parcours et votre expertise...',
-    'profile.annees_experience': 'Années d\'expérience',
+    'profile.annees_experience': "Années d'expérience",
     'profile.disponible': 'Disponible pour mentorat',
     'profile.indisponible': 'Indisponible',
     'profile.cv': 'CV (PDF)',
     'profile.view_cv': 'Voir le CV actuel',
     'profile.replace_cv': 'Remplacer le CV',
     'profile.upload_cv': 'Uploader le CV',
-    'profile.niveau_etude': 'Niveau d\'étude',
+    'profile.niveau_etude': "Niveau d'étude",
     'profile.niveau_etude_placeholder': 'Ex: Licence 3, Master 2, Doctorat...',
-    'profile.objectifs': 'Objectifs d\'apprentissage',
-    'profile.objectifs_placeholder': 'Décrivez vos objectifs d\'apprentissage...',
+    'profile.objectifs': "Objectifs d'apprentissage",
+    'profile.objectifs_placeholder': "Décrivez vos objectifs d'apprentissage...",
     'profile.tags': 'Mots-clés pour le matching IA',
-    'profile.tags_desc': 'Ces mots-clés sont utilisés par l\'algorithme IA pour trouver les meilleurs mentors.',
+    'profile.tags_desc': "Ces mots-clés sont utilisés par l'algorithme IA pour trouver les meilleurs mentors.",
     'profile.tags_placeholder': 'Ex: python, machine learning...',
     'profile.tags_hint': 'Appuyez sur Entrée ou , pour ajouter un tag',
     'common.saving': 'Enregistrement...',
 
-    
+    // ── AUTH ──────────────────────────────────────────────────────────────────
+    'auth.login_hero_title': 'Bon retour parmi nous',
+    'auth.login_hero_desc': 'Connectez-vous pour retrouver vos sessions, vos mentors et votre progression.',
+    'auth.login_title': 'Connexion',
+    'auth.login_subtitle': 'Accédez à votre espace personnel',
+    'auth.login_button': 'Se connecter',
+    'auth.login_error': 'Email ou mot de passe incorrect',
+    'auth.no_account': 'Pas encore de compte ?',
+    'auth.register_link': "S'inscrire",
+    'auth.forgot_password': 'Mot de passe oublié ?',
+
+    'auth.register_hero_title': 'Rejoignez la communauté',
+    'auth.register_hero_desc': "Créez votre compte et commencez votre parcours de mentorat dès aujourd'hui.",
+    'auth.register_title': 'Inscription',
+    'auth.register_subtitle': 'Créez votre compte gratuitement',
+    'auth.register_button': "S'inscrire",
+    'auth.register_success': 'Inscription réussie ! Bienvenue 🎉',
+    'auth.register_error': "Erreur lors de l'inscription",
+    'auth.have_account': 'Déjà un compte ?',
+    'auth.login_link': 'Se connecter',
+
+    'auth.email': 'Adresse email',
+    'auth.password': 'Mot de passe',
+    'auth.lastname': 'Nom',
+    'auth.firstname': 'Prénom',
+    'auth.or': 'ou',
+
+    'auth.fields_required': 'Veuillez remplir tous les champs',
+    'auth.password_requirements': 'Le mot de passe ne respecte pas les critères requis',
+    'auth.password_min_length': '8 caractères minimum',
+    'auth.password_uppercase': 'Une majuscule',
+    'auth.password_number': 'Un chiffre',
+
+    'auth.i_am': 'Je suis',
+    'auth.role_mentee': 'Mentoré(e)',
+    'auth.role_mentee_desc': "J'apprends",
+    'auth.role_mentor': 'Mentor',
+    'auth.role_mentor_desc': "J'accompagne",
+
+    'auth.google_error': 'Erreur de connexion avec Google',
+    'auth.google_cancelled': 'Connexion Google annulée',
+
+    'auth.feat1_title': 'Matching IA intelligent',
+    'auth.feat1_desc': 'Trouvez le mentor parfait grâce à notre algorithme.',
+    'auth.feat2_title': 'Objectifs personnalisés',
+    'auth.feat2_desc': 'Suivez votre progression à chaque session.',
+    'auth.feat3_title': 'Plateforme sécurisée',
+    'auth.feat3_desc': 'Vos données et échanges sont protégés.',
+    'auth.feat4_title': 'Rapports détaillés',
+    'auth.feat4_desc': 'Téléchargez vos comptes-rendus de session en PDF.',
+
     // Sessions
     'sessions.title': 'Mes sessions',
     'sessions.all': 'Toutes',
@@ -123,14 +178,36 @@ const translations: Record<Language, Record<string, string>> = {
     'sessions.started': 'Session démarrée',
     'sessions.cancel_confirm': 'Annuler cette session ?',
     'sessions.no_sessions': 'Aucune session trouvée',
-    
+    'sessions.subtitle': 'Espace mentorat',
+    'sessions.page_description': 'Consultez, validez et planifiez vos échanges de mentorat.',
+    'sessions.upcoming': 'À venir',
+    'sessions.history': 'Historique',
+    'sessions.total': 'Total',
+    'sessions.new_session': 'Nouvelle session',
+    'sessions.empty_title': 'Aucune session',
+    'sessions.empty_mentee': 'Réservez votre premier mentor pour commencer.',
+    'sessions.empty_mentor': "Attendez qu'un mentoré vous contacte.",
+    'sessions.explore_mentors': 'Explorer les mentors',
+    'sessions.label_mentee': 'Mentoré',
+    'sessions.label_mentor': 'Mentor',
+    'sessions.reviewed': 'Noté',
+    'sessions.visio': 'Visio',
+    'sessions.rate': 'Noter',
+    'sessions.view_report': 'Consulter Rapport',
+
     // Chat
     'chat.title': 'Messagerie',
     'chat.subtitle': 'Discutez avec vos mentors et mentorés',
     'chat.no_conversation': 'Aucune conversation',
-    'chat.no_conversation_desc': 'Vous n\'avez pas encore de sessions actives.',
+    'chat.no_conversation_desc': "Vous n'avez pas encore de sessions actives.",
     'chat.start': 'Commencez la conversation !',
-    
+    'chat.search_placeholder': 'Rechercher...',
+    'chat.no_conversations_desc_alt': 'Réservez une session pour commencer à discuter',
+    'chat.yesterday': 'Hier',
+    'chat.today': "Aujourd'hui",
+    'chat.online': 'En ligne',
+    'chat.typing': 'écrit...',
+
     // Reports
     'reports.title': 'Rapports',
     'reports.subtitle': 'Générez et téléchargez vos rapports',
@@ -140,7 +217,13 @@ const translations: Record<Language, Record<string, string>> = {
     'reports.download': 'Télécharger',
     'reports.generating': 'Génération du rapport...',
     'reports.downloaded': 'Rapport téléchargé !',
-    
+    'reports.search_placeholder': 'Rechercher un rapport par sujet ou nom...',
+    'reports.no_search_results': 'Aucun résultat',
+    'reports.no_search_results_desc': 'Aucun rapport ne correspond à votre recherche.',
+    'reports.by_author': 'Par le {role} {name}',
+    'reports.no_summary': 'Téléchargez le rapport PDF pour consulter le compte-rendu complet de cette session.',
+    'reports.view_full': 'Consulter en entier',
+
     // Matching
     'matching.title': 'Recommandations IA',
     'matching.subtitle': 'Mentors sélectionnés pour vous',
@@ -161,7 +244,7 @@ const translations: Record<Language, Record<string, string>> = {
     'matching.domain': 'Domaine',
     'matching.reputation': 'Réputation',
     'matching.experience': 'Expérience',
-    
+
     // Mentors
     'mentors.subtitle': 'Des experts passionnés prêts à vous accompagner',
     'mentors.search_placeholder': 'Rechercher un mentor...',
@@ -177,7 +260,23 @@ const translations: Record<Language, Record<string, string>> = {
     'mentors.book_session': 'Réserver une session',
     'mentors.about': 'À propos',
     'mentors.contact': 'Contact',
-    
+    'mentors.advanced_filters': 'Filtres avancés',
+    'mentors.min_rating': 'Note minimum',
+    'mentors.min_experience': 'Expérience minimum',
+    'mentors.show_less': 'Voir moins',
+    'mentors.show_more_others': 'autres',
+    'mentors.found_label': 'mentor(s) trouvé(s)',
+    'mentors.unavailable': 'Indisponible',
+    'mentors.not_found': 'Mentor non trouvé',
+    'mentors.no_bio': 'Aucune description disponible.',
+    'mentors.criteria_punctuality': 'Ponctualité',
+    'mentors.criteria_pedagogy': 'Pédagogie',
+    'mentors.criteria_availability': 'Disponibilité',
+    'mentors.reviews': 'Avis',
+    'mentors.no_reviews': "Ce mentor n'a pas encore reçu d'avis.",
+    'mentors.mentee_only': 'Vous devez être un mentoré pour réserver.',
+    'mentors.is_available': 'Disponible',
+
     // Disponibilités
     'disponibilites.title': 'Mes disponibilités',
     'disponibilites.subtitle': 'Gérez vos créneaux horaires',
@@ -191,7 +290,7 @@ const translations: Record<Language, Record<string, string>> = {
     'disponibilites.add_disponibilite': 'Ajouter une disponibilité',
     'disponibilites.no_disponibilites_desc': 'Ajoutez vos créneaux horaires',
     'disponibilites.delete_confirm': 'Supprimer cette disponibilité ?',
-    
+
     // Common
     'common.loading': 'Chargement...',
     'common.error': 'Erreur',
@@ -207,11 +306,16 @@ const translations: Record<Language, Record<string, string>> = {
     'common.register': 'Inscription',
     'common.about': 'À propos',
     'common.contact': 'Contact',
-
+    'common.guest': 'Invité',
+    'common.role_mentor': 'Mentor',
+    'common.role_mentee': 'Mentoré(e)',
+    'common.open_menu': 'Ouvrir le menu',
+    'common.close_menu': 'Fermer le menu',
+    'common.expand_sidebar': 'Agrandir la barre latérale',
+    'common.collapse_sidebar': 'Réduire la barre latérale',
 
     'mentors.top_mentors': 'Nos mentors exceptionnels',
     'mentors.top_mentors_desc': 'Des experts passionnés prêts à vous accompagner',
-    
 
     'chat.session': 'Session de mentorat',
     'chat.video_call': 'Appel vidéo',
@@ -230,28 +334,30 @@ const translations: Record<Language, Record<string, string>> = {
     'chat.call_accepted': 'Appel accepté !',
     'chat.call_rejected': 'Appel refusé',
     'chat.call_ended': 'Appel terminé',
-
+    'chat.connection_error': 'Connexion socket non établie',
+    'chat.participant_not_found': "Impossible de trouver l'autre participant",
+    'chat.call_in_progress': 'Appel en cours...',
+    'chat.enlarge': 'Agrandissement',
 
     'nav.about': 'À propos',
     'notif.title': 'Notifications',
     'notif.mark_all': 'Tout marquer lu',
     'notif.none': 'Aucune notification',
-    'notif.none_desc': 'Vous n\'avez pas encore de notifications',
-    'notif.unread': 'non lue(s)', 
+    'notif.none_desc': "Vous n'avez pas encore de notifications",
+    'notif.unread': 'non lue(s)',
 
-
-    'about.back': 'Retour à l\'accueil',
+    'about.back': "Retour à l'accueil",
     'about.title': 'À propos',
     'about.subtitle': 'Plateforme de Mentorat Académique avec Matching IA',
     'about.project_title': '📖 Notre projet',
-    'about.project_p1': 'Ce projet de fin d\'études vise à concevoir et développer une plateforme numérique de mentorat académique intégrant un algorithme d\'intelligence artificielle pour le matching automatique entre mentors et mentorés.',
-    'about.project_p2': 'La plateforme permet aux étudiants de trouver des mentors adaptés à leurs besoins spécifiques en se basant sur leurs compétences, leurs disponibilités et leurs objectifs d\'apprentissage. L\'objectif général est de faciliter l\'accompagnement académique, d\'améliorer la réussite des étudiants et de valoriser l\'expertise des mentors au sein de la communauté universitaire.',
+    'about.project_p1': "Ce projet de fin d'études vise à concevoir et développer une plateforme numérique de mentorat académique intégrant un algorithme d'intelligence artificielle pour le matching automatique entre mentors et mentorés.",
+    'about.project_p2': "La plateforme permet aux étudiants de trouver des mentors adaptés à leurs besoins spécifiques en se basant sur leurs compétences, leurs disponibilités et leurs objectifs d'apprentissage. L'objectif général est de faciliter l'accompagnement académique, d'améliorer la réussite des étudiants et de valoriser l'expertise des mentors au sein de la communauté universitaire.",
     'about.values_title': '🎯 Nos valeurs',
     'about.features_title': '⚡ Fonctionnalités clés',
     'about.val1_title': 'Notre mission',
-    'about.val1_desc': 'Faciliter l\'accès au mentorat académique pour tous les étudiants grâce à l\'intelligence artificielle et à une mise en relation intelligente.',
+    'about.val1_desc': "Faciliter l'accès au mentorat académique pour tous les étudiants grâce à l'intelligence artificielle et à une mise en relation intelligente.",
     'about.val2_title': 'Notre communauté',
-    'about.val2_desc': 'Une communauté de mentors passionnés et d\'étudiants motivés, unis pour la réussite de tous et le partage de connaissances.',
+    'about.val2_desc': "Une communauté de mentors passionnés et d'étudiants motivés, unis pour la réussite de tous et le partage de connaissances.",
     'about.val3_title': 'Notre expertise',
     'about.val3_desc': 'Des algorithmes de matching IA avancés pour des recommandations toujours plus pertinentes et personnalisées.',
     'about.val4_title': 'Nos valeurs',
@@ -259,7 +365,7 @@ const translations: Record<Language, Record<string, string>> = {
     'about.feat1_title': 'Matching IA intelligent',
     'about.feat1_desc': 'Notre algorithme analyse les compétences, disponibilités et objectifs pour vous proposer le mentor idéal.',
     'about.feat2_title': 'Suivi de progression',
-    'about.feat2_desc': 'Visualisez votre évolution grâce à des rapports détaillés et des statistiques personnalisées.',
+    'about.feat2_desc': "Visualisez votre évolution grâce à des rapports détaillés et des statistiques personnalisées.",
     'about.feat3_title': 'Accompagnement personnalisé',
     'about.feat3_desc': 'Des sessions de mentorat adaptées à vos besoins avec des experts dans votre domaine.',
     'about.author_role': 'Projet de Fin d\'Études — Université Adventiste Zurcher',
@@ -280,7 +386,6 @@ const translations: Record<Language, Record<string, string>> = {
     'session.fields_required': 'Veuillez remplir tous les champs',
     'session.loading_error': 'Erreur lors du chargement',
     'notif.see_all': 'Voir toutes les notifications',
-
   },
   en: {
     // Navigation
@@ -294,7 +399,7 @@ const translations: Record<Language, Record<string, string>> = {
     'tools.matching': 'AI Matching',
     'tools.profile': 'My profile',
     'tools.disponibilites': 'My availability',
-    
+
     // Home page
     'home.badge': 'Next generation mentoring platform',
     'home.hero_title': 'Find the mentor who',
@@ -324,9 +429,12 @@ const translations: Record<Language, Record<string, string>> = {
     'home.cta_description': 'Join thousands of students who already found their ideal mentor',
     'home.cta_button': 'Free registration',
     'home.find_mentor': 'Find a mentor',
+    'home.explore_by_domain': 'Explore by domain',
+    'home.explore_by_domain_desc': 'Find a mentor in your area of interest',
+    'home.view_all_domains': 'View all domains',
     'footer.title': 'Academic Mentoring Platform',
     'footer.project': 'Final Year Project',
-    
+
     // Dashboard
     'dashboard.welcome': 'Welcome',
     'dashboard.activity': 'Your activity',
@@ -341,7 +449,9 @@ const translations: Record<Language, Record<string, string>> = {
     'dashboard.reports_desc': 'Download your reports',
     'dashboard.find_mentor_desc': 'Search for mentors',
     'dashboard.recommendations_desc': 'Suggested mentors for you',
-    
+    'dashboard.recent_sessions': 'Recent sessions',
+    'dashboard.unread': 'Unread',
+
     // Profile
     'profile.title': 'My profile',
     'profile.edit': 'Edit',
@@ -375,7 +485,57 @@ const translations: Record<Language, Record<string, string>> = {
     'profile.tags_hint': 'Press Enter or , to add a tag',
     'common.saving': 'Saving...',
 
-    
+    // ── AUTH ──────────────────────────────────────────────────────────────────
+    'auth.login_hero_title': 'Welcome back',
+    'auth.login_hero_desc': 'Sign in to find your sessions, mentors and progress.',
+    'auth.login_title': 'Login',
+    'auth.login_subtitle': 'Access your personal space',
+    'auth.login_button': 'Sign in',
+    'auth.login_error': 'Incorrect email or password',
+    'auth.no_account': "Don't have an account?",
+    'auth.register_link': 'Sign up',
+    'auth.forgot_password': 'Forgot password?',
+
+    'auth.register_hero_title': 'Join the community',
+    'auth.register_hero_desc': 'Create your account and start your mentoring journey today.',
+    'auth.register_title': 'Register',
+    'auth.register_subtitle': 'Create your free account',
+    'auth.register_button': 'Sign up',
+    'auth.register_success': 'Registration successful! Welcome 🎉',
+    'auth.register_error': 'Error during registration',
+    'auth.have_account': 'Already have an account?',
+    'auth.login_link': 'Sign in',
+
+    'auth.email': 'Email address',
+    'auth.password': 'Password',
+    'auth.lastname': 'Last name',
+    'auth.firstname': 'First name',
+    'auth.or': 'or',
+
+    'auth.fields_required': 'Please fill in all fields',
+    'auth.password_requirements': 'Password does not meet the requirements',
+    'auth.password_min_length': 'Minimum 8 characters',
+    'auth.password_uppercase': 'One uppercase letter',
+    'auth.password_number': 'One number',
+
+    'auth.i_am': 'I am a',
+    'auth.role_mentee': 'Mentee',
+    'auth.role_mentee_desc': 'I am learning',
+    'auth.role_mentor': 'Mentor',
+    'auth.role_mentor_desc': 'I am guiding',
+
+    'auth.google_error': 'Error connecting with Google',
+    'auth.google_cancelled': 'Google sign-in cancelled',
+
+    'auth.feat1_title': 'Smart AI Matching',
+    'auth.feat1_desc': 'Find the perfect mentor with our algorithm.',
+    'auth.feat2_title': 'Personalized goals',
+    'auth.feat2_desc': 'Track your progress with every session.',
+    'auth.feat3_title': 'Secure platform',
+    'auth.feat3_desc': 'Your data and conversations are protected.',
+    'auth.feat4_title': 'Detailed reports',
+    'auth.feat4_desc': 'Download your session reports as PDF.',
+
     // Sessions
     'sessions.title': 'My sessions',
     'sessions.all': 'All',
@@ -392,14 +552,36 @@ const translations: Record<Language, Record<string, string>> = {
     'sessions.started': 'Session started',
     'sessions.cancel_confirm': 'Cancel this session?',
     'sessions.no_sessions': 'No sessions found',
-    
+    'sessions.subtitle': 'Mentoring space',
+    'sessions.page_description': 'View, confirm and schedule your mentoring exchanges.',
+    'sessions.upcoming': 'Upcoming',
+    'sessions.history': 'History',
+    'sessions.total': 'Total',
+    'sessions.new_session': 'New session',
+    'sessions.empty_title': 'No sessions yet',
+    'sessions.empty_mentee': 'Book your first mentor to get started.',
+    'sessions.empty_mentor': 'Wait for a mentee to contact you.',
+    'sessions.explore_mentors': 'Explore mentors',
+    'sessions.label_mentee': 'Mentee',
+    'sessions.label_mentor': 'Mentor',
+    'sessions.reviewed': 'Rated',
+    'sessions.visio': 'Video',
+    'sessions.rate': 'Rate',
+    'sessions.view_report': 'View Report',
+
     // Chat
     'chat.title': 'Messages',
     'chat.subtitle': 'Chat with your mentors and mentees',
     'chat.no_conversation': 'No conversation',
     'chat.no_conversation_desc': 'You have no active sessions yet.',
     'chat.start': 'Start the conversation!',
-    
+    'chat.search_placeholder': 'Search...',
+    'chat.no_conversations_desc_alt': 'Book a session to start chatting',
+    'chat.yesterday': 'Yesterday',
+    'chat.today': 'Today',
+    'chat.online': 'Online',
+    'chat.typing': 'typing...',
+
     // Reports
     'reports.title': 'Reports',
     'reports.subtitle': 'Generate and download your reports',
@@ -409,7 +591,13 @@ const translations: Record<Language, Record<string, string>> = {
     'reports.download': 'Download',
     'reports.generating': 'Generating report...',
     'reports.downloaded': 'Report downloaded!',
-    
+    'reports.search_placeholder': 'Search a report by subject or name...',
+    'reports.no_search_results': 'No results',
+    'reports.no_search_results_desc': 'No report matches your search.',
+    'reports.by_author': 'By {role} {name}',
+    'reports.no_summary': 'Download the PDF report to view the full summary of this session.',
+    'reports.view_full': 'View in full',
+
     // Matching
     'matching.title': 'AI Recommendations',
     'matching.subtitle': 'Mentors selected for you',
@@ -430,7 +618,7 @@ const translations: Record<Language, Record<string, string>> = {
     'matching.domain': 'Domain',
     'matching.reputation': 'Reputation',
     'matching.experience': 'Experience',
-    
+
     // Mentors
     'mentors.subtitle': 'Passionate experts ready to guide you',
     'mentors.search_placeholder': 'Search for a mentor...',
@@ -446,7 +634,23 @@ const translations: Record<Language, Record<string, string>> = {
     'mentors.book_session': 'Book a session',
     'mentors.about': 'About',
     'mentors.contact': 'Contact',
-    
+    'mentors.advanced_filters': 'Advanced filters',
+    'mentors.min_rating': 'Minimum rating',
+    'mentors.min_experience': 'Minimum experience',
+    'mentors.show_less': 'Show less',
+    'mentors.show_more_others': 'others',
+    'mentors.found_label': 'mentor(s) found',
+    'mentors.unavailable': 'Unavailable',
+    'mentors.not_found': 'Mentor not found',
+    'mentors.no_bio': 'No description available.',
+    'mentors.criteria_punctuality': 'Punctuality',
+    'mentors.criteria_pedagogy': 'Pedagogy',
+    'mentors.criteria_availability': 'Availability',
+    'mentors.reviews': 'Reviews',
+    'mentors.no_reviews': 'This mentor has not received any reviews yet.',
+    'mentors.mentee_only': 'You must be a mentee to book a session.',
+    'mentors.is_available': 'Available',
+
     // Disponibilités
     'disponibilites.title': 'My availability',
     'disponibilites.subtitle': 'Manage your schedule',
@@ -460,7 +664,7 @@ const translations: Record<Language, Record<string, string>> = {
     'disponibilites.add_disponibilite': 'Add availability',
     'disponibilites.no_disponibilites_desc': 'Add your schedule',
     'disponibilites.delete_confirm': 'Delete this availability?',
-    
+
     // Common
     'common.loading': 'Loading...',
     'common.error': 'Error',
@@ -476,6 +680,13 @@ const translations: Record<Language, Record<string, string>> = {
     'common.register': 'Register',
     'common.about': 'About',
     'common.contact': 'Contact',
+    'common.guest': 'Guest',
+    'common.role_mentor': 'Mentor',
+    'common.role_mentee': 'Mentee',
+    'common.open_menu': 'Open menu',
+    'common.close_menu': 'Close menu',
+    'common.expand_sidebar': 'Expand sidebar',
+    'common.collapse_sidebar': 'Collapse sidebar',
 
     'mentors.top_mentors': 'Our exceptional mentors',
     'mentors.top_mentors_desc': 'Passionate experts ready to guide you',
@@ -497,6 +708,10 @@ const translations: Record<Language, Record<string, string>> = {
     'chat.call_accepted': 'Call accepted!',
     'chat.call_rejected': 'Call rejected',
     'chat.call_ended': 'Call ended',
+    'chat.connection_error': 'Socket connection not established',
+    'chat.participant_not_found': 'Unable to find the other participant',
+    'chat.call_in_progress': 'Calling...',
+    'chat.enlarge': 'Enlarged view',
 
     'nav.about': 'About',
     'notif.title': 'Notifications',
@@ -545,8 +760,6 @@ const translations: Record<Language, Record<string, string>> = {
     'session.fields_required': 'Please fill in all fields',
     'session.loading_error': 'Error loading data',
     'notif.see_all': 'See all notifications',
-
-
   },
 };
 

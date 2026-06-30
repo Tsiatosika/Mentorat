@@ -607,7 +607,7 @@ export default function ChatPage() {
   return (
     <div
       ref={rootRef}
-      className="flex flex-col overflow-hidden rounded-2xl"
+      className="flex flex-col overflow-hidden rounded-2xl chat-detail-page"
       style={{
         backgroundColor: 'var(--bg-primary)',
         height: availableHeight ? `${availableHeight}px` : 'calc(100vh - 8rem)',
@@ -679,7 +679,7 @@ export default function ChatPage() {
 
             <button
               onClick={startCall}
-              className="flex-shrink-0 flex items-center justify-center w-10 h-10 sm:w-auto sm:px-4 sm:gap-2 rounded-full sm:rounded-xl transition-transform hover:scale-105 active:scale-95"
+              className="call-btn flex-shrink-0 flex items-center justify-center w-10 h-10 sm:w-auto sm:px-4 sm:gap-2 rounded-full sm:rounded-xl transition-transform hover:scale-105 active:scale-95"
               style={{ backgroundColor: 'var(--success)', color: '#fff' }}
               title={t('chat.video_call')}
             >
@@ -770,17 +770,15 @@ export default function ChatPage() {
                       )}
 
                       <div
-                        className="relative px-4 py-2.5"
+                        className="chat-bubble relative px-4 py-2.5"
                         style={{
                           background: isOwn
-                            ? 'linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 85%, #0a0a0a))'
+                            ? 'linear-gradient(135deg, var(--accent), var(--accent-hover))'
                             : 'var(--card-bg)',
                           color: isOwn ? '#06231D' : 'var(--text-primary)',
                           border: isOwn ? 'none' : '1px solid var(--border)',
                           borderRadius: radius,
-                          boxShadow: isOwn
-                            ? '0 1px 2px rgba(0,0,0,0.12)'
-                            : '0 1px 2px rgba(0,0,0,0.06)',
+                          boxShadow: 'var(--shadow-card)',
                         }}
                       >
                         {isFile ? (
@@ -794,7 +792,7 @@ export default function ChatPage() {
                             ) : (
                               <div
                                 className="flex items-center gap-2 p-2 rounded-lg transition-colors"
-                                style={{ backgroundColor: isOwn ? 'rgba(0,0,0,0.08)' : 'var(--bg-secondary)' }}
+                                style={{ backgroundColor: isOwn ? 'rgba(6,35,29,0.1)' : 'var(--bg-secondary)' }}
                               >
                                 <File className="w-5 h-5 flex-shrink-0" style={{ color: isOwn ? '#06231D' : 'var(--accent)' }} />
                                 <span className="text-sm break-words underline-offset-2 hover:underline">{message.contenu}</span>
@@ -891,7 +889,7 @@ export default function ChatPage() {
           <button
             onClick={() => scrollToBottom(true)}
             className="absolute bottom-5 right-6 sm:right-10 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 animate-pop-in z-10"
-            style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-secondary)', boxShadow: '0 4px 12px rgba(0,0,0,0.18)' }}
+            style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-secondary)', boxShadow: 'var(--shadow-card-hover)' }}
             title="Aller en bas"
           >
             <ChevronDown className="w-5 h-5" />
@@ -1018,7 +1016,7 @@ export default function ChatPage() {
               placeholder={t('chat.message_placeholder')}
               disabled={sending || uploading}
               rows={1}
-              className="flex-1 resize-none border rounded-2xl px-4 py-2.5 outline-none transition-all disabled:opacity-50 focus:ring-2"
+              className="chat-textarea flex-1 resize-none border rounded-2xl px-4 py-2.5 outline-none disabled:opacity-50 focus:ring-2"
               style={{
                 backgroundColor: 'var(--bg-secondary)',
                 borderColor: 'var(--border)',
@@ -1078,6 +1076,20 @@ export default function ChatPage() {
         .animate-fade-in {
           animation: fade-in 0.15s ease-out;
         }
+
+        .chat-bubble {
+          transition: box-shadow 0.2s ease;
+        }
+        .call-btn {
+          transition: transform 0.2s ease, filter 0.2s ease;
+        }
+        .call-btn:hover {
+          filter: brightness(1.05);
+        }
+        .chat-textarea {
+          transition: border-color 0.2s ease;
+        }
+
         @media (prefers-reduced-motion: reduce) {
           .animate-message-in, .animate-pop-in, .animate-fade-in {
             animation: none;

@@ -37,10 +37,13 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
     setMounted(true);
   }, []);
 
+  // Ferme le tiroir mobile automatiquement à chaque changement de page.
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
 
+  // Bloque le scroll de la page tant que le tiroir mobile est ouvert,
+  // et permet de le fermer avec la touche Échap.
   useEffect(() => {
     if (mobileOpen) {
       document.body.style.overflow = 'hidden';
@@ -148,8 +151,9 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
 
   return (
     <>
+      {/* Déclencheur hamburger (mobile uniquement) — se transforme en croix à l'ouverture */}
       <button
-        aria-label={mobileOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+        aria-label={mobileOpen ? t('common.close_menu') : t('common.open_menu')}
         aria-expanded={mobileOpen}
         onClick={() => setMobileOpen((v) => !v)}
         className={`sidebar-burger ${mobileOpen ? 'is-open' : ''}`}
@@ -162,6 +166,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
         <span className="sidebar-burger-line" />
       </button>
 
+      {/* Overlay (mobile uniquement) — cliquer dessus ferme le tiroir */}
       <div
         className={`sidebar-overlay ${mobileOpen ? 'is-visible' : ''}`}
         onClick={() => setMobileOpen(false)}
@@ -187,15 +192,16 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
           overflow: 'visible',
         }}
       >
-        {/* Bouton flottant de réduction (desktop) — version moderne : cercle plus grand, devient plein bleu en état réduit */}
+        {/* Bouton flottant de réduction (desktop uniquement) */}
         <button
           onClick={toggleSidebar}
-          aria-label={collapsed ? 'Agrandir la barre latérale' : 'Réduire la barre latérale'}
-          className={`sidebar-collapse-btn ${collapsed ? 'is-collapsed' : ''}`}
+          aria-label={collapsed ? t('common.expand_sidebar') : t('common.collapse_sidebar')}
+          className="sidebar-collapse-btn"
         >
-          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
         </button>
 
+        {/* Logo */}
         <div
           style={{
             padding: collapsed ? '20px 12px' : '20px 20px',
@@ -219,6 +225,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
           </Link>
         </div>
 
+        {/* Navigation */}
         <div style={{ padding: collapsed ? '16px 8px' : '20px 12px', flex: 1, overflowY: 'auto' }}>
           {!collapsed && (
             <div
@@ -231,6 +238,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
           {menuItems.map(renderItem)}
         </div>
 
+        {/* Outils */}
         <div style={{ padding: collapsed ? '8px 8px' : '12px 12px' }}>
           {!collapsed && toolItems.length > 0 && (
             <div
@@ -243,6 +251,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
           {toolItems.map(renderItem)}
         </div>
 
+        {/* User profile + logout */}
         <div style={{ padding: collapsed ? '12px 12px' : '16px 16px', borderTop: '1px solid var(--border)' }}>
           <div
             style={{
@@ -260,10 +269,10 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
               {!collapsed && (
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {user ? `${user.prenom} ${user.nom}` : 'Invité'}
+                    {user ? `${user.prenom} ${user.nom}` : t('common.guest')}
                   </div>
                   <div style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
-                    {user?.role === 'mentor' ? 'Mentor' : 'Mentoré(e)'}
+                    {user?.role === 'mentor' ? t('common.role_mentor') : t('common.role_mentee')}
                   </div>
                 </div>
               )}
@@ -311,6 +320,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
       </aside>
 
       <style jsx global>{`
+        /* ================= Hamburger (mobile) ================= */
         .sidebar-burger {
           display: none;
           position: fixed;
@@ -337,6 +347,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
           background-color: var(--text-primary);
           transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s, width 0.3s;
         }
+        /* Morphing trois traits -> croix */
         .sidebar-burger.is-open .sidebar-burger-line:nth-child(1) {
           transform: translateY(7px) rotate(45deg);
         }
@@ -348,6 +359,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
           transform: translateY(-7px) rotate(-45deg);
         }
 
+        /* ================= Overlay (mobile) ================= */
         .sidebar-overlay {
           position: fixed;
           inset: 0;
@@ -363,53 +375,35 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
           pointer-events: auto;
         }
 
-        /* ====== Bouton de réduction — version moderne ======
-           Couleurs forcées en dur (pas de var() de thème) pour garantir
-           un contraste visible que le thème soit clair ou sombre. */
+        /* ================= Bouton flottant de réduction (desktop) ================= */
+        /* Visible par défaut ; masqué uniquement sur mobile (voir media query plus bas). */
         .sidebar-collapse-btn {
           display: flex;
           position: absolute;
-          top: 80px;
-          right: -15px;
-          width: 30px;
-          height: 30px;
+          top: 28px;
+          right: -13px;
+          width: 26px;
+          height: 26px;
           border-radius: 9999px;
-          border: 1.5px solid #CBD5E1;
-          background-color: #FFFFFF;
-          color: #475569;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+          border: 1px solid var(--border);
+          background-color: var(--card-bg);
+          color: var(--text-secondary);
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          z-index: 200;
-          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease,
-            color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+          z-index: 50;
+          transition: transform 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, border-color 0.2s ease;
         }
         .sidebar-collapse-btn:hover {
-          transform: scale(1.15);
-          color: #fff;
-          background-color: #3B82F6;
-          border-color: #3B82F6;
-          box-shadow: 0 4px 16px rgba(59, 130, 246, 0.45);
-        }
-        .sidebar-collapse-btn:active {
-          transform: scale(0.95);
-        }
-        .sidebar-collapse-btn.is-collapsed {
-          background-color: #3B82F6;
-          border-color: #3B82F6;
-          color: #fff;
-          box-shadow: 0 3px 12px rgba(59, 130, 246, 0.45);
-        }
-        .sidebar-collapse-btn.is-collapsed:hover {
-          transform: scale(1.15);
-          color: #fff;
-          background-color: #2563EB;
-          border-color: #2563EB;
-          box-shadow: 0 5px 16px rgba(59, 130, 246, 0.55);
+          transform: scale(1.12);
+          color: var(--accent);
+          border-color: var(--accent);
+          box-shadow: 0 3px 10px rgba(0, 0, 0, 0.16);
         }
 
-        @media (max-width: 640px) {
+        /* ================= Breakpoints ================= */
+        @media (max-width: 768px) {
           .sidebar-burger {
             display: flex;
           }

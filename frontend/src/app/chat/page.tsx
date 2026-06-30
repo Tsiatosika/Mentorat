@@ -35,12 +35,6 @@ function getFullUrl(url?: string | null) {
   return `${BACKEND_URL}${url}`;
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  confirmee: 'Confirmée',
-  en_cours: 'En cours',
-  terminee: 'Terminée',
-};
-
 function Avatar({ name, photoUrl, size = 48 }: { name: string; photoUrl?: string | null; size?: number }) {
   const [failed, setFailed] = useState(false);
   const initials = name.split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -77,6 +71,12 @@ export default function ChatListPage() {
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
   const [search, setSearch] = useState('');
 
+  const STATUS_LABEL: Record<string, string> = {
+    confirmee: t('sessions.confirmed'),
+    en_cours: t('sessions.in_progress'),
+    terminee: t('sessions.completed'),
+  };
+
   useEffect(() => {
     if (!user) { router.push('/login'); return; }
     fetchSessions();
@@ -102,7 +102,7 @@ export default function ChatListPage() {
     const now = new Date();
     const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
     if (diffDays === 0) return d.toLocaleTimeString(language === 'fr' ? 'fr-FR' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
-    if (diffDays === 1) return 'Hier';
+    if (diffDays === 1) return t('chat.yesterday');
     if (diffDays < 7) return d.toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', { weekday: 'long' });
     return d.toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', { day: '2-digit', month: 'short' });
   };
@@ -116,7 +116,7 @@ export default function ChatListPage() {
     user?.role === 'mentor' ? s.mentore_photo_url : s.mentor_photo_url;
 
   const statusDot: Record<string, string> = {
-    confirmee: '#22C55E', en_cours: '#3B82F6', terminee: '#9CA3AF',
+    confirmee: 'var(--success)', en_cours: 'var(--info)', terminee: 'var(--text-tertiary)',
   };
 
   const filtered = sessions.filter(s =>
@@ -136,22 +136,22 @@ export default function ChatListPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-primary)' }}>
+    <div className="h-screen flex flex-col chat-list-page" style={{ backgroundColor: 'var(--bg-primary)' }}>
 
       {/* Header */}
-      <div className="px-5 pt-8 pb-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+      <div className="px-5 pt-8 pb-4 flex-shrink-0 fade-in-up" style={{ borderBottom: '1px solid var(--border)' }}>
         <h1 className="font-display text-2xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
-          Messages
+          {t('chat.title')}
         </h1>
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
           <input
             type="text"
-            placeholder="Rechercher..."
+            placeholder={t('chat.search_placeholder')}
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none transition-shadow focus:ring-2"
+            className="chat-search-input w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none focus:ring-2"
             style={{
               backgroundColor: 'var(--bg-secondary)',
               border: '1px solid var(--border)',
@@ -165,26 +165,26 @@ export default function ChatListPage() {
       {/* Liste */}
       <div className="flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center px-6">
-            <div className="w-20 h-20 rounded-full flex items-center justify-center mb-4"
+          <div className="flex flex-col items-center justify-center h-full text-center px-6 fade-in-up">
+            <div className="w-20 h-20 rounded-full flex items-center justify-center mb-4 empty-icon-pop"
               style={{ backgroundColor: 'var(--bg-secondary)' }}>
               <MessageCircle className="w-9 h-9" style={{ color: 'var(--text-tertiary)' }} strokeWidth={1.5} />
             </div>
-            <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Aucune conversation</p>
+            <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{t('chat.no_conversation')}</p>
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Réservez une session pour commencer à discuter
+              {t('chat.no_conversations_desc_alt')}
             </p>
             {user?.role === 'mentore' && (
               <Link href="/mentors"
                 className="mt-4 px-5 py-2.5 rounded-xl text-sm font-semibold transition-transform hover:scale-105 active:scale-95"
                 style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}>
-                Trouver un mentor
+                {t('dashboard.find_mentor')}
               </Link>
             )}
           </div>
         ) : (
           <div>
-            {filtered.map((session) => {
+            {filtered.map((session, idx) => {
               const other = getOtherPerson(session);
               const otherPhoto = getOtherPhoto(session);
               const unread = unreadMap[session.id] ?? 0;
@@ -192,15 +192,15 @@ export default function ChatListPage() {
               return (
                 <Link key={session.id} href={`/chat/${session.id}`}>
                   <div
-                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--bg-secondary)] active:scale-[0.99]"
-                    style={{ borderBottom: '1px solid var(--border)' }}
+                    className="chat-row-in flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--bg-secondary)] active:scale-[0.99]"
+                    style={{ borderBottom: '1px solid var(--border)', animationDelay: `${Math.min(idx, 14) * 0.04}s` }}
                   >
                     {/* Avatar */}
                     <div className="relative flex-shrink-0">
                       <Avatar name={other || '?'} photoUrl={otherPhoto} size={48} />
                       <span
                         className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2"
-                        style={{ backgroundColor: statusDot[session.statut] ?? '#9CA3AF', borderColor: 'var(--bg-primary)' }}
+                        style={{ backgroundColor: statusDot[session.statut] ?? 'var(--text-tertiary)', borderColor: 'var(--bg-primary)' }}
                       />
                     </div>
 
@@ -219,7 +219,7 @@ export default function ChatListPage() {
                           {session.sujet}
                         </p>
                         {unread > 0 ? (
-                          <span className="min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center text-white flex-shrink-0"
+                          <span className="min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center flex-shrink-0 unread-pulse"
                             style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}>
                             {unread > 9 ? '9+' : unread}
                           </span>
@@ -240,6 +240,55 @@ export default function ChatListPage() {
           </div>
         )}
       </div>
+
+      <style jsx global>{`
+        .fade-in-up {
+          opacity: 0;
+          transform: translateY(10px);
+          animation: chatListFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes chatListFadeUp {
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chat-row-in {
+          opacity: 0;
+          transform: translateX(-8px);
+          animation: chatRowIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes chatRowIn {
+          to { opacity: 1; transform: translateX(0); }
+        }
+
+        .empty-icon-pop {
+          opacity: 0;
+          transform: scale(0.8);
+          animation: chatIconPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s forwards;
+        }
+        @keyframes chatIconPop {
+          to { opacity: 1; transform: scale(1); }
+        }
+
+        .unread-pulse {
+          animation: unreadPulse 1.8s ease-in-out infinite;
+        }
+        @keyframes unreadPulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.12); }
+        }
+
+        .chat-search-input {
+          transition: border-color 0.2s ease;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .fade-in-up, .chat-row-in, .empty-icon-pop, .unread-pulse {
+            animation: none !important;
+            opacity: 1 !important;
+            transform: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

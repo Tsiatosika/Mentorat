@@ -132,7 +132,7 @@ export default function DashboardPage() {
       value: '0',
       icon: Mail,
       accent: 'info',
-      subtitle: 'Non lus',
+      subtitle: t('dashboard.unread'),
     },
   ];
 
@@ -157,11 +157,11 @@ export default function DashboardPage() {
   };
 
   const statusConfig: Record<string, { bg: string; fg: string; label: string }> = {
-    terminee: { bg: 'var(--success-soft)', fg: 'var(--success)', label: 'Terminée' },
-    en_cours: { bg: 'var(--info-soft)', fg: 'var(--info)', label: 'En cours' },
-    annulee: { bg: 'var(--danger-soft)', fg: 'var(--danger)', label: 'Annulée' },
-    confirmee: { bg: 'var(--warm-soft)', fg: 'var(--warm-text-on-soft)', label: 'Confirmée' },
-    en_attente: { bg: 'var(--bg-tertiary)', fg: 'var(--text-secondary)', label: 'En attente' },
+    terminee: { bg: 'var(--success-soft)', fg: 'var(--success)', label: t('sessions.completed') },
+    en_cours: { bg: 'var(--info-soft)', fg: 'var(--info)', label: t('sessions.in_progress') },
+    annulee: { bg: 'var(--danger-soft)', fg: 'var(--danger)', label: t('sessions.cancelled') },
+    confirmee: { bg: 'var(--warm-soft)', fg: 'var(--warm-text-on-soft)', label: t('sessions.confirmed') },
+    en_attente: { bg: 'var(--bg-tertiary)', fg: 'var(--text-secondary)', label: t('sessions.pending') },
   };
 
   return (
@@ -219,7 +219,7 @@ export default function DashboardPage() {
         {sessions.length > 0 && (
           <div className="mb-8 fade-in-up" style={{ animationDelay: '0.32s' }}>
             <h2 className="font-display text-xl font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-              Sessions récentes
+              {t('dashboard.recent_sessions')}
             </h2>
             <div className="space-y-3">
               {sessions.slice(0, 3).map((session, i) => {

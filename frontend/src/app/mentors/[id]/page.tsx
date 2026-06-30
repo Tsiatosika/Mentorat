@@ -106,7 +106,7 @@ export default function MentorDetailPage() {
         <div className="card p-8 max-w-md text-center">
           <div className="text-5xl mb-4">⚠️</div>
           <h2 className="font-display text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-            Mentor non trouvé
+            {t('mentors.not_found')}
           </h2>
           <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>{error || t('common.error')}</p>
           <button
@@ -122,28 +122,32 @@ export default function MentorDetailPage() {
   }
 
   const criteriaLabels = [
-    { key: 'note_ponctualite' as const, label: 'Ponctualité' },
-    { key: 'note_pedagogie' as const, label: 'Pédagogie' },
-    { key: 'note_disponibilite' as const, label: 'Disponibilité' },
+    { key: 'note_ponctualite' as const, label: t('mentors.criteria_punctuality') },
+    { key: 'note_pedagogie' as const, label: t('mentors.criteria_pedagogy') },
+    { key: 'note_disponibilite' as const, label: t('mentors.criteria_availability') },
   ];
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
+    <div className="min-h-screen mentor-detail-page" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div className="max-w-7xl mx-auto px-4 py-8">
         <button
           onClick={() => router.back()}
-          className="inline-flex items-center gap-2 mb-6 transition-colors"
+          className="back-btn inline-flex items-center gap-2 mb-6"
           style={{ color: 'var(--text-secondary)' }}
         >
           <ArrowLeft className="w-4 h-4" />
           {t('common.back')}
         </button>
 
-        <div className="card overflow-hidden">
+        <div className="card overflow-hidden fade-in-up">
           {/* Header profil */}
-          <div className="px-8 py-8" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
-            <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-              <Avatar photoUrl={mentor.photo_url} prenom={mentor.prenom} nom={mentor.nom} size={128} />              <div className="flex-1 text-center md:text-left">
+          <div className="px-8 py-8 relative overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+            <div className="detail-glow" style={{ backgroundColor: 'var(--accent-soft)' }} />
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-6 relative z-10">
+              <div className="avatar-pop">
+                <Avatar photoUrl={mentor.photo_url} prenom={mentor.prenom} nom={mentor.nom} size={128} />
+              </div>
+              <div className="flex-1 text-center md:text-left">
                 <h1 className="font-display text-3xl font-semibold" style={{ color: 'var(--text-primary)' }}>
                   {mentor.prenom} {mentor.nom}
                 </h1>
@@ -168,9 +172,9 @@ export default function MentorDetailPage() {
                   </div>
                   <div className="flex items-center gap-1">
                     {mentor.disponible ? (
-                      <><CheckCircle className="w-5 h-5" style={{ color: 'var(--success)' }} /><span style={{ color: 'var(--text-secondary)' }}>Disponible</span></>
+                      <><CheckCircle className="w-5 h-5" style={{ color: 'var(--success)' }} /><span style={{ color: 'var(--text-secondary)' }}>{t('mentors.is_available')}</span></>
                     ) : (
-                      <><XCircle className="w-5 h-5" style={{ color: 'var(--danger)' }} /><span style={{ color: 'var(--text-secondary)' }}>Indisponible</span></>
+                      <><XCircle className="w-5 h-5" style={{ color: 'var(--danger)' }} /><span style={{ color: 'var(--text-secondary)' }}>{t('mentors.unavailable')}</span></>
                     )}
                   </div>
                 </div>
@@ -181,26 +185,26 @@ export default function MentorDetailPage() {
           <div className="p-8">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-6">
-                <div>
+                <div className="reveal-block" style={{ animationDelay: '0.05s' }}>
                   <h2 className="font-display text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
-                    À propos
+                    {t('mentors.about')}
                   </h2>
                   <p style={{ color: 'var(--text-secondary)' }} className="leading-relaxed">
-                    {mentor.bio || 'Aucune description disponible.'}
+                    {mentor.bio || t('mentors.no_bio')}
                   </p>
                 </div>
 
                 {mentor.competences && mentor.competences.length > 0 && (
-                  <div>
+                  <div className="reveal-block" style={{ animationDelay: '0.1s' }}>
                     <h2 className="font-display text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
-                      Compétences
+                      {t('matching.competences')}
                     </h2>
                     <div className="flex flex-wrap gap-2">
                       {mentor.competences.map((comp: string, index: number) => (
                         <span
                           key={index}
-                          className="px-3 py-1 rounded-full text-sm"
-                          style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)' }}
+                          className="competence-chip px-3 py-1 rounded-full text-sm"
+                          style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)', animationDelay: `${0.12 + index * 0.03}s` }}
                         >
                           {comp}
                         </span>
@@ -210,25 +214,25 @@ export default function MentorDetailPage() {
                 )}
 
                 {/* Section Avis */}
-                <div>
+                <div className="reveal-block" style={{ animationDelay: '0.15s' }}>
                   <h2
                     className="font-display text-xl font-semibold mb-3 flex items-center gap-2"
                     style={{ color: 'var(--text-primary)' }}
                   >
                     <MessageSquareQuote className="w-5 h-5" style={{ color: 'var(--accent)' }} />
-                    Avis ({avis.length})
+                    {t('mentors.reviews')} ({avis.length})
                   </h2>
 
                   {avis.length === 0 ? (
                     <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                      Ce mentor n'a pas encore reçu d'avis.
+                      {t('mentors.no_reviews')}
                     </p>
                   ) : (
                     <>
                       {/* Moyennes par critère */}
                       <div className="grid grid-cols-3 gap-3 mb-5">
-                        {criteriaLabels.map((c) => (
-                          <div key={c.key} className="rounded-lg p-3 text-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                        {criteriaLabels.map((c, ci) => (
+                          <div key={c.key} className="criterion-chip rounded-lg p-3 text-center" style={{ backgroundColor: 'var(--bg-secondary)', animationDelay: `${0.18 + ci * 0.05}s` }}>
                             <div className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>{c.label}</div>
                             <div className="font-mono-data font-semibold flex items-center justify-center gap-1" style={{ color: 'var(--text-primary)' }}>
                               <Star className="w-3.5 h-3.5" style={{ color: 'var(--warm)', fill: 'var(--warm)' }} />
@@ -240,8 +244,8 @@ export default function MentorDetailPage() {
 
                       {/* Liste des avis */}
                       <div className="space-y-4">
-                        {avis.map((a) => (
-                          <div key={a.id} className="card bookmark p-4">
+                        {avis.map((a, ai) => (
+                          <div key={a.id} className="card bookmark p-4 avis-card" style={{ animationDelay: `${0.2 + ai * 0.05}s` }}>
                             <div className="flex justify-between items-start mb-2">
                               <div className="flex items-center gap-2">
                                 <div
@@ -275,7 +279,7 @@ export default function MentorDetailPage() {
                 </div>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-6 reveal-block" style={{ animationDelay: '0.1s' }}>
                 <div className="rounded-xl p-6" style={{ backgroundColor: 'var(--bg-secondary)' }}>
                   <h2 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
                     📅 {t('mentors.book_session')}
@@ -285,13 +289,13 @@ export default function MentorDetailPage() {
                       <QuickBooking mentorId={mentor.id} mentorName={`${mentor.prenom} ${mentor.nom}`} />
                     ) : (
                       <p className="text-sm text-center" style={{ color: 'var(--text-secondary)' }}>
-                        Vous devez être un mentoré pour réserver.
+                        {t('mentors.mentee_only')}
                       </p>
                     )
                   ) : (
                     <Link
                       href={`/login?redirect=/mentors/${mentor.id}`}
-                      className="block w-full text-center px-4 py-3 rounded-lg font-medium transition-colors"
+                      className="sidebar-cta block w-full text-center px-4 py-3 rounded-lg font-medium"
                       style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}
                     >
                       {t('common.login')}
@@ -316,6 +320,90 @@ export default function MentorDetailPage() {
           </div>
         </div>
       </div>
+
+      <style jsx global>{`
+        .back-btn {
+          transition: transform 0.15s ease, color 0.15s ease;
+        }
+        .back-btn:hover {
+          transform: translateX(-3px);
+          color: var(--accent);
+        }
+
+        .fade-in-up {
+          opacity: 0;
+          transform: translateY(14px);
+          animation: detailFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes detailFadeUp {
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .detail-glow {
+          position: absolute;
+          top: -40%;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 480px;
+          height: 280px;
+          border-radius: 9999px;
+          filter: blur(70px);
+          opacity: 0.5;
+          pointer-events: none;
+          animation: detailGlowPulse 6s ease-in-out infinite;
+        }
+        @keyframes detailGlowPulse {
+          0%, 100% { opacity: 0.35; }
+          50% { opacity: 0.55; }
+        }
+
+        .avatar-pop {
+          opacity: 0;
+          transform: scale(0.85);
+          animation: avatarPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.05s forwards;
+        }
+        @keyframes avatarPop {
+          to { opacity: 1; transform: scale(1); }
+        }
+
+        .reveal-block {
+          opacity: 0;
+          transform: translateY(12px);
+          animation: detailFadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .competence-chip {
+          opacity: 0;
+          transform: scale(0.9);
+          animation: chipPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        @keyframes chipPop {
+          to { opacity: 1; transform: scale(1); }
+        }
+
+        .criterion-chip, .avis-card {
+          opacity: 0;
+          transform: translateY(10px);
+          animation: detailFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .sidebar-cta {
+          transition: transform 0.18s ease, filter 0.18s ease;
+        }
+        .sidebar-cta:hover {
+          transform: translateY(-2px);
+          filter: brightness(1.05);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .fade-in-up, .detail-glow, .avatar-pop, .reveal-block,
+          .competence-chip, .criterion-chip, .avis-card {
+            animation: none !important;
+            opacity: 1 !important;
+            transform: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

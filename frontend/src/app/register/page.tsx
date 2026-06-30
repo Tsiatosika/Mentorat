@@ -7,6 +7,7 @@ import { Eye, EyeOff, UserPlus, Sparkles, Shield, Target, FileText } from 'lucid
 import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Logo } from '@/components/ui/Logo';
 import toast from 'react-hot-toast';
 
@@ -14,6 +15,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const { register, loginWithGoogle, user } = useAuth();
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -42,12 +44,12 @@ export default function RegisterPage() {
     e.preventDefault();
 
     if (!formData.nom || !formData.prenom || !formData.email || !formData.mot_de_passe) {
-      toast.error('Veuillez remplir tous les champs');
+      toast.error(t('auth.fields_required'));
       return;
     }
 
     if (!passwordStrength.length || !passwordStrength.uppercase || !passwordStrength.number) {
-      toast.error('Le mot de passe doit respecter les critères de sécurité');
+      toast.error(t('auth.password_requirements'));
       return;
     }
 
@@ -60,10 +62,10 @@ export default function RegisterPage() {
         mot_de_passe: formData.mot_de_passe,
         role: formData.role
       });
-      toast.success('Inscription réussie !');
+      toast.success(t('auth.register_success'));
       router.push('/dashboard');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erreur lors de l\'inscription');
+      toast.error(error.response?.data?.message || t('auth.register_error'));
     } finally {
       setLoading(false);
     }
@@ -71,7 +73,7 @@ export default function RegisterPage() {
 
   const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
     if (!credentialResponse.credential) {
-      toast.error('Erreur lors de la connexion Google');
+      toast.error(t('auth.google_error'));
       return;
     }
 
@@ -91,14 +93,14 @@ export default function RegisterPage() {
   };
 
   const handleGoogleError = () => {
-    toast.error('Connexion Google annulée ou échouée');
+    toast.error(t('auth.google_cancelled'));
   };
 
   const features = [
-    { icon: Sparkles, title: 'Matching IA intelligent', desc: 'Trouvez le mentor idéal selon vos objectifs' },
-    { icon: Target, title: 'Recommandations personnalisées', desc: 'Suggestions basées sur vos compétences' },
-    { icon: Shield, title: 'Suivi de progression', desc: 'Mesurez votre évolution à chaque session' },
-    { icon: FileText, title: 'Rapports PDF automatiques', desc: 'Téléchargez vos rapports de progression' },
+    { icon: Sparkles, title: t('auth.feat1_title'), desc: t('auth.feat1_desc') },
+    { icon: Target, title: t('auth.feat2_title'), desc: t('auth.feat2_desc') },
+    { icon: Shield, title: t('auth.feat3_title'), desc: t('auth.feat3_desc') },
+    { icon: FileText, title: t('auth.feat4_title'), desc: t('auth.feat4_desc') },
   ];
 
   return (
@@ -113,11 +115,10 @@ export default function RegisterPage() {
                 className="font-display text-4xl md:text-5xl font-semibold mt-6 mb-4"
                 style={{ color: 'var(--text-primary)' }}
               >
-                Rejoignez la communauté de mentorat intelligente
+                {t('auth.register_hero_title')}
               </h1>
               <p className="text-lg" style={{ color: 'var(--text-secondary)' }}>
-                Créez votre compte gratuitement et connectez-vous avec des experts de votre domaine
-                grâce à notre algorithme de matching par Intelligence Artificielle.
+                {t('auth.register_hero_desc')}
               </p>
             </div>
 
@@ -148,9 +149,9 @@ export default function RegisterPage() {
           <div className="card order-1 md:order-2 p-8 animate-in" style={{ animationDelay: '0.1s' }}>
             <div className="text-center mb-8">
               <h2 className="font-display text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>
-                Inscription
+                {t('auth.register_title')}
               </h2>
-              <p style={{ color: 'var(--text-secondary)' }}>Créez votre compte gratuitement</p>
+              <p style={{ color: 'var(--text-secondary)' }}>{t('auth.register_subtitle')}</p>
             </div>
 
             <div className="mb-6 flex justify-center">
@@ -178,7 +179,7 @@ export default function RegisterPage() {
               </div>
               <div className="relative flex justify-center text-sm">
                 <span className="px-2" style={{ backgroundColor: 'var(--card-bg)', color: 'var(--text-tertiary)' }}>
-                  ou
+                  {t('auth.or')}
                 </span>
               </div>
             </div>
@@ -187,7 +188,7 @@ export default function RegisterPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
-                    Nom
+                    {t('auth.lastname')}
                   </label>
                   <input
                     type="text"
@@ -201,7 +202,7 @@ export default function RegisterPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
-                    Prénom
+                    {t('auth.firstname')}
                   </label>
                   <input
                     type="text"
@@ -217,7 +218,7 @@ export default function RegisterPage() {
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
-                  Email
+                  {t('auth.email')}
                 </label>
                 <input
                   type="email"
@@ -232,7 +233,7 @@ export default function RegisterPage() {
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
-                  Mot de passe
+                  {t('auth.password')}
                 </label>
                 <div className="relative">
                   <input
@@ -261,20 +262,20 @@ export default function RegisterPage() {
                 </div>
                 <div className="mt-2 space-y-1">
                   <p className="text-xs flex items-center gap-1" style={{ color: passwordStrength.length ? 'var(--accent)' : 'var(--text-tertiary)' }}>
-                    {passwordStrength.length ? '✓' : '○'} 8 caractères minimum
+                    {passwordStrength.length ? '✓' : '○'} {t('auth.password_min_length')}
                   </p>
                   <p className="text-xs flex items-center gap-1" style={{ color: passwordStrength.uppercase ? 'var(--accent)' : 'var(--text-tertiary)' }}>
-                    {passwordStrength.uppercase ? '✓' : '○'} 1 lettre majuscule
+                    {passwordStrength.uppercase ? '✓' : '○'} {t('auth.password_uppercase')}
                   </p>
                   <p className="text-xs flex items-center gap-1" style={{ color: passwordStrength.number ? 'var(--accent)' : 'var(--text-tertiary)' }}>
-                    {passwordStrength.number ? '✓' : '○'} 1 chiffre
+                    {passwordStrength.number ? '✓' : '○'} {t('auth.password_number')}
                   </p>
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                  Je suis
+                  {t('auth.i_am')}
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -289,8 +290,8 @@ export default function RegisterPage() {
                   >
                     <div className="flex flex-col items-center">
                       <span className="text-xl mb-1">👨‍🎓</span>
-                      <span className="text-sm font-medium">Mentoré(e)</span>
-                      <span className="text-xs">Je cherche un mentor</span>
+                      <span className="text-sm font-medium">{t('auth.role_mentee')}</span>
+                      <span className="text-xs">{t('auth.role_mentee_desc')}</span>
                     </div>
                   </button>
                   <button
@@ -305,8 +306,8 @@ export default function RegisterPage() {
                   >
                     <div className="flex flex-col items-center">
                       <span className="text-xl mb-1">👨‍🏫</span>
-                      <span className="text-sm font-medium">Mentor</span>
-                      <span className="text-xs">Je partage mes compétences</span>
+                      <span className="text-sm font-medium">{t('auth.role_mentor')}</span>
+                      <span className="text-xs">{t('auth.role_mentor_desc')}</span>
                     </div>
                   </button>
                 </div>
@@ -323,7 +324,7 @@ export default function RegisterPage() {
                 ) : (
                   <>
                     <UserPlus className="w-5 h-5" />
-                    S'inscrire
+                    {t('auth.register_button')}
                   </>
                 )}
               </button>
@@ -331,9 +332,9 @@ export default function RegisterPage() {
 
             <div className="mt-6 text-center pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
               <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                Déjà un compte ?{' '}
+                {t('auth.have_account')}{' '}
                 <Link href="/login" className="font-medium hover:underline" style={{ color: 'var(--accent)' }}>
-                  Connectez-vous
+                  {t('auth.login_link')}
                 </Link>
               </p>
             </div>

@@ -7,6 +7,7 @@ import { Mail, Lock, Eye, EyeOff, LogIn, Sparkles, Target, Shield, FileText, Sun
 import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Logo } from '@/components/ui/Logo';
 import toast from 'react-hot-toast';
 
@@ -15,6 +16,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const { login, loginWithGoogle, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { t } = useLanguage();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -37,7 +39,7 @@ function LoginForm() {
     e.preventDefault();
 
     if (!formData.email || !formData.mot_de_passe) {
-      toast.error('Veuillez remplir tous les champs');
+      toast.error(t('auth.fields_required'));
       return;
     }
 
@@ -47,7 +49,7 @@ function LoginForm() {
       sessionStorage.removeItem('redirectAfterLogin');
       router.push(redirectTo);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Email ou mot de passe incorrect');
+      toast.error(error.response?.data?.message || t('auth.login_error'));
     } finally {
       setLoading(false);
     }
@@ -55,7 +57,7 @@ function LoginForm() {
 
   const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
     if (!credentialResponse.credential) {
-      toast.error('Erreur lors de la connexion Google');
+      toast.error(t('auth.google_error'));
       return;
     }
 
@@ -77,29 +79,18 @@ function LoginForm() {
   };
 
   const handleGoogleError = () => {
-    toast.error('Connexion Google annulée ou échouée');
+    toast.error(t('auth.google_cancelled'));
   };
 
   const features = [
-    { icon: Sparkles, title: 'Matching IA intelligent', desc: 'Trouvez le mentor idéal selon vos objectifs' },
-    { icon: Target, title: 'Recommandations personnalisées', desc: 'Suggestions basées sur vos compétences' },
-    { icon: Shield, title: 'Suivi de progression', desc: 'Mesurez votre évolution à chaque session' },
-    { icon: FileText, title: 'Rapports PDF automatiques', desc: 'Téléchargez vos rapports de progression' },
+    { icon: Sparkles, title: t('auth.feat1_title'), desc: t('auth.feat1_desc') },
+    { icon: Target, title: t('auth.feat2_title'), desc: t('auth.feat2_desc') },
+    { icon: Shield, title: t('auth.feat3_title'), desc: t('auth.feat3_desc') },
+    { icon: FileText, title: t('auth.feat4_title'), desc: t('auth.feat4_desc') },
   ];
 
   return (
     <div className="min-h-screen relative" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      <button
-        onClick={toggleTheme}
-        className="fixed top-4 right-4 p-2 rounded-lg transition-colors z-50"
-        style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}
-      >
-        {theme === 'dark' ? (
-          <Sun className="w-5 h-5" style={{ color: 'var(--warm)' }} />
-        ) : (
-          <Moon className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
-        )}
-      </button>
 
       <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
@@ -111,11 +102,10 @@ function LoginForm() {
                 className="font-display text-4xl md:text-5xl font-semibold mt-6 mb-4"
                 style={{ color: 'var(--text-primary)' }}
               >
-                Reconnectez-vous à votre communauté de mentorat
+                {t('auth.login_hero_title')}
               </h1>
               <p className="text-lg" style={{ color: 'var(--text-secondary)' }}>
-                Accédez à votre espace personnel et poursuivez votre progression
-                grâce à notre algorithme de matching par Intelligence Artificielle.
+                {t('auth.login_hero_desc')}
               </p>
             </div>
 
@@ -150,9 +140,9 @@ function LoginForm() {
           >
             <div className="text-center mb-8">
               <h2 className="font-display text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>
-                Connexion
+                {t('auth.login_title')}
               </h2>
-              <p style={{ color: 'var(--text-secondary)' }}>Connectez-vous à votre compte</p>
+              <p style={{ color: 'var(--text-secondary)' }}>{t('auth.login_subtitle')}</p>
             </div>
 
             <div className="mb-6 flex justify-center">
@@ -180,7 +170,7 @@ function LoginForm() {
               </div>
               <div className="relative flex justify-center text-sm">
                 <span className="px-2" style={{ backgroundColor: 'var(--card-bg)', color: 'var(--text-tertiary)' }}>
-                  ou
+                  {t('auth.or')}
                 </span>
               </div>
             </div>
@@ -188,7 +178,7 @@ function LoginForm() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
-                  Email
+                  {t('auth.email')}
                 </label>
                 <div className="relative">
                   <Mail
@@ -213,7 +203,7 @@ function LoginForm() {
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
-                  Mot de passe
+                  {t('auth.password')}
                 </label>
                 <div className="relative">
                   <Lock
@@ -251,7 +241,7 @@ function LoginForm() {
                     className="text-xs font-medium hover:underline"
                     style={{ color: 'var(--accent)' }}
                   >
-                    Mot de passe oublié ?
+                    {t('auth.forgot_password')}
                   </Link>
                 </div>
               </div>
@@ -269,7 +259,7 @@ function LoginForm() {
                 ) : (
                   <>
                     <LogIn className="w-5 h-5" />
-                    Se connecter
+                    {t('auth.login_button')}
                   </>
                 )}
               </button>
@@ -277,9 +267,9 @@ function LoginForm() {
 
             <div className="mt-6 text-center pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
               <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                Pas encore de compte ?{' '}
+                {t('auth.no_account')}{' '}
                 <Link href="/register" className="font-medium hover:underline" style={{ color: 'var(--accent)' }}>
-                  Inscrivez-vous gratuitement
+                  {t('auth.register_link')}
                 </Link>
               </p>
             </div>
