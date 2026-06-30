@@ -168,7 +168,6 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
       >
         {/* En-tête avec logo et bouton toggle */}
         <div className="sidebar-header">
-          {/* Bouton de réduction/agrandissement - BIEN VISIBLE */}
           <button
             onClick={toggleSidebar}
             aria-label={collapsed ? 'Agrandir la barre latérale' : 'Réduire la barre latérale'}

@@ -93,15 +93,27 @@ export const matchingAPI = {
     api.post('/matching/recalculate-all', { mentore_ids: mentoreIds || null }),
 };
 
+// ═══════════════════════════════════════════
+// RAPPORT API - CORRIGÉ
+// ═══════════════════════════════════════════
 export const rapportAPI = {
-  generateSession:     (sessionId: string) =>
+  // POST /api/rapports/session/:session_id/generate
+  generateSession: (sessionId: string) =>
     api.post(`/rapports/session/${sessionId}/generate`),
-  downloadSession:     (sessionId: string) =>
-    api.get(`/rapports/session/${sessionId}/download`, { responseType: 'blob' }),
-  generateProgression: () =>
-    api.post('/rapports/progression/generate'),
-  getBySession:        (sessionId: string) =>
+
+  // GET /api/rapports/session/:session_id/download
+  downloadRapport: (sessionId: string) =>
+    api.get(`/rapports/session/${sessionId}/download`, { 
+      responseType: 'blob' 
+    }),
+
+  // GET /api/rapports/session/:session_id
+  getSessionRapports: (sessionId: string) =>
     api.get(`/rapports/session/${sessionId}`),
+
+  // POST /api/rapports/progression/generate
+  generateProgress: () =>
+    api.post('/rapports/progression/generate'),
 };
 
 export const publicAPI = {
@@ -116,7 +128,6 @@ export const avisAPI = {
   getBySession: (sessionId: string) => api.get(`/avis/session/${sessionId}`),
   getMesSessionsNotees: () => api.get('/avis/mentore/me'),
 };
-
 
 export const uploadAPI = {
   photo: (file: File) => {

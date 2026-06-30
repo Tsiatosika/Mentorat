@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Calendar, Clock, Video, CheckCircle, XCircle,
-  MessageCircle, FileText, Play, Star, ChevronRight,
-  Sparkles, AlertCircle, Plus
+  MessageCircle, FileText, Play, Star, Plus,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -38,13 +37,13 @@ export default function SessionsPage() {
 
   const locale = language === 'fr' ? 'fr-FR' : 'en-GB';
 
-  // ── Config statuts — traduite, basée sur les variables de thème (clair/sombre) ──
-  const STATUS = {
-    en_attente: { label: t('sessions.pending'),     color: 'var(--warm)',    bg: 'var(--warm-soft)',    border: 'var(--border-strong)', icon: Clock       },
-    confirmee:  { label: t('sessions.confirmed'),   color: 'var(--info)',    bg: 'var(--info-soft)',    border: 'var(--border-strong)', icon: CheckCircle },
-    en_cours:   { label: t('sessions.in_progress'), color: 'var(--success)', bg: 'var(--success-soft)', border: 'var(--border-strong)', icon: Play        },
-    terminee:   { label: t('sessions.completed'),   color: 'var(--success)', bg: 'var(--success-soft)', border: 'var(--border)',        icon: CheckCircle },
-    annulee:    { label: t('sessions.cancelled'),   color: 'var(--danger)',  bg: 'var(--danger-soft)',  border: 'var(--border)',        icon: XCircle     },
+  // ── Config statuts ──
+  const STATUS: Record<string, { label: string; color: string; bg: string; border: string; icon: any }> = {
+    en_attente: { label: t('sessions.pending'),     color: 'var(--warm)',    bg: 'var(--warm-soft)',    border: 'var(--border)', icon: Clock       },
+    confirmee:  { label: t('sessions.confirmed'),   color: 'var(--info)',    bg: 'var(--info-soft)',    border: 'var(--border)', icon: CheckCircle },
+    en_cours:   { label: t('sessions.in_progress'), color: 'var(--success)', bg: 'var(--success-soft)', border: 'var(--border)', icon: Play        },
+    terminee:   { label: t('sessions.completed'),   color: 'var(--success)', bg: 'var(--success-soft)', border: 'var(--border)', icon: CheckCircle },
+    annulee:    { label: t('sessions.cancelled'),   color: 'var(--danger)',  bg: 'var(--danger-soft)',  border: 'var(--border)', icon: XCircle     },
   };
 
   const FILTERS = [
@@ -79,11 +78,13 @@ export default function SessionsPage() {
     try { await sessionAPI.confirm(id); toast.success(t('sessions.confirmed')); load(); }
     catch { toast.error(t('common.error')); }
   };
+
   const handleCancel = async (id: string) => {
     if (!confirm(t('sessions.cancel_confirm'))) return;
     try { await sessionAPI.cancel(id); toast.success(t('sessions.cancelled')); load(); }
     catch { toast.error(t('common.error')); }
   };
+
   const handleStart = async (id: string) => {
     try { await sessionAPI.start(id); toast.success(t('sessions.started')); load(); }
     catch { toast.error(t('common.error')); }
@@ -93,7 +94,6 @@ export default function SessionsPage() {
     ['tous', ...Object.keys(STATUS)].map(k => [k, k === 'tous' ? sessions.length : sessions.filter(s => s.statut === k).length])
   );
 
-  // Remapping 'confirmee' → 'upcoming' dans les filtres
   const getFilteredSessions = () => {
     if (filter === 'tous') return sessions;
     if (filter === 'confirmee') return sessions.filter(s => s.statut === 'confirmee' || s.statut === 'en_cours');
@@ -126,11 +126,10 @@ export default function SessionsPage() {
   return (
     <div className="sessions-page min-h-screen relative overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)' }}>
 
-      {/* ── Fond animé discret (s'adapte au thème via les variables) ── */}
+      {/* ── Fond animé ── */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="sessions-orb sessions-orb-1" style={{ backgroundColor: 'var(--accent-soft)' }} />
         <div className="sessions-orb sessions-orb-2" style={{ backgroundColor: 'var(--warm-soft)' }} />
-        {/* Particules */}
         {mounted && [...Array(10)].map((_, i) => (
           <div key={i} className="absolute rounded-full sessions-particle"
             style={{
@@ -165,7 +164,7 @@ export default function SessionsPage() {
             {user?.role === 'mentore' && (
               <Link href="/mentors"
                 className="sessions-btn-primary flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm"
-                style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}>
+                style={{ backgroundColor: 'var(--accent)', color: '#FFFFFF' }}>
                 <Plus className="w-4 h-4" /> {t('sessions.new_session')}
               </Link>
             )}
@@ -198,13 +197,13 @@ export default function SessionsPage() {
                 <button key={f.key} onClick={() => setFilter(f.key)}
                   className="px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200"
                   style={active
-                    ? { backgroundColor: 'var(--accent)', color: '#06231D' }
+                    ? { backgroundColor: 'var(--accent)', color: '#FFFFFF' }
                     : { color: 'var(--text-secondary)', backgroundColor: 'transparent' }
                   }>
                   {f.label}
                   {cnt > 0 && (
                     <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold"
-                      style={{ backgroundColor: active ? 'rgba(6,35,29,0.18)' : 'var(--accent-soft)', color: active ? '#06231D' : 'var(--accent-text-on-soft)' }}>
+                      style={{ backgroundColor: active ? 'rgba(255,255,255,0.2)' : 'var(--accent-soft)', color: active ? '#FFFFFF' : 'var(--accent-text-on-soft)' }}>
                       {cnt}
                     </span>
                   )}
@@ -228,7 +227,7 @@ export default function SessionsPage() {
             {user?.role === 'mentore' && (
               <Link href="/mentors"
                 className="px-5 py-2.5 rounded-xl font-semibold text-sm"
-                style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}>
+                style={{ backgroundColor: 'var(--accent)', color: '#FFFFFF' }}>
                 {t('sessions.explore_mentors')}
               </Link>
             )}
@@ -251,7 +250,7 @@ export default function SessionsPage() {
                   className="session-card-in group relative rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5"
                   style={{
                     backgroundColor: 'var(--card-bg)',
-                    border: `1px solid ${st.border}`,
+                    border: '1px solid var(--border)',
                     boxShadow: 'var(--shadow-card)',
                     animationDelay: `${idx * 60}ms`,
                   }}
@@ -270,7 +269,7 @@ export default function SessionsPage() {
 
                     {/* Icône calendrier */}
                     <div className="rounded-xl p-3 flex-shrink-0"
-                      style={{ backgroundColor: st.bg, border: `1px solid ${st.border}` }}>
+                      style={{ backgroundColor: st.bg, border: '1px solid var(--border)' }}>
                       <Calendar className="w-5 h-5" style={{ color: st.color }} />
                     </div>
 
@@ -314,7 +313,7 @@ export default function SessionsPage() {
 
                       {/* Badge statut */}
                       <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-                        style={{ backgroundColor: st.bg, border: `1px solid ${st.border}`, color: st.color }}>
+                        style={{ backgroundColor: st.bg, border: '1px solid var(--border)', color: st.color }}>
                         <Icon className="w-3.5 h-3.5" />
                         <span className="text-xs font-semibold">{st.label}</span>
                       </div>
@@ -362,14 +361,22 @@ export default function SessionsPage() {
                             <Star className="w-3.5 h-3.5" /> {t('sessions.rate')}
                           </button>
                         )}
-                        {/* Rapport */}
+
+                        {/* ─── RAPPORT ─── */}
                         {s.statut === 'terminee' && (
-                          <Link href={`/reports/${s.id}`}
+                          <Link 
+                            href={`/reports?sessionId=${s.id}`}
                             className="session-action-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold"
-                            style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)', border: '1px solid var(--border)' }}>
+                            style={{ 
+                              backgroundColor: 'var(--accent-soft)', 
+                              color: 'var(--accent-text-on-soft)', 
+                              border: '1px solid var(--border)' 
+                            }}
+                          >
                             <FileText className="w-3.5 h-3.5" /> {t('sessions.view_report')}
                           </Link>
                         )}
+
                         {/* Chat */}
                         <Link href={`/chat/${s.id}`}
                           className="session-action-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold"
@@ -433,7 +440,6 @@ export default function SessionsPage() {
           to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Léger dégradé de texte qui glisse sur le titre, pour une touche vivante sans bouger la mise en page */
         .shimmer-text {
           background-image: linear-gradient(100deg, var(--text-primary) 40%, var(--accent) 50%, var(--text-primary) 60%);
           background-size: 250% 100%;
