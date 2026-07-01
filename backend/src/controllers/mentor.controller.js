@@ -16,16 +16,34 @@ const getProfile = async (req, res, next) => {
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Profil mentor non trouvé'
+        message: 'Profil mentor non trouve'
       });
+    }
+
+    const profile = result.rows[0];
+
+    // Récupérer les compétences du mentor
+    try {
+      const competencesResult = await query(
+        `SELECT c.id, c.nom, mc.niveau
+         FROM mentor_competences mc
+         JOIN competences c ON c.id = mc.competence_id
+         WHERE mc.mentor_id = $1
+         ORDER BY c.nom`,
+        [profile.id]
+      );
+      profile.competences = competencesResult.rows;
+    } catch (err) {
+      console.error('Erreur recuperation competences:', err);
+      profile.competences = [];
     }
 
     res.json({
       success: true,
-      profile: result.rows[0]
+      profile: profile
     });
   } catch (error) {
-    console.error('❌ Erreur getProfile:', error);
+    console.error('Erreur getProfile:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors du chargement du profil',
@@ -56,39 +74,36 @@ const updateProfile = async (req, res, next) => {
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Profil mentor non trouvé'
+        message: 'Profil mentor non trouve'
       });
     }
 
     res.json({
       success: true,
-      message: 'Profil mis à jour avec succès',
+      message: 'Profil mis a jour avec succes',
       profile: result.rows[0]
     });
   } catch (error) {
-    console.error('❌ Erreur updateProfile:', error);
+    console.error('Erreur updateProfile:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur lors de la mise à jour',
+      message: 'Erreur lors de la mise a jour',
       error: error.message
     });
   }
 };
 
 // ============================================
-// AJOUTER UNE COMPÉTENCE
+// AJOUTER UNE COMPÉTENCE (version simplifiée et robuste)
 // ============================================
 const addCompetence = async (req, res, next) => {
-  const { competence_id, niveau } = req.body;
-
-  if (!competence_id) {
-    return res.status(400).json({
-      success: false,
-      message: 'competence_id est requis'
-    });
-  }
-
   try {
+    const { competence_id, competence_nom, niveau } = req.body;
+
+    console.log('addCompetence - req.body:', JSON.stringify(req.body));
+    console.log('addCompetence - req.user:', req.user?.id);
+
+    // Récupérer le mentor_id
     const mentorResult = await query(
       'SELECT id FROM profils_mentor WHERE utilisateur_id = $1',
       [req.user.id]
@@ -97,32 +112,90 @@ const addCompetence = async (req, res, next) => {
     if (mentorResult.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Profil mentor non trouvé'
+        message: 'Profil mentor non trouve'
       });
     }
 
     const mentorId = mentorResult.rows[0].id;
+    let finalCompetenceId = competence_id || null;
+    let finalCompetenceNom = competence_nom || null;
 
-    const result = await query(
+    // Si on a un nom de compétence mais pas d'ID
+    if (!finalCompetenceId && finalCompetenceNom) {
+      const nomNettoye = finalCompetenceNom.trim();
+      
+      // Vérifier si la compétence existe déjà
+      const existingComp = await query(
+        'SELECT id, nom FROM competences WHERE LOWER(nom) = LOWER($1)',
+        [nomNettoye]
+      );
+
+      if (existingComp.rows.length > 0) {
+        finalCompetenceId = existingComp.rows[0].id;
+        finalCompetenceNom = existingComp.rows[0].nom;
+      } else {
+        // Créer une nouvelle compétence
+        const newComp = await query(
+          'INSERT INTO competences (nom) VALUES ($1) RETURNING id, nom',
+          [nomNettoye]
+        );
+        finalCompetenceId = newComp.rows[0].id;
+        finalCompetenceNom = newComp.rows[0].nom;
+      }
+    }
+
+    // Si on a un ID mais pas de nom
+    if (finalCompetenceId && !finalCompetenceNom) {
+      const compResult = await query(
+        'SELECT nom FROM competences WHERE id = $1',
+        [finalCompetenceId]
+      );
+      finalCompetenceNom = compResult.rows[0]?.nom || 'Inconnu';
+    }
+
+    // Vérification finale
+    if (!finalCompetenceId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Impossible de trouver ou creer la competence. Fournissez competence_id ou competence_nom.'
+      });
+    }
+
+    // Insérer ou mettre à jour la liaison mentor-compétence
+    await query(
       `INSERT INTO mentor_competences (mentor_id, competence_id, niveau)
        VALUES ($1, $2, $3)
        ON CONFLICT (mentor_id, competence_id) 
-       DO UPDATE SET niveau = $3
-       RETURNING *`,
-      [mentorId, competence_id, niveau || 'intermediaire']
+       DO UPDATE SET niveau = $3, updated_at = NOW()`,
+      [mentorId, finalCompetenceId, niveau || 'intermediaire']
     );
+
+    console.log('Competence ajoutee:', { mentorId, finalCompetenceId, finalCompetenceNom });
 
     res.status(201).json({
       success: true,
-      message: 'Compétence ajoutée avec succès',
-      competence: result.rows[0]
+      message: 'Competence ajoutee avec succes',
+      competence: {
+        id: finalCompetenceId,
+        nom: finalCompetenceNom,
+        niveau: niveau || 'intermediaire'
+      }
     });
+
   } catch (error) {
-    console.error('❌ Erreur addCompetence:', error);
+    console.error('Erreur addCompetence - DETAILS:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      table: error.table,
+      constraint: error.constraint
+    });
+
     res.status(500).json({
       success: false,
-      message: 'Erreur lors de l\'ajout',
-      error: error.message
+      message: 'Erreur lors de l\'ajout de la competence',
+      error: error.message,
+      detail: error.detail || ''
     });
   }
 };
@@ -142,7 +215,7 @@ const removeCompetence = async (req, res, next) => {
     if (mentorResult.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Profil mentor non trouvé'
+        message: 'Profil mentor non trouve'
       });
     }
 
@@ -153,19 +226,12 @@ const removeCompetence = async (req, res, next) => {
       [mentorId, competence_id]
     );
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Compétence non trouvée pour ce mentor'
-      });
-    }
-
     res.json({
       success: true,
-      message: 'Compétence supprimée avec succès'
+      message: 'Competence supprimee avec succes'
     });
   } catch (error) {
-    console.error('❌ Erreur removeCompetence:', error);
+    console.error('Erreur removeCompetence:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la suppression',
@@ -178,8 +244,7 @@ const removeCompetence = async (req, res, next) => {
 // RECHERCHER DES MENTORS (PUBLIC)
 // ============================================
 const searchMentors = async (req, res, next) => {
-  const { domaine, competence, search, disponible, page = 1, limit = 10 } = req.query;
-  const offset = (page - 1) * limit;
+  const { domaine, competence, search, disponible, limit = 20 } = req.query;
 
   try {
     let queryText = `
@@ -187,7 +252,10 @@ const searchMentors = async (req, res, next) => {
         u.id, u.nom, u.prenom, u.email, u.photo_url,
         pm.id as profil_id, pm.bio, pm.domaine, 
         pm.annees_experience, pm.note_moyenne, pm.nb_sessions, pm.disponible,
-        ARRAY_AGG(DISTINCT c.nom) FILTER (WHERE c.nom IS NOT NULL) as competences,
+        COALESCE(
+          ARRAY_AGG(DISTINCT c.nom) FILTER (WHERE c.nom IS NOT NULL),
+          ARRAY[]::VARCHAR[]
+        ) as competences,
         COUNT(DISTINCT a.id) as nb_avis
       FROM utilisateurs u
       JOIN profils_mentor pm ON pm.utilisateur_id = u.id
@@ -222,12 +290,11 @@ const searchMentors = async (req, res, next) => {
       queryText += ` AND pm.disponible = true`;
     }
 
-    queryText += ` GROUP BY u.id, pm.id ORDER BY pm.note_moyenne DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(limit, offset);
+    queryText += ` GROUP BY u.id, pm.id ORDER BY pm.note_moyenne DESC NULLS LAST LIMIT $${paramIndex}`;
+    params.push(limit);
 
     const result = await query(queryText, params);
 
-    // nb_avis revient en string depuis COUNT() — on le convertit en nombre
     const data = result.rows.map((row) => ({
       ...row,
       nb_avis: parseInt(row.nb_avis, 10) || 0,
@@ -237,13 +304,12 @@ const searchMentors = async (req, res, next) => {
       success: true,
       data,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total: data.length
+        total: data.length,
+        limit: parseInt(limit)
       }
     });
   } catch (error) {
-    console.error('❌ Erreur searchMentors:', error);
+    console.error('Erreur searchMentors:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la recherche',
@@ -258,29 +324,13 @@ const searchMentors = async (req, res, next) => {
 const getMentorById = async (req, res, next) => {
   const { id } = req.params;
 
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!uuidRegex.test(id)) {
-    return res.status(400).json({
-      success: false,
-      message: 'ID mentor invalide'
-    });
-  }
-
   try {
     const result = await query(
       `SELECT 
-         u.id, 
-         u.nom, 
-         u.prenom, 
-         u.email, 
-         u.photo_url,
-         pm.id as profil_id, 
-         pm.bio, 
-         pm.domaine, 
-         pm.annees_experience, 
-         pm.note_moyenne, 
-         pm.nb_sessions, 
-         pm.disponible,
+         u.id, u.nom, u.prenom, u.email, u.photo_url,
+         pm.id as profil_id, pm.bio, pm.domaine, 
+         pm.annees_experience, pm.note_moyenne, pm.nb_sessions, pm.disponible,
+         pm.cv_url, pm.portfolio_url,
          (SELECT COUNT(*) FROM avis a WHERE a.mentor_id = u.id) as nb_avis
        FROM utilisateurs u
        JOIN profils_mentor pm ON pm.utilisateur_id = u.id
@@ -291,39 +341,48 @@ const getMentorById = async (req, res, next) => {
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Mentor non trouvé'
+        message: 'Mentor non trouve'
       });
     }
 
     const mentor = result.rows[0];
     mentor.nb_avis = parseInt(mentor.nb_avis, 10) || 0;
-    mentor.id = mentor.user_id || mentor.id;
 
-    const competencesResult = await query(
-      `SELECT c.nom 
-       FROM mentor_competences mc
-       JOIN competences c ON c.id = mc.competence_id
-       WHERE mc.mentor_id = $1`,
-      [mentor.profil_id]
-    );
+    // Récupérer les compétences
+    try {
+      const competencesResult = await query(
+        `SELECT c.id, c.nom, mc.niveau
+         FROM mentor_competences mc
+         JOIN competences c ON c.id = mc.competence_id
+         WHERE mc.mentor_id = $1
+         ORDER BY c.nom`,
+        [mentor.profil_id]
+      );
+      mentor.competences = competencesResult.rows;
+    } catch (err) {
+      mentor.competences = [];
+    }
 
-    mentor.competences = competencesResult.rows.map(r => r.nom);
-
-    const dispoResult = await query(
-      `SELECT id, jour_semaine, heure_debut, heure_fin, recurrent
-       FROM disponibilites
-       WHERE mentor_id = $1`,
-      [mentor.profil_id]
-    );
-
-    mentor.disponibilites = dispoResult.rows;
+    // Récupérer les disponibilités
+    try {
+      const dispoResult = await query(
+        `SELECT id, jour_semaine, heure_debut, heure_fin, recurrent
+         FROM disponibilites
+         WHERE mentor_id = $1
+         ORDER BY jour_semaine, heure_debut`,
+        [mentor.profil_id]
+      );
+      mentor.disponibilites = dispoResult.rows;
+    } catch (err) {
+      mentor.disponibilites = [];
+    }
 
     res.json({
       success: true,
       mentor: mentor
     });
   } catch (error) {
-    console.error('❌ Erreur getMentorById:', error);
+    console.error('Erreur getMentorById:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors du chargement',
@@ -342,7 +401,8 @@ const getDomainesStats = async (req, res, next) => {
        FROM profils_mentor pm
        JOIN utilisateurs u ON u.id = pm.utilisateur_id
        WHERE u.role = 'mentor' AND u.actif = true AND pm.domaine IS NOT NULL AND pm.domaine != ''
-       GROUP BY pm.domaine`
+       GROUP BY pm.domaine
+       ORDER BY total DESC`
     );
 
     const domaines = result.rows.map((r) => ({
@@ -352,7 +412,7 @@ const getDomainesStats = async (req, res, next) => {
 
     res.json({ success: true, domaines });
   } catch (error) {
-    console.error('❌ Erreur getDomainesStats:', error);
+    console.error('Erreur getDomainesStats:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors du chargement des statistiques',
