@@ -32,6 +32,7 @@ export default function MentorDetailPage() {
   const [avis, setAvis] = useState<Avis[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hoveredAvis, setHoveredAvis] = useState<string | null>(null);
 
   const mentorId = params.id as string;
 
@@ -90,10 +91,7 @@ export default function MentorDetailPage() {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
         <div className="text-center">
-          <div
-            className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-4"
-            style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
-          />
+          <div className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-4" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
           <p style={{ color: 'var(--text-secondary)' }}>{t('common.loading')}</p>
         </div>
       </div>
@@ -105,15 +103,9 @@ export default function MentorDetailPage() {
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
         <div className="card p-8 max-w-md text-center">
           <div className="text-5xl mb-4">⚠️</div>
-          <h2 className="font-display text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-            {t('mentors.not_found')}
-          </h2>
+          <h2 className="font-display text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>{t('mentors.not_found')}</h2>
           <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>{error || t('common.error')}</p>
-          <button
-            onClick={() => router.back()}
-            className="inline-block px-4 py-2 rounded-lg font-medium"
-            style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}
-          >
+          <button onClick={() => router.back()} className="inline-block px-4 py-2 rounded-lg font-medium hover-btn" style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}>
             {t('common.back')}
           </button>
         </div>
@@ -130,17 +122,12 @@ export default function MentorDetailPage() {
   return (
     <div className="min-h-screen mentor-detail-page" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <button
-          onClick={() => router.back()}
-          className="back-btn inline-flex items-center gap-2 mb-6"
-          style={{ color: 'var(--text-secondary)' }}
-        >
+        <button onClick={() => router.back()} className="back-btn inline-flex items-center gap-2 mb-6" style={{ color: 'var(--text-secondary)' }}>
           <ArrowLeft className="w-4 h-4" />
           {t('common.back')}
         </button>
 
         <div className="card overflow-hidden fade-in-up">
-          {/* Header profil */}
           <div className="px-8 py-8 relative overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
             <div className="detail-glow" style={{ backgroundColor: 'var(--accent-soft)' }} />
             <div className="flex flex-col md:flex-row items-center md:items-start gap-6 relative z-10">
@@ -148,29 +135,25 @@ export default function MentorDetailPage() {
                 <Avatar photoUrl={mentor.photo_url} prenom={mentor.prenom} nom={mentor.nom} size={128} />
               </div>
               <div className="flex-1 text-center md:text-left">
-                <h1 className="font-display text-3xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <h1 className="font-display text-3xl font-semibold hover-name" style={{ color: 'var(--text-primary)' }}>
                   {mentor.prenom} {mentor.nom}
                 </h1>
                 <p className="text-lg" style={{ color: 'var(--accent)' }}>{mentor.domaine || t('mentors.expert')}</p>
                 <div className="flex flex-wrap items-center gap-4 mt-3 justify-center md:justify-start">
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 hover-scale">
                     <Star className="w-5 h-5" style={{ color: 'var(--warm)', fill: 'var(--warm)' }} />
-                    <span className="font-mono-data font-semibold" style={{ color: 'var(--text-primary)' }}>
-                      {getNoteDisplay(mentor.note_moyenne)}/5
-                    </span>
-                    {avis.length > 0 && (
-                      <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>({avis.length} avis)</span>
-                    )}
+                    <span className="font-mono-data font-semibold" style={{ color: 'var(--text-primary)' }}>{getNoteDisplay(mentor.note_moyenne)}/5</span>
+                    {avis.length > 0 && <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>({avis.length} avis)</span>}
                   </div>
-                  <div className="flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+                  <div className="flex items-center gap-1 hover-scale" style={{ color: 'var(--text-secondary)' }}>
                     <Users className="w-5 h-5" />
                     <span>{mentor.nb_sessions || 0} {t('mentors.sessions')}</span>
                   </div>
-                  <div className="flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+                  <div className="flex items-center gap-1 hover-scale" style={{ color: 'var(--text-secondary)' }}>
                     <Clock className="w-5 h-5" />
                     <span>{mentor.annees_experience || 0} {t('mentors.years')}</span>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 hover-scale">
                     {mentor.disponible ? (
                       <><CheckCircle className="w-5 h-5" style={{ color: 'var(--success)' }} /><span style={{ color: 'var(--text-secondary)' }}>{t('mentors.is_available')}</span></>
                     ) : (
@@ -186,26 +169,16 @@ export default function MentorDetailPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-6">
                 <div className="reveal-block" style={{ animationDelay: '0.05s' }}>
-                  <h2 className="font-display text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
-                    {t('mentors.about')}
-                  </h2>
-                  <p style={{ color: 'var(--text-secondary)' }} className="leading-relaxed">
-                    {mentor.bio || t('mentors.no_bio')}
-                  </p>
+                  <h2 className="font-display text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>{t('mentors.about')}</h2>
+                  <p style={{ color: 'var(--text-secondary)' }} className="leading-relaxed">{mentor.bio || t('mentors.no_bio')}</p>
                 </div>
 
                 {mentor.competences && mentor.competences.length > 0 && (
                   <div className="reveal-block" style={{ animationDelay: '0.1s' }}>
-                    <h2 className="font-display text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
-                      {t('matching.competences')}
-                    </h2>
+                    <h2 className="font-display text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>{t('matching.competences')}</h2>
                     <div className="flex flex-wrap gap-2">
                       {mentor.competences.map((comp: string, index: number) => (
-                        <span
-                          key={index}
-                          className="competence-chip px-3 py-1 rounded-full text-sm"
-                          style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)', animationDelay: `${0.12 + index * 0.03}s` }}
-                        >
+                        <span key={index} className="competence-chip px-3 py-1 rounded-full text-sm" style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)', animationDelay: `${0.12 + index * 0.03}s` }}>
                           {comp}
                         </span>
                       ))}
@@ -213,23 +186,16 @@ export default function MentorDetailPage() {
                   </div>
                 )}
 
-                {/* Section Avis */}
                 <div className="reveal-block" style={{ animationDelay: '0.15s' }}>
-                  <h2
-                    className="font-display text-xl font-semibold mb-3 flex items-center gap-2"
-                    style={{ color: 'var(--text-primary)' }}
-                  >
+                  <h2 className="font-display text-xl font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                     <MessageSquareQuote className="w-5 h-5" style={{ color: 'var(--accent)' }} />
                     {t('mentors.reviews')} ({avis.length})
                   </h2>
 
                   {avis.length === 0 ? (
-                    <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                      {t('mentors.no_reviews')}
-                    </p>
+                    <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>{t('mentors.no_reviews')}</p>
                   ) : (
                     <>
-                      {/* Moyennes par critère */}
                       <div className="grid grid-cols-3 gap-3 mb-5">
                         {criteriaLabels.map((c, ci) => (
                           <div key={c.key} className="criterion-chip rounded-lg p-3 text-center" style={{ backgroundColor: 'var(--bg-secondary)', animationDelay: `${0.18 + ci * 0.05}s` }}>
@@ -242,37 +208,38 @@ export default function MentorDetailPage() {
                         ))}
                       </div>
 
-                      {/* Liste des avis */}
                       <div className="space-y-4">
-                        {avis.map((a, ai) => (
-                          <div key={a.id} className="card bookmark p-4 avis-card" style={{ animationDelay: `${0.2 + ai * 0.05}s` }}>
-                            <div className="flex justify-between items-start mb-2">
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                                  style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
-                                >
-                                  {a.prenom?.[0]}{a.nom?.[0]}
+                        {avis.map((a, ai) => {
+                          const isAvisHovered = hoveredAvis === a.id;
+                          return (
+                            <div
+                              key={a.id}
+                              className="card p-4 avis-card"
+                              style={{ animationDelay: `${0.2 + ai * 0.05}s`, borderLeft: isAvisHovered ? '3px solid var(--accent)' : '3px solid transparent' }}
+                              onMouseEnter={() => setHoveredAvis(a.id)}
+                              onMouseLeave={() => setHoveredAvis(null)}
+                            >
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold avis-avatar" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
+                                    {a.prenom?.[0]}{a.nom?.[0]}
+                                  </div>
+                                  <span className="text-sm font-medium" style={{ color: isAvisHovered ? 'var(--accent)' : 'var(--text-primary)' }}>
+                                    {a.prenom} {a.nom?.[0]}.
+                                  </span>
                                 </div>
-                                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                  {a.prenom} {a.nom?.[0]}.
-                                </span>
+                                <div className="flex items-center gap-1 avis-rating">
+                                  <Star className="w-4 h-4" style={{ color: 'var(--warm)', fill: 'var(--warm)' }} />
+                                  <span className="font-mono-data text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{Number(a.note_globale).toFixed(1)}</span>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-1">
-                                <Star className="w-4 h-4" style={{ color: 'var(--warm)', fill: 'var(--warm)' }} />
-                                <span className="font-mono-data text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                                  {Number(a.note_globale).toFixed(1)}
-                                </span>
-                              </div>
+                              {a.commentaire && (
+                                <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--text-secondary)' }}>{a.commentaire}</p>
+                              )}
+                              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{formatDate(a.created_at)}</p>
                             </div>
-                            {a.commentaire && (
-                              <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--text-secondary)' }}>
-                                {a.commentaire}
-                              </p>
-                            )}
-                            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{formatDate(a.created_at)}</p>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </>
                   )}
@@ -280,39 +247,29 @@ export default function MentorDetailPage() {
               </div>
 
               <div className="space-y-6 reveal-block" style={{ animationDelay: '0.1s' }}>
-                <div className="rounded-xl p-6" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                  <h2 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-                    📅 {t('mentors.book_session')}
-                  </h2>
+                <div className="rounded-xl p-6 sidebar-card" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                  <h2 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>📅 {t('mentors.book_session')}</h2>
                   {user ? (
                     user.role === 'mentore' ? (
                       <QuickBooking mentorId={mentor.id} mentorName={`${mentor.prenom} ${mentor.nom}`} />
                     ) : (
-                      <p className="text-sm text-center" style={{ color: 'var(--text-secondary)' }}>
-                        {t('mentors.mentee_only')}
-                      </p>
+                      <p className="text-sm text-center" style={{ color: 'var(--text-secondary)' }}>{t('mentors.mentee_only')}</p>
                     )
                   ) : (
-                    <Link
-                      href={`/login?redirect=/mentors/${mentor.id}`}
-                      className="sidebar-cta block w-full text-center px-4 py-3 rounded-lg font-medium"
-                      style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}
-                    >
+                    <Link href={`/login?redirect=/mentors/${mentor.id}`} className="sidebar-cta block w-full text-center px-4 py-3 rounded-lg font-medium" style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}>
                       {t('common.login')}
                     </Link>
                   )}
                 </div>
 
-                <div className="rounded-xl p-6" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                <div className="rounded-xl p-6 sidebar-card" style={{ backgroundColor: 'var(--bg-secondary)' }}>
                   <h2 className="font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                     <Mail className="w-5 h-5" style={{ color: 'var(--accent)' }} />
                     {t('mentors.contact')}
                   </h2>
-                  <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  <div className="flex items-center gap-2 text-sm hover-email" style={{ color: 'var(--text-secondary)' }}>
                     <Mail className="w-4 h-4" />
-                    <a href={`mailto:${mentor.email}`} className="hover:underline" style={{ color: 'inherit' }}>
-                      {mentor.email}
-                    </a>
+                    <a href={`mailto:${mentor.email}`} className="hover:underline" style={{ color: 'inherit' }}>{mentor.email}</a>
                   </div>
                 </div>
               </div>
@@ -372,33 +329,123 @@ export default function MentorDetailPage() {
           animation: detailFadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
+        /* ─── ANIMATIONS DE SURVOL ─── */
+        .hover-name {
+          transition: all 0.3s ease;
+          cursor: default;
+          display: inline-block;
+        }
+        .hover-name:hover {
+          background: linear-gradient(135deg, #3B82F6, #8B5CF6);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+        }
+
+        .hover-scale {
+          transition: transform 0.3s ease;
+          cursor: default;
+        }
+        .hover-scale:hover {
+          transform: scale(1.08);
+        }
+
+        .hover-btn {
+          transition: transform 0.25s ease, filter 0.25s ease;
+        }
+        .hover-btn:hover {
+          transform: translateY(-3px);
+          filter: brightness(1.1);
+          box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+
+        .hover-email {
+          transition: color 0.3s ease, transform 0.3s ease;
+        }
+        .hover-email:hover {
+          color: var(--accent) !important;
+          transform: translateX(2px);
+        }
+
+        /* Compétences */
         .competence-chip {
           opacity: 0;
           transform: scale(0.9);
           animation: chipPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+          transition: all 0.3s ease;
+          cursor: default;
         }
         @keyframes chipPop {
           to { opacity: 1; transform: scale(1); }
         }
+        .competence-chip:hover {
+          transform: translateY(-4px) scale(1.1) !important;
+          box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+          filter: brightness(1.1);
+        }
 
-        .criterion-chip, .avis-card {
+        /* Critères */
+        .criterion-chip {
           opacity: 0;
           transform: translateY(10px);
           animation: detailFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          transition: all 0.3s ease;
+          cursor: default;
+        }
+        .criterion-chip:hover {
+          transform: translateY(-6px) !important;
+          box-shadow: 0 10px 24px rgba(0,0,0,0.1);
+          background-color: var(--accent-soft) !important;
+        }
+
+        /* Avis */
+        .avis-card {
+          opacity: 0;
+          transform: translateY(10px);
+          animation: detailFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          transition: all 0.35s ease;
+        }
+        .avis-card:hover {
+          transform: translateX(6px);
+          box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+        }
+        .avis-avatar {
+          transition: all 0.3s ease;
+        }
+        .avis-card:hover .avis-avatar {
+          transform: scale(1.1);
+        }
+        .avis-rating {
+          transition: transform 0.3s ease;
+        }
+        .avis-card:hover .avis-rating {
+          transform: scale(1.1);
+        }
+
+        /* Sidebar */
+        .sidebar-card {
+          transition: all 0.3s ease;
+        }
+        .sidebar-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 12px 28px rgba(0,0,0,0.1);
         }
 
         .sidebar-cta {
-          transition: transform 0.18s ease, filter 0.18s ease;
+          transition: transform 0.25s ease, filter 0.25s ease, box-shadow 0.25s ease;
         }
         .sidebar-cta:hover {
-          transform: translateY(-2px);
-          filter: brightness(1.05);
+          transform: translateY(-3px);
+          filter: brightness(1.08);
+          box-shadow: 0 8px 20px rgba(0,0,0,0.15);
         }
 
         @media (prefers-reduced-motion: reduce) {
           .fade-in-up, .detail-glow, .avatar-pop, .reveal-block,
-          .competence-chip, .criterion-chip, .avis-card {
+          .competence-chip, .criterion-chip, .avis-card,
+          .hover-name, .hover-scale, .hover-btn, .hover-email {
             animation: none !important;
+            transition: none !important;
             opacity: 1 !important;
             transform: none !important;
           }

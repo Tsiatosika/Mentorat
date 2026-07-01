@@ -6,7 +6,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { Calendar, MessageCircle, FileText, Users, TrendingUp, Clock, Mail, Award } from 'lucide-react';
+import { Calendar, MessageCircle, FileText, Users, TrendingUp, Clock, Mail, Award, ArrowRight } from 'lucide-react';
 import { mentorAPI, mentoreAPI, sessionAPI } from '@/services/api';
 import toast from 'react-hot-toast';
 
@@ -45,6 +45,7 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -81,20 +82,15 @@ export default function DashboardPage() {
     return numNote.toFixed(1);
   };
 
-  // --- Valeurs dérivées (calculées même pendant le chargement, avec des
-  // valeurs par défaut sûres) afin que les hooks ci-dessous soient TOUJOURS
-  // appelés dans le même ordre, peu importe l'état de chargement. ---
   const isMentor = user?.role === 'mentor';
   const sessionsTerminees = sessions.filter(s => s.statut === 'terminee').length;
   const totalSessions = sessions.length;
   const progression = Number(profile?.progression) || 0;
   const noteMoyenne = parseFloat(formatNote(profile?.note_moyenne));
 
-  // Compteurs animés — ces hooks doivent être appelés avant tout `return`
-  // conditionnel pour respecter les règles des hooks React.
   const animatedSessions = useCountUp(totalSessions, 800, !loading);
   const animatedProgression = useCountUp(progression, 900, !loading);
-  const animatedNoteTenths = useCountUp(Math.round(noteMoyenne * 10), 900, !loading); // anime en dixièmes puis on reformate
+  const animatedNoteTenths = useCountUp(Math.round(noteMoyenne * 10), 900, !loading);
 
   if (loading) {
     return (
@@ -114,39 +110,45 @@ export default function DashboardPage() {
 
   const statsCards = [
     {
+      id: 'sessions',
       title: t('dashboard.sessions'),
       value: animatedSessions,
       icon: Calendar,
       accent: 'accent',
       subtitle: `${sessionsTerminees} terminées`,
+      gradient: 'linear-gradient(135deg, var(--accent-soft), var(--info-soft))',
     },
     {
+      id: isMentor ? 'note' : 'progression',
       title: isMentor ? t('profile.note') : t('profile.progression'),
       value: isMentor ? (animatedNoteTenths / 10).toFixed(1) : `${animatedProgression}%`,
       icon: TrendingUp,
       accent: 'warm',
       subtitle: isMentor ? `${profile?.nb_sessions || 0} sessions` : `${sessionsTerminees}/${totalSessions} sessions`,
+      gradient: 'linear-gradient(135deg, var(--warm-soft), var(--accent-soft))',
     },
     {
+      id: 'messages',
       title: t('dashboard.messages'),
       value: '0',
       icon: Mail,
       accent: 'info',
       subtitle: t('dashboard.unread'),
+      gradient: 'linear-gradient(135deg, var(--info-soft), var(--success-soft))',
     },
   ];
 
   const menuItems = [
-    { title: t('dashboard.sessions'), icon: Calendar, href: '/sessions', accent: 'accent', description: t('dashboard.sessions_desc') },
-    { title: t('dashboard.messages'), icon: MessageCircle, href: '/chat', accent: 'info', description: t('dashboard.messages_desc') },
-    { title: t('dashboard.reports'), icon: FileText, href: '/reports', accent: 'success', description: t('dashboard.reports_desc') },
+    { id: 'sessions', title: t('dashboard.sessions'), icon: Calendar, href: '/sessions', accent: 'accent', description: t('dashboard.sessions_desc'), gradient: 'linear-gradient(135deg, #3B82F6, #8B5CF6)' },
+    { id: 'messages', title: t('dashboard.messages'), icon: MessageCircle, href: '/chat', accent: 'info', description: t('dashboard.messages_desc'), gradient: 'linear-gradient(135deg, #06B6D4, #3B82F6)' },
+    { id: 'reports', title: t('dashboard.reports'), icon: FileText, href: '/reports', accent: 'success', description: t('dashboard.reports_desc'), gradient: 'linear-gradient(135deg, #10B981, #06B6D4)' },
   ];
 
   if (isMentor) {
-    menuItems.unshift({ title: t('profile.disponibilites'), icon: Clock, href: '/disponibilites', accent: 'warm', description: t('profile.disponibilites_desc') });
+    menuItems.unshift({ id: 'disponibilites', title: t('profile.disponibilites'), icon: Clock, href: '/disponibilites', accent: 'warm', description: t('profile.disponibilites_desc'), gradient: 'linear-gradient(135deg, #F59E0B, #EF4444)' });
   } else {
-    menuItems.unshift({ title: t('dashboard.find_mentor'), icon: Users, href: '/mentors', accent: 'warm', description: t('dashboard.find_mentor_desc') });
-    menuItems.push({ title: t('dashboard.recommendations'), icon: Award, href: '/matching', accent: 'accent', description: t('dashboard.recommendations_desc') });
+    menuItems.unshift({ id: 'mentors', title: t('dashboard.find_mentor'), icon: Users, href: '/mentors', accent: 'warm', description: t('dashboard.find_mentor_desc'), gradient: 'linear-gradient(135deg, #F59E0B, #EF4444)' });
+    menuItems.push({ id: 'matching', title: t('dashboard.recommendations'), icon: Award, href: '/matching', accent: 'accent', description: t('dashboard.recommendations_desc'), gradient: 'linear-gradient(135deg, #8B5CF6, #EC4899)' });
   }
 
   const accentColors: Record<string, { bg: string; fg: string }> = {
@@ -166,10 +168,26 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen relative dash-ambient" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      {/* Fond ambiant discret */}
+      {/* Fond ambiant */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="dash-orb dash-orb-1" style={{ backgroundColor: 'var(--accent-soft)' }} />
         <div className="dash-orb dash-orb-2" style={{ backgroundColor: 'var(--warm-soft)' }} />
+        {/* Particules flottantes */}
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={i}
+            className="dash-particle"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 5}s`,
+              animationDuration: `${3 + Math.random() * 4}s`,
+              backgroundColor: i % 2 === 0 ? 'var(--accent)' : 'var(--warm)',
+              width: `${2 + Math.random() * 3}px`,
+              height: `${2 + Math.random() * 3}px`,
+            }}
+          />
+        ))}
       </div>
 
       {/* Header */}
@@ -178,10 +196,12 @@ export default function DashboardPage() {
           {t('dashboard.activity')}
         </p>
         <h1
-          className="font-display text-3xl md:text-4xl font-semibold fade-in-up"
+          className="font-display text-3xl md:text-4xl font-semibold fade-in-up group inline-block"
           style={{ color: 'var(--text-primary)', animationDelay: '0.06s' }}
         >
-          {t('dashboard.welcome')}, {user.prenom}{' '}
+          <span className="relative inline-block transition-all duration-300 hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-blue-500 hover:to-purple-600">
+            {t('dashboard.welcome')}, {user.prenom}
+          </span>{' '}
           <span className="wave-emoji inline-block">👋</span>
         </h1>
       </div>
@@ -191,25 +211,85 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {statsCards.map((card, index) => {
             const colors = accentColors[card.accent];
+            const isHovered = hoveredCard === card.id;
             return (
               <div
                 key={index}
-                className="card card-hover stat-card-in p-6"
-                style={{ animationDelay: `${0.1 + index * 0.07}s` }}
+                className="stat-card-wrapper"
+                onMouseEnter={() => setHoveredCard(card.id)}
+                onMouseLeave={() => setHoveredCard(null)}
               >
-                <div className="flex items-center justify-between mb-3">
+                <div
+                  className="card stat-card-in p-6 relative overflow-hidden transition-all duration-500"
+                  style={{
+                    animationDelay: `${0.1 + index * 0.07}s`,
+                    transform: isHovered ? 'translateY(-8px) scale(1.02)' : 'translateY(0) scale(1)',
+                    boxShadow: isHovered ? '0 20px 40px rgba(0,0,0,0.12)' : 'var(--shadow-card)',
+                  }}
+                >
+                  {/* Fond gradient au survol */}
                   <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center icon-pop"
-                    style={{ backgroundColor: colors.bg, animationDelay: `${0.2 + index * 0.07}s` }}
-                  >
-                    <card.icon className="w-5 h-5" style={{ color: colors.fg }} />
+                    className="absolute inset-0 opacity-0 transition-opacity duration-500"
+                    style={{
+                      background: card.gradient,
+                      opacity: isHovered ? 0.08 : 0,
+                    }}
+                  />
+                  
+                  <div className="relative z-10 flex items-center justify-between mb-3">
+                    <div
+                      className="w-10 h-10 rounded-lg flex items-center justify-center icon-pop transition-all duration-300"
+                      style={{
+                        backgroundColor: colors.bg,
+                        transform: isHovered ? 'scale(1.15) rotate(-6deg)' : 'scale(1) rotate(0deg)',
+                      }}
+                    >
+                      <card.icon
+                        className="w-5 h-5 transition-all duration-300"
+                        style={{
+                          color: colors.fg,
+                          transform: isHovered ? 'scale(1.2)' : 'scale(1)',
+                        }}
+                      />
+                    </div>
+                    <span
+                      className="font-mono-data text-2xl font-semibold transition-all duration-300"
+                      style={{
+                        color: 'var(--text-primary)',
+                        transform: isHovered ? 'scale(1.1)' : 'scale(1)',
+                      }}
+                    >
+                      {card.value}
+                    </span>
                   </div>
-                  <span className="font-mono-data text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>
-                    {card.value}
-                  </span>
+                  <h3
+                    className="text-sm font-medium relative z-10 transition-all duration-300"
+                    style={{
+                      color: 'var(--text-primary)',
+                      transform: isHovered ? 'translateX(4px)' : 'translateX(0)',
+                    }}
+                  >
+                    {card.title}
+                  </h3>
+                  <p
+                    className="text-xs mt-1 relative z-10 transition-all duration-300"
+                    style={{
+                      color: 'var(--text-tertiary)',
+                      opacity: isHovered ? 0.8 : 1,
+                    }}
+                  >
+                    {card.subtitle}
+                  </p>
+                  
+                  {/* Ligne décorative au survol */}
+                  <div
+                    className="absolute bottom-0 left-0 h-0.5 transition-all duration-500"
+                    style={{
+                      background: card.gradient,
+                      width: isHovered ? '100%' : '0%',
+                    }}
+                  />
                 </div>
-                <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{card.title}</h3>
-                <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>{card.subtitle}</p>
               </div>
             );
           })}
@@ -224,21 +304,40 @@ export default function DashboardPage() {
             <div className="space-y-3">
               {sessions.slice(0, 3).map((session, i) => {
                 const cfg = statusConfig[session.statut] || statusConfig.en_attente;
+                const sessionId = `session-${session.id}`;
+                const isSessionHovered = hoveredCard === sessionId;
                 return (
                   <div
                     key={session.id}
-                    className="card bookmark p-4 flex justify-between items-center session-row-in"
-                    style={{ animationDelay: `${0.4 + i * 0.06}s` }}
+                    className="card p-4 flex justify-between items-center session-row-in transition-all duration-300 cursor-pointer"
+                    style={{
+                      animationDelay: `${0.4 + i * 0.06}s`,
+                      transform: isSessionHovered ? 'translateX(6px)' : 'translateX(0)',
+                      borderLeft: isSessionHovered ? '3px solid var(--accent)' : '3px solid transparent',
+                    }}
+                    onMouseEnter={() => setHoveredCard(sessionId)}
+                    onMouseLeave={() => setHoveredCard(null)}
                   >
-                    <div>
-                      <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>{session.sujet}</h3>
+                    <div className="transition-all duration-300" style={{ transform: isSessionHovered ? 'translateX(2px)' : 'translateX(0)' }}>
+                      <h3
+                        className="font-semibold transition-all duration-300"
+                        style={{
+                          color: isSessionHovered ? 'var(--accent)' : 'var(--text-primary)',
+                        }}
+                      >
+                        {session.sujet}
+                      </h3>
                       <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                         {new Date(session.date_debut).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB')}
                       </p>
                     </div>
                     <span
-                      className="px-2 py-1 rounded-full text-xs font-medium"
-                      style={{ backgroundColor: cfg.bg, color: cfg.fg }}
+                      className="px-2 py-1 rounded-full text-xs font-medium transition-all duration-300"
+                      style={{
+                        backgroundColor: cfg.bg,
+                        color: cfg.fg,
+                        transform: isSessionHovered ? 'scale(1.05)' : 'scale(1)',
+                      }}
                     >
                       {session.statut === 'en_cours' && (
                         <span className="live-dot" style={{ backgroundColor: cfg.fg }} />
@@ -262,22 +361,85 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {menuItems.map((item, index) => {
             const colors = accentColors[item.accent];
+            const isMenuHovered = hoveredCard === item.id;
             return (
               <Link
                 key={index}
                 href={item.href}
-                className="block menu-card-in"
+                className="block menu-card-wrapper"
                 style={{ animationDelay: `${0.5 + index * 0.06}s` }}
+                onMouseEnter={() => setHoveredCard(item.id)}
+                onMouseLeave={() => setHoveredCard(null)}
               >
-                <div className="card card-hover menu-card p-6 h-full">
+                <div
+                  className="card menu-card p-6 h-full menu-card-in relative overflow-hidden transition-all duration-500"
+                  style={{
+                    transform: isMenuHovered ? 'translateY(-6px) scale(1.02)' : 'translateY(0) scale(1)',
+                    boxShadow: isMenuHovered ? '0 16px 32px rgba(0,0,0,0.1)' : 'var(--shadow-card)',
+                  }}
+                >
+                  {/* Fond gradient au survol */}
                   <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 menu-icon"
-                    style={{ backgroundColor: colors.bg }}
+                    className="absolute inset-0 opacity-0 transition-opacity duration-500"
+                    style={{
+                      background: item.gradient,
+                      opacity: isMenuHovered ? 0.06 : 0,
+                    }}
+                  />
+                  
+                  <div
+                    className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 menu-icon relative z-10 transition-all duration-500"
+                    style={{
+                      backgroundColor: colors.bg,
+                      transform: isMenuHovered ? 'scale(1.15) rotate(-8deg)' : 'scale(1) rotate(0deg)',
+                    }}
                   >
-                    <item.icon className="w-6 h-6" style={{ color: colors.fg }} />
+                    <item.icon
+                      className="w-6 h-6 transition-all duration-300"
+                      style={{
+                        color: colors.fg,
+                        transform: isMenuHovered ? 'scale(1.2)' : 'scale(1)',
+                      }}
+                    />
                   </div>
-                  <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>{item.title}</h3>
-                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{item.description}</p>
+                  <h3
+                    className="font-semibold relative z-10 transition-all duration-300"
+                    style={{
+                      color: 'var(--text-primary)',
+                      transform: isMenuHovered ? 'translateX(3px)' : 'translateX(0)',
+                    }}
+                  >
+                    {item.title}
+                  </h3>
+                  <p
+                    className="text-sm relative z-10 transition-all duration-300"
+                    style={{
+                      color: 'var(--text-secondary)',
+                      opacity: isMenuHovered ? 1 : 0.8,
+                    }}
+                  >
+                    {item.description}
+                  </p>
+                  
+                  {/* Flèche qui apparaît au survol */}
+                  <div
+                    className="absolute bottom-4 right-4 transition-all duration-300"
+                    style={{
+                      opacity: isMenuHovered ? 1 : 0,
+                      transform: isMenuHovered ? 'translateX(0)' : 'translateX(-10px)',
+                    }}
+                  >
+                    <ArrowRight className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+                  </div>
+                  
+                  {/* Barre supérieure colorée au survol */}
+                  <div
+                    className="absolute top-0 left-0 right-0 h-1 transition-all duration-500"
+                    style={{
+                      background: item.gradient,
+                      opacity: isMenuHovered ? 1 : 0,
+                    }}
+                  />
                 </div>
               </Link>
             );
@@ -286,7 +448,7 @@ export default function DashboardPage() {
       </div>
 
       <style jsx global>{`
-        /* ---------- Fond ambiant (très discret, contrairement au hero) ---------- */
+        /* ---------- Fond ambiant ---------- */
         .dash-ambient {
           overflow: hidden;
         }
@@ -307,6 +469,20 @@ export default function DashboardPage() {
         @keyframes dashFloat2 {
           0%, 100% { transform: translate(0, 0) scale(1); }
           50%      { transform: translate(25px, -20px) scale(1.08); }
+        }
+
+        /* Particules */
+        .dash-particle {
+          position: absolute;
+          border-radius: 50%;
+          pointer-events: none;
+          animation: particleFloat linear infinite;
+        }
+        @keyframes particleFloat {
+          0%   { opacity: 0; transform: translateY(0) scale(0); }
+          20%  { opacity: 0.6; }
+          80%  { opacity: 0.2; }
+          100% { opacity: 0; transform: translateY(-60px) scale(1.5); }
         }
 
         /* ---------- Entrées séquencées ---------- */
@@ -352,18 +528,14 @@ export default function DashboardPage() {
           animation: dashFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
-        /* ---------- Micro-interactions menu ---------- */
-        .menu-card {
-          transition: transform 0.25s ease, box-shadow 0.25s ease;
+        /* ---------- Effets de survol ---------- */
+        .stat-card-wrapper,
+        .menu-card-wrapper {
+          transition: transform 0.3s ease;
         }
-        .menu-card:hover {
-          transform: translateY(-3px);
-        }
-        .menu-icon {
-          transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        .menu-card:hover .menu-icon {
-          transform: scale(1.1) rotate(-4deg);
+
+        .card {
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         /* ---------- Salut animé ---------- */
@@ -394,11 +566,20 @@ export default function DashboardPage() {
           50%      { opacity: 0.35; }
         }
 
+        /* ---------- Texte gradient au survol du titre ---------- */
+        .group:hover .hover\:text-transparent {
+          color: transparent;
+          -webkit-background-clip: text;
+          background-clip: text;
+          background-image: linear-gradient(135deg, #3B82F6, #8B5CF6);
+        }
+
         /* ---------- Reduced motion ---------- */
         @media (prefers-reduced-motion: reduce) {
-          .dash-orb, .fade-in-up, .stat-card-in, .icon-pop, .session-row-in,
-          .menu-card-in, .wave-emoji, .live-dot {
+          .dash-orb, .dash-particle, .fade-in-up, .stat-card-in, .icon-pop, .session-row-in,
+          .menu-card-in, .wave-emoji, .live-dot, .card, .stat-card-wrapper, .menu-card-wrapper {
             animation: none !important;
+            transition: none !important;
             opacity: 1 !important;
             transform: none !important;
           }
