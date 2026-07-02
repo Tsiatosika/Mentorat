@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { Users, Calendar, MessageCircle, Award, ArrowRight, Sparkles, Shield, Clock, Video, Star, Search } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { publicAPI } from '@/services/api';
+import { publicAPI, BACKEND_URL } from '@/services/api';
 import { Logo } from '@/components/ui/Logo';
 import { DOMAINES, ACCENT_COLORS } from '@/lib/domaines';
 
@@ -47,6 +47,18 @@ export default function Home() {
     els.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
   }, [isLoading]);
+
+  // Fonction pour construire l'URL de la photo
+  const getPhotoUrl = (url: string | null | undefined) => {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    return `${BACKEND_URL}${url}`;
+  };
+
+  // Fonction pour obtenir les initiales
+  const getInitials = (prenom: string, nom: string) => {
+    return `${prenom?.[0] || ''}${nom?.[0] || ''}`.toUpperCase();
+  };
 
   const features = [
     { icon: Users, titleKey: 'home.feature_matching', descKey: 'home.feature_matching_desc', accent: 'accent', gradient: 'linear-gradient(135deg, #3B82F6, #8B5CF6)' },
@@ -173,7 +185,6 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((f, i) => {
             const colors = accentColors[f.accent];
-            const isHovered = hoveredFeature === i;
             return (
               <div
                 key={i}
@@ -214,7 +225,6 @@ export default function Home() {
           {DOMAINES.slice(0, 4).map((d, i) => {
             const colors = ACCENT_COLORS[d.accent];
             const Icon = d.icon;
-            const isDomainHovered = hoveredDomain === d.key;
             return (
               <Link
                 key={d.key}
@@ -236,7 +246,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Top Mentors */}
+      {/* ─── TOP MENTORS AVEC PHOTOS ─── */}
       <div className="py-16" style={{ backgroundColor: 'var(--bg-secondary)', borderTop: '1px solid var(--border)' }}>
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-12 reveal-on-scroll">
@@ -248,6 +258,9 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {topMentors.slice(0, 3).map((mentor: any, i: number) => {
               const isMentorHovered = hoveredMentor === mentor.id;
+              const photoUrl = getPhotoUrl(mentor.photo_url);
+              const initials = getInitials(mentor.prenom, mentor.nom);
+
               return (
                 <div
                   key={mentor.id}
@@ -257,11 +270,42 @@ export default function Home() {
                   onMouseLeave={() => setHoveredMentor(null)}
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center mentor-avatar" style={{ backgroundColor: 'var(--accent-soft)' }}>
-                      <span className="text-lg font-bold" style={{ color: 'var(--accent-text-on-soft)' }}>
-                        {mentor.prenom?.[0]}{mentor.nom?.[0]}
-                      </span>
+                    {/* ─── AVATAR AVEC PHOTO OU INITIALES ─── */}
+                    <div 
+                      className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 mentor-avatar-img" 
+                      style={{ 
+                        backgroundColor: 'var(--accent-soft)', 
+                        border: '2px solid var(--accent-soft)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      {photoUrl ? (
+                        <img
+                          src={photoUrl}
+                          alt={`${mentor.prenom} ${mentor.nom}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            if (parent) {
+                              const fallback = document.createElement('span');
+                              fallback.className = 'text-lg font-bold';
+                              fallback.style.color = 'var(--accent-text-on-soft)';
+                              fallback.textContent = initials;
+                              parent.appendChild(fallback);
+                            }
+                          }}
+                        />
+                      ) : (
+                        <span className="text-lg font-bold" style={{ color: 'var(--accent-text-on-soft)' }}>
+                          {initials}
+                        </span>
+                      )}
                     </div>
+
                     <div className="flex items-center gap-1 mentor-rating">
                       <Star className="w-4 h-4" style={{ color: 'var(--warm)', fill: 'var(--warm)' }} />
                       <span className="font-mono-data font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
@@ -349,7 +393,6 @@ export default function Home() {
       </footer>
 
       <style jsx global>{`
-        /* ---------- Hero ---------- */
         .hero-mesh {
           background-image:
             radial-gradient(circle at 15% 20%, var(--accent-soft) 0%, transparent 45%),
@@ -400,7 +443,6 @@ export default function Home() {
           50%      { opacity: 0.5; transform: translate(-50%, -50%) scale(1.12); }
         }
 
-        /* Particles */
         .particle {
           position: absolute;
           width: 5px;
@@ -425,7 +467,6 @@ export default function Home() {
           100% { transform: translateY(-340px) translateX(-10px); opacity: 0; }
         }
 
-        /* Entrance */
         .fade-up {
           opacity: 0;
           transform: translateY(18px);
@@ -471,47 +512,25 @@ export default function Home() {
           100% { left: 150%; }
         }
 
-        /* ─── ANIMATIONS DE SURVOL ─── */
+        /* Animations de survol */
         .hover-logo { transition: transform 0.3s ease; cursor: pointer; }
         .hover-logo:hover { transform: scale(1.08) rotate(-3deg); }
-
         .hover-glow:hover { box-shadow: 0 0 20px 4px var(--accent-soft) !important; }
-
         .sparkle-icon { transition: transform 0.4s ease; }
         .hover-glow:hover .sparkle-icon { transform: rotate(20deg) scale(1.2); }
-
-        .hover-gradient-text {
-          transition: all 0.4s ease;
-          cursor: default;
-        }
+        .hover-gradient-text { transition: all 0.4s ease; cursor: default; }
         .hover-gradient-text:hover {
           background: linear-gradient(135deg, #3B82F6, #8B5CF6, #EC4899);
           -webkit-background-clip: text;
           background-clip: text;
           color: transparent;
         }
-
         .hover-shimmer::after { animation: shimmerSlide 1.5s ease-in-out infinite; }
-
-        .hover-lift {
-          transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease;
-        }
-        .hover-lift:hover {
-          transform: translateY(-3px) scale(1.03);
-          filter: brightness(1.1);
-          box-shadow: 0 12px 28px rgba(0,0,0,0.18);
-        }
-
-        .hover-stat {
-          transition: transform 0.3s ease;
-          cursor: default;
-        }
-        .hover-stat:hover {
-          transform: translateY(-6px) scale(1.05);
-        }
-        .hover-stat:hover .stat-emoji {
-          animation: bounce 0.6s ease;
-        }
+        .hover-lift { transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease; }
+        .hover-lift:hover { transform: translateY(-3px) scale(1.03); filter: brightness(1.1); box-shadow: 0 12px 28px rgba(0,0,0,0.18); }
+        .hover-stat { transition: transform 0.3s ease; cursor: default; }
+        .hover-stat:hover { transform: translateY(-6px) scale(1.05); }
+        .hover-stat:hover .stat-emoji { animation: bounce 0.6s ease; }
         .hover-stat:hover .stat-value {
           background: linear-gradient(135deg, var(--accent), var(--warm));
           -webkit-background-clip: text;
@@ -523,112 +542,36 @@ export default function Home() {
           50% { transform: translateY(-10px); }
         }
 
-        /* Feature cards */
-        .feature-card {
-          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-          position: relative;
-          overflow: hidden;
-        }
-        .feature-card:hover {
-          transform: translateY(-8px);
-          box-shadow: 0 20px 40px rgba(0,0,0,0.12);
-        }
-        .feature-icon {
-          transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        .feature-card:hover .feature-icon {
-          transform: scale(1.2) rotate(-10deg);
-        }
-        .feature-title {
-          transition: color 0.3s ease, transform 0.3s ease;
-        }
-        .feature-card:hover .feature-title {
-          color: var(--accent) !important;
-          transform: translateX(4px);
-        }
-        .feature-desc {
-          transition: transform 0.3s ease, opacity 0.3s ease;
-        }
-        .feature-card:hover .feature-desc {
-          transform: translateX(2px);
-          opacity: 0.9;
-        }
-        .feature-line {
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          height: 3px;
-          width: 0;
-          transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-          border-radius: 0 0 12px 12px;
-        }
-        .feature-card:hover .feature-line {
-          width: 100%;
-        }
+        .feature-card { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; }
+        .feature-card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(0,0,0,0.12); }
+        .feature-icon { transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .feature-card:hover .feature-icon { transform: scale(1.2) rotate(-10deg); }
+        .feature-title { transition: color 0.3s ease, transform 0.3s ease; }
+        .feature-card:hover .feature-title { color: var(--accent) !important; transform: translateX(4px); }
+        .feature-desc { transition: transform 0.3s ease, opacity 0.3s ease; }
+        .feature-card:hover .feature-desc { transform: translateX(2px); opacity: 0.9; }
+        .feature-line { position: absolute; bottom: 0; left: 0; height: 3px; width: 0; transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 0 0 12px 12px; }
+        .feature-card:hover .feature-line { width: 100%; }
 
-        /* Domain cards */
-        .domain-card {
-          transition: all 0.35s ease;
-        }
-        .domain-card:hover {
-          transform: translateY(-6px);
-          box-shadow: 0 16px 32px rgba(0,0,0,0.1);
-        }
-        .domain-icon {
-          transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        .domain-card:hover .domain-icon {
-          transform: scale(1.15) rotate(-6deg);
-          box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-        }
-        .domain-title {
-          transition: color 0.3s ease;
-        }
-        .domain-card:hover .domain-title {
-          color: var(--accent) !important;
-        }
+        .domain-card { transition: all 0.35s ease; }
+        .domain-card:hover { transform: translateY(-6px); box-shadow: 0 16px 32px rgba(0,0,0,0.1); }
+        .domain-icon { transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .domain-card:hover .domain-icon { transform: scale(1.15) rotate(-6deg); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        .domain-title { transition: color 0.3s ease; }
+        .domain-card:hover .domain-title { color: var(--accent) !important; }
 
-        /* Mentor cards */
-        .mentor-card {
-          transition: all 0.35s ease;
-        }
-        .mentor-card:hover {
-          transform: translateY(-6px);
-          box-shadow: 0 16px 32px rgba(0,0,0,0.1);
-        }
-        .mentor-avatar {
-          transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        .mentor-card:hover .mentor-avatar {
-          transform: scale(1.1);
-          box-shadow: 0 8px 20px var(--accent-soft);
-        }
-        .mentor-rating {
-          transition: transform 0.3s ease;
-        }
-        .mentor-card:hover .mentor-rating {
-          transform: scale(1.1);
-        }
-        .mentor-name {
-          transition: color 0.3s ease;
-        }
-        .mentor-card:hover .mentor-name {
-          color: var(--accent) !important;
-        }
-        .mentor-btn {
-          transition: all 0.3s ease;
-        }
-        .mentor-btn:hover {
-          background-color: var(--accent) !important;
-          color: #FFFFFF !important;
-          transform: translateY(-2px);
-        }
+        .mentor-card { transition: all 0.35s ease; }
+        .mentor-card:hover { transform: translateY(-6px); box-shadow: 0 16px 32px rgba(0,0,0,0.1); }
+        .mentor-avatar-img { transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .mentor-card:hover .mentor-avatar-img { transform: scale(1.1); box-shadow: 0 8px 20px var(--accent-soft); }
+        .mentor-rating { transition: transform 0.3s ease; }
+        .mentor-card:hover .mentor-rating { transform: scale(1.1); }
+        .mentor-name { transition: color 0.3s ease; }
+        .mentor-card:hover .mentor-name { color: var(--accent) !important; }
+        .mentor-btn { transition: all 0.3s ease; }
+        .mentor-btn:hover { background-color: var(--accent) !important; color: #FFFFFF !important; transform: translateY(-2px); }
 
-        /* CTA */
-        .hover-cta-title {
-          transition: all 0.4s ease;
-          cursor: default;
-        }
+        .hover-cta-title { transition: all 0.4s ease; cursor: default; }
         .hover-cta-title:hover {
           background: linear-gradient(135deg, #3B82F6, #8B5CF6);
           -webkit-background-clip: text;
@@ -637,23 +580,12 @@ export default function Home() {
           transform: scale(1.03);
         }
 
-        .hover-link {
-          transition: gap 0.3s ease, color 0.3s ease;
-        }
-        .hover-link:hover {
-          gap: 0.75rem;
-        }
+        .hover-link { transition: gap 0.3s ease, color 0.3s ease; }
+        .hover-link:hover { gap: 0.75rem; }
 
-        .hover-footer-link {
-          transition: color 0.3s ease, transform 0.3s ease;
-          display: inline-block;
-        }
-        .hover-footer-link:hover {
-          color: var(--accent) !important;
-          transform: translateY(-2px);
-        }
+        .hover-footer-link { transition: color 0.3s ease, transform 0.3s ease; display: inline-block; }
+        .hover-footer-link:hover { color: var(--accent) !important; transform: translateY(-2px); }
 
-        /* Scroll reveal */
         .reveal-on-scroll {
           opacity: 0;
           transform: translateY(24px);
