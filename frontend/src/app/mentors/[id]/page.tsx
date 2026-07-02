@@ -6,10 +6,9 @@ import Link from 'next/link';
 import { ArrowLeft, Clock, Users, Star, CheckCircle, XCircle, Mail, MessageSquareQuote } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { publicAPI, avisAPI } from '@/services/api';
+import { publicAPI, avisAPI, BACKEND_URL } from '@/services/api';
 import { QuickBooking } from '@/components/mentors/QuickBooking';
 import toast from 'react-hot-toast';
-import { Avatar } from '@/components/ui/Avatar';
 
 interface Avis {
   id: string;
@@ -21,6 +20,21 @@ interface Avis {
   created_at: string;
   nom: string;
   prenom: string;
+}
+
+// ═══════════════════════════════════════════
+// FONCTION UTILITAIRE POUR EXTRAIRE LE NOM
+// ═══════════════════════════════════════════
+function getCompName(comp: any): string {
+  if (!comp) return '';
+  if (typeof comp === 'string') return comp;
+  if (typeof comp === 'object' && comp.nom) return String(comp.nom);
+  return '';
+}
+
+function getCompNiveau(comp: any): string {
+  if (typeof comp === 'object' && comp.niveau) return String(comp.niveau);
+  return '';
 }
 
 export default function MentorDetailPage() {
@@ -49,7 +63,16 @@ export default function MentorDetailPage() {
     try {
       const response = await publicAPI.getMentorById(mentorId);
       if (response.data.success && response.data.mentor) {
-        setMentor(response.data.mentor);
+        // Normaliser les compétences
+        const mentorData = response.data.mentor;
+        if (mentorData.competences) {
+          mentorData.competences = mentorData.competences.map((c: any) => {
+            if (typeof c === 'string') return c;
+            if (typeof c === 'object' && c.nom) return c.nom;
+            return '';
+          }).filter(Boolean);
+        }
+        setMentor(mentorData);
       } else {
         setError(t('common.error'));
       }
@@ -87,6 +110,13 @@ export default function MentorDetailPage() {
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
+  const getPhotoUrl = (url: string | null | undefined) => {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    const baseUrl = BACKEND_URL.replace(/\/api\/?$/, '');
+    return `${baseUrl}${url}`;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
@@ -113,6 +143,13 @@ export default function MentorDetailPage() {
     );
   }
 
+  // Normaliser les compétences (défensif)
+  const competences = (mentor.competences || []).map((c: any) => {
+    if (typeof c === 'string') return c;
+    if (typeof c === 'object' && c.nom) return c.nom;
+    return '';
+  }).filter(Boolean);
+
   const criteriaLabels = [
     { key: 'note_ponctualite' as const, label: t('mentors.criteria_punctuality') },
     { key: 'note_pedagogie' as const, label: t('mentors.criteria_pedagogy') },
@@ -128,32 +165,41 @@ export default function MentorDetailPage() {
         </button>
 
         <div className="card overflow-hidden fade-in-up">
+          {/* Header profil */}
           <div className="px-8 py-8 relative overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
             <div className="detail-glow" style={{ backgroundColor: 'var(--accent-soft)' }} />
             <div className="flex flex-col md:flex-row items-center md:items-start gap-6 relative z-10">
               <div className="avatar-pop">
-                <Avatar photoUrl={mentor.photo_url} prenom={mentor.prenom} nom={mentor.nom} size={128} />
+                <div className="w-32 h-32 rounded-full overflow-hidden flex items-center justify-center" style={{ backgroundColor: 'var(--accent-soft)', border: '3px solid var(--accent-soft)' }}>
+                  {mentor.photo_url ? (
+                    <img src={getPhotoUrl(mentor.photo_url)} alt={`${mentor.prenom} ${mentor.nom}`} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-3xl font-bold" style={{ color: 'var(--accent-text-on-soft)' }}>
+                      {mentor.prenom?.[0]}{mentor.nom?.[0]}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex-1 text-center md:text-left">
-                <h1 className="font-display text-3xl font-semibold hover-name" style={{ color: 'var(--text-primary)' }}>
+                <h1 className="font-display text-3xl font-semibold" style={{ color: 'var(--text-primary)' }}>
                   {mentor.prenom} {mentor.nom}
                 </h1>
                 <p className="text-lg" style={{ color: 'var(--accent)' }}>{mentor.domaine || t('mentors.expert')}</p>
                 <div className="flex flex-wrap items-center gap-4 mt-3 justify-center md:justify-start">
-                  <div className="flex items-center gap-1 hover-scale">
+                  <div className="flex items-center gap-1">
                     <Star className="w-5 h-5" style={{ color: 'var(--warm)', fill: 'var(--warm)' }} />
                     <span className="font-mono-data font-semibold" style={{ color: 'var(--text-primary)' }}>{getNoteDisplay(mentor.note_moyenne)}/5</span>
                     {avis.length > 0 && <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>({avis.length} avis)</span>}
                   </div>
-                  <div className="flex items-center gap-1 hover-scale" style={{ color: 'var(--text-secondary)' }}>
+                  <div className="flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
                     <Users className="w-5 h-5" />
                     <span>{mentor.nb_sessions || 0} {t('mentors.sessions')}</span>
                   </div>
-                  <div className="flex items-center gap-1 hover-scale" style={{ color: 'var(--text-secondary)' }}>
+                  <div className="flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
                     <Clock className="w-5 h-5" />
                     <span>{mentor.annees_experience || 0} {t('mentors.years')}</span>
                   </div>
-                  <div className="flex items-center gap-1 hover-scale">
+                  <div className="flex items-center gap-1">
                     {mentor.disponible ? (
                       <><CheckCircle className="w-5 h-5" style={{ color: 'var(--success)' }} /><span style={{ color: 'var(--text-secondary)' }}>{t('mentors.is_available')}</span></>
                     ) : (
@@ -168,17 +214,23 @@ export default function MentorDetailPage() {
           <div className="p-8">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-6">
+                {/* Bio */}
                 <div className="reveal-block" style={{ animationDelay: '0.05s' }}>
                   <h2 className="font-display text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>{t('mentors.about')}</h2>
                   <p style={{ color: 'var(--text-secondary)' }} className="leading-relaxed">{mentor.bio || t('mentors.no_bio')}</p>
                 </div>
 
-                {mentor.competences && mentor.competences.length > 0 && (
+                {/* ═══ COMPÉTENCES CORRIGÉES ═══ */}
+                {competences.length > 0 && (
                   <div className="reveal-block" style={{ animationDelay: '0.1s' }}>
                     <h2 className="font-display text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>{t('matching.competences')}</h2>
                     <div className="flex flex-wrap gap-2">
-                      {mentor.competences.map((comp: string, index: number) => (
-                        <span key={index} className="competence-chip px-3 py-1 rounded-full text-sm" style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)', animationDelay: `${0.12 + index * 0.03}s` }}>
+                      {competences.map((comp: string, index: number) => (
+                        <span
+                          key={index}
+                          className="competence-chip px-3 py-1 rounded-full text-sm"
+                          style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)', animationDelay: `${0.12 + index * 0.03}s` }}
+                        >
                           {comp}
                         </span>
                       ))}
@@ -186,6 +238,7 @@ export default function MentorDetailPage() {
                   </div>
                 )}
 
+                {/* Avis */}
                 <div className="reveal-block" style={{ animationDelay: '0.15s' }}>
                   <h2 className="font-display text-xl font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                     <MessageSquareQuote className="w-5 h-5" style={{ color: 'var(--accent)' }} />
@@ -279,22 +332,15 @@ export default function MentorDetailPage() {
       </div>
 
       <style jsx global>{`
-        .back-btn {
-          transition: transform 0.15s ease, color 0.15s ease;
-        }
-        .back-btn:hover {
-          transform: translateX(-3px);
-          color: var(--accent);
-        }
+        .back-btn { transition: transform 0.15s ease, color 0.15s ease; }
+        .back-btn:hover { transform: translateX(-3px); color: var(--accent); }
 
         .fade-in-up {
           opacity: 0;
           transform: translateY(14px);
           animation: detailFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
-        @keyframes detailFadeUp {
-          to { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes detailFadeUp { to { opacity: 1; transform: translateY(0); } }
 
         .detail-glow {
           position: absolute;
@@ -309,19 +355,14 @@ export default function MentorDetailPage() {
           pointer-events: none;
           animation: detailGlowPulse 6s ease-in-out infinite;
         }
-        @keyframes detailGlowPulse {
-          0%, 100% { opacity: 0.35; }
-          50% { opacity: 0.55; }
-        }
+        @keyframes detailGlowPulse { 0%,100%{opacity:0.35} 50%{opacity:0.55} }
 
         .avatar-pop {
           opacity: 0;
           transform: scale(0.85);
-          animation: avatarPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.05s forwards;
+          animation: avatarPop 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.05s forwards;
         }
-        @keyframes avatarPop {
-          to { opacity: 1; transform: scale(1); }
-        }
+        @keyframes avatarPop { to { opacity: 1; transform: scale(1); } }
 
         .reveal-block {
           opacity: 0;
@@ -329,126 +370,46 @@ export default function MentorDetailPage() {
           animation: detailFadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
-        /* ─── ANIMATIONS DE SURVOL ─── */
-        .hover-name {
-          transition: all 0.3s ease;
-          cursor: default;
-          display: inline-block;
-        }
-        .hover-name:hover {
-          background: linear-gradient(135deg, #3B82F6, #8B5CF6);
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
-        }
-
-        .hover-scale {
-          transition: transform 0.3s ease;
-          cursor: default;
-        }
-        .hover-scale:hover {
-          transform: scale(1.08);
-        }
-
-        .hover-btn {
-          transition: transform 0.25s ease, filter 0.25s ease;
-        }
-        .hover-btn:hover {
-          transform: translateY(-3px);
-          filter: brightness(1.1);
-          box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-        }
-
-        .hover-email {
-          transition: color 0.3s ease, transform 0.3s ease;
-        }
-        .hover-email:hover {
-          color: var(--accent) !important;
-          transform: translateX(2px);
-        }
-
-        /* Compétences */
         .competence-chip {
           opacity: 0;
           transform: scale(0.9);
-          animation: chipPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+          animation: chipPop 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards;
           transition: all 0.3s ease;
           cursor: default;
         }
-        @keyframes chipPop {
-          to { opacity: 1; transform: scale(1); }
-        }
+        @keyframes chipPop { to { opacity: 1; transform: scale(1); } }
         .competence-chip:hover {
           transform: translateY(-4px) scale(1.1) !important;
           box-shadow: 0 6px 16px rgba(0,0,0,0.12);
           filter: brightness(1.1);
         }
 
-        /* Critères */
-        .criterion-chip {
-          opacity: 0;
-          transform: translateY(10px);
-          animation: detailFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-          transition: all 0.3s ease;
-          cursor: default;
-        }
-        .criterion-chip:hover {
-          transform: translateY(-6px) !important;
-          box-shadow: 0 10px 24px rgba(0,0,0,0.1);
-          background-color: var(--accent-soft) !important;
-        }
-
-        /* Avis */
-        .avis-card {
+        .criterion-chip, .avis-card {
           opacity: 0;
           transform: translateY(10px);
           animation: detailFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
           transition: all 0.35s ease;
         }
-        .avis-card:hover {
-          transform: translateX(6px);
-          box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-        }
-        .avis-avatar {
-          transition: all 0.3s ease;
-        }
-        .avis-card:hover .avis-avatar {
-          transform: scale(1.1);
-        }
-        .avis-rating {
-          transition: transform 0.3s ease;
-        }
-        .avis-card:hover .avis-rating {
-          transform: scale(1.1);
-        }
+        .criterion-chip:hover { transform: translateY(-6px) !important; box-shadow: 0 10px 24px rgba(0,0,0,0.1); background-color: var(--accent-soft) !important; }
+        .avis-card:hover { transform: translateX(6px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+        .avis-avatar { transition: all 0.3s ease; }
+        .avis-card:hover .avis-avatar { transform: scale(1.1); }
+        .avis-rating { transition: transform 0.3s ease; }
+        .avis-card:hover .avis-rating { transform: scale(1.1); }
 
-        /* Sidebar */
-        .sidebar-card {
-          transition: all 0.3s ease;
-        }
-        .sidebar-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 12px 28px rgba(0,0,0,0.1);
-        }
-
-        .sidebar-cta {
-          transition: transform 0.25s ease, filter 0.25s ease, box-shadow 0.25s ease;
-        }
-        .sidebar-cta:hover {
-          transform: translateY(-3px);
-          filter: brightness(1.08);
-          box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-        }
+        .sidebar-card { transition: all 0.3s ease; }
+        .sidebar-card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,0.1); }
+        .sidebar-cta { transition: transform 0.25s ease, filter 0.25s ease, box-shadow 0.25s ease; }
+        .sidebar-cta:hover { transform: translateY(-3px); filter: brightness(1.08); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
+        .hover-email { transition: color 0.3s ease, transform 0.3s ease; }
+        .hover-email:hover { color: var(--accent) !important; transform: translateX(2px); }
+        .hover-btn { transition: transform 0.25s ease, filter 0.25s ease; }
+        .hover-btn:hover { transform: translateY(-3px); filter: brightness(1.1); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
 
         @media (prefers-reduced-motion: reduce) {
           .fade-in-up, .detail-glow, .avatar-pop, .reveal-block,
           .competence-chip, .criterion-chip, .avis-card,
-          .hover-name, .hover-scale, .hover-btn, .hover-email {
-            animation: none !important;
-            transition: none !important;
-            opacity: 1 !important;
-            transform: none !important;
-          }
+          .hover-btn, .hover-email { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
         }
       `}</style>
     </div>
