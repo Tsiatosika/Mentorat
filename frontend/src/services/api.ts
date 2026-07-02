@@ -146,4 +146,16 @@ export const uploadAPI = {
   },
 };
 
+export const notificationAPI = {
+  getAll: () => api.get('/notifications'),
+  markAsRead: (id: string) => api.put(`/notifications/${id}/read`),
+  markAllAsRead: () => api.put('/notifications/read-all'),
+  getUnreadCount: () => api.get('/notifications/unread/count'),
+};
+
+export const domaineAPI = {
+  getAll: () => api.get('/domaines'),
+};
+
+
 export default api;
