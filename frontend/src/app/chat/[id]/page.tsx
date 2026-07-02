@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, Download, File, X, Paperclip, Send, Smile, Video,
-  Trash2, MoreVertical, ChevronDown, Check, CheckCheck
+  Trash2, MoreVertical, ChevronDown, Check, CheckCheck,
+  Clock, Calendar, MessageCircle
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -19,6 +20,7 @@ import { SimpleJitsi } from '@/components/video/SimpleJitsi';
 import { IncomingCallModal } from '@/components/video/IncomingCallModal';
 import { CallHistory, saveCallRecord } from '@/components/video/CallHistory';
 import { useSound } from '@/hooks/useSound';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Message {
   id: string;
@@ -33,7 +35,7 @@ interface Message {
   tempId?: string;
 }
 
-const AVATAR_COLORS = ['#0A2463', '#1D4ED8', '#7C3AED', '#059669', '#DC2626'];
+const AVATAR_COLORS = ['#6366F1', '#8B5CF6', '#EC4899', '#14B8A6', '#F59E0B', '#EF4444', '#3B82F6'];
 
 function getInitials(name: string) {
   return name
@@ -79,6 +81,9 @@ export default function ChatPage() {
   const [otherOnline, setOtherOnline] = useState(false);
   const [otherUserPhoto, setOtherUserPhoto] = useState<string | null>(null);
   const [photoFailed, setPhotoFailed] = useState(false);
+  const [isCallActive, setIsCallActive] = useState(false);
+  const [callDuration, setCallDuration] = useState(0);
+  const [sessionInfo, setSessionInfo] = useState<any>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -88,8 +93,7 @@ export default function ChatPage() {
   const menuRef = useRef<HTMLDivElement>(null);
   const emojiRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const [availableHeight, setAvailableHeight] = useState<number | null>(null);
+  const callIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const locale = language === 'fr' ? 'fr-FR' : 'en-GB';
 
@@ -98,6 +102,7 @@ export default function ChatPage() {
       try {
         const response = await sessionAPI.getById(sessionId);
         const session = response.data.session;
+        setSessionInfo(session);
 
         if (user?.role === 'mentor') {
           setOtherUserId(session.mentore_user_id);
@@ -124,22 +129,38 @@ export default function ChatPage() {
       return;
     }
     initSocket();
-    return () => { if (socket) socket.disconnect(); };
+    return () => { 
+      if (socket) socket.disconnect();
+      if (callIntervalRef.current) clearInterval(callIntervalRef.current);
+    };
   }, [user, router, sessionId]);
 
   useEffect(() => {
     if (showVideo) {
       callStartTimeRef.current = Date.now();
-    } else if (callStartTimeRef.current) {
-      const duration = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
-      if (duration > 0 && otherUserId && otherUserName) {
-        saveCallRecord(otherUserId, otherUserName, duration, 'sortant', true);
+      setIsCallActive(true);
+      callIntervalRef.current = setInterval(() => {
+        if (callStartTimeRef.current) {
+          setCallDuration(Math.floor((Date.now() - callStartTimeRef.current) / 1000));
+        }
+      }, 1000);
+    } else {
+      if (callIntervalRef.current) {
+        clearInterval(callIntervalRef.current);
+        callIntervalRef.current = null;
       }
-      callStartTimeRef.current = null;
+      if (callStartTimeRef.current) {
+        const duration = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
+        if (duration > 0 && otherUserId && otherUserName) {
+          saveCallRecord(otherUserId, otherUserName, duration, 'sortant', true);
+        }
+        callStartTimeRef.current = null;
+      }
+      setIsCallActive(false);
+      setCallDuration(0);
     }
   }, [showVideo, otherUserId, otherUserName]);
 
-  // Fermer le menu contextuel / les emoji au clic extérieur
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuOpenFor && menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -153,7 +174,6 @@ export default function ChatPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [menuOpenFor, showEmojiPicker]);
 
-  // Auto-resize du textarea
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -164,21 +184,6 @@ export default function ChatPage() {
   useEffect(() => {
     setPhotoFailed(false);
   }, [otherUserPhoto]);
-
-  // Mesure la hauteur réellement disponible (viewport - position du composant - marge basse
-  // du padding du layout parent), pour que le header de chat reste toujours visible quelle
-  // que soit la hauteur du TopNavbar.
-  useEffect(() => {
-    const computeHeight = () => {
-      if (!rootRef.current) return;
-      const top = rootRef.current.getBoundingClientRect().top;
-      const bottomMargin = window.innerWidth >= 640 ? 24 : 16; // p-6 vs p-4 du layout parent
-      setAvailableHeight(Math.max(window.innerHeight - top - bottomMargin, 480));
-    };
-    computeHeight();
-    window.addEventListener('resize', computeHeight);
-    return () => window.removeEventListener('resize', computeHeight);
-  }, [loading]);
 
   const initSocket = () => {
     const token = localStorage.getItem('token');
@@ -531,6 +536,12 @@ export default function ChatPage() {
     setShowVideo(false);
   };
 
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
   const handleCallBack = (contactId: string, contactName: string) => {
     if (socket && contactId) {
       socket.emit('call_user', {
@@ -543,7 +554,6 @@ export default function ChatPage() {
     }
   };
 
-  // --- Préparation de l'affichage : groupement + séparateurs de date ---
   const dayLabel = (iso: string) => {
     const d = new Date(iso);
     const now = new Date();
@@ -551,8 +561,8 @@ export default function ChatPage() {
       (new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() -
         new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86400000
     );
-    if (diffDays === 0) return t('chat.today') || "Aujourd'hui";
-    if (diffDays === 1) return t('chat.yesterday') || 'Hier';
+    if (diffDays === 0) return "Aujourd'hui";
+    if (diffDays === 1) return 'Hier';
     return d.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: diffDays > 300 ? 'numeric' : undefined });
   };
 
@@ -586,16 +596,16 @@ export default function ChatPage() {
       });
     });
     return out;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, locale]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center rounded-2xl" style={{ backgroundColor: 'var(--bg-primary)', height: '480px' }}>
-        <div
-          className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin"
-          style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
-        />
+      <div className="flex items-center justify-center h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin" 
+            style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
+          <p style={{ color: 'var(--text-secondary)' }}>Chargement du chat...</p>
+        </div>
       </div>
     );
   }
@@ -605,376 +615,385 @@ export default function ChatPage() {
   const otherAvatarColor = colorForName(otherUserName || 'x');
 
   return (
-    <div
-      ref={rootRef}
-      className="flex flex-col overflow-hidden rounded-2xl chat-detail-page"
-      style={{
-        backgroundColor: 'var(--bg-primary)',
-        height: availableHeight ? `${availableHeight}px` : 'calc(100vh - 8rem)',
-        minHeight: '480px',
-      }}
+    <div 
+      className="h-screen flex flex-col" 
+      style={{ backgroundColor: 'var(--bg-primary)' }}
     >
-      {incomingCall && (
-        <IncomingCallModal
-          callerName={incomingCall.fromName}
-          onAccept={acceptCall}
-          onReject={rejectCall}
-        />
-      )}
-
-      {/* Header */}
-      <div
-        className="flex-shrink-0 z-20 backdrop-blur-md"
-        style={{ backgroundColor: 'var(--card-bg)', borderBottom: '1px solid var(--border)' }}
+      {/* ===== HEADER FIXE ===== */}
+      <div 
+        className="flex-shrink-0 z-20"
+        style={{ 
+          backgroundColor: 'var(--card-bg)',
+          borderBottom: '1px solid var(--border)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+        }}
       >
-        <div className="max-w-5xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between">
+            {/* Partie gauche */}
             <div className="flex items-center gap-3 min-w-0">
               <Link
                 href="/chat"
-                className="p-2 -ml-2 rounded-full transition-colors hover:bg-[var(--bg-secondary)]"
+                className="p-2 rounded-lg transition-all hover:bg-[var(--bg-secondary)]"
                 style={{ color: 'var(--text-secondary)' }}
               >
                 <ArrowLeft className="w-5 h-5" />
               </Link>
 
-              <div className="relative flex-shrink-0">
-                {otherUserPhoto && !photoFailed ? (
-                  <img
-                    src={getFullUrl(otherUserPhoto)}
-                    alt={otherUserName}
-                    onError={() => setPhotoFailed(true)}
-                    className="w-10 h-10 rounded-full object-cover"
+              <div className="flex items-center gap-3">
+                {/* Avatar */}
+                <div className="relative flex-shrink-0">
+                  {otherUserPhoto && !photoFailed ? (
+                    <img
+                      src={getFullUrl(otherUserPhoto)}
+                      alt={otherUserName}
+                      onError={() => setPhotoFailed(true)}
+                      className="w-11 h-11 rounded-xl object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold"
+                      style={{ backgroundColor: otherAvatarColor }}
+                    >
+                      {otherInitials}
+                    </div>
+                  )}
+                  <span
+                    className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
+                    style={{
+                      backgroundColor: otherOnline ? '#10B981' : '#9CA3AF',
+                      borderColor: 'var(--card-bg)',
+                    }}
                   />
-                ) : (
-                  <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                    style={{ backgroundColor: otherAvatarColor }}
-                  >
-                    {otherInitials}
-                  </div>
-                )}
-                <span
-                  className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
-                  style={{
-                    backgroundColor: otherOnline ? 'var(--success)' : 'var(--text-tertiary)',
-                    borderColor: 'var(--card-bg)',
-                  }}
-                />
-              </div>
+                </div>
 
-              <div className="min-w-0">
-                <h1 className="font-semibold truncate leading-tight" style={{ color: 'var(--text-primary)' }}>
-                  {otherUserName || t('chat.title')}
-                </h1>
-                <p className="text-xs leading-tight" style={{ color: otherOnline ? 'var(--success)' : 'var(--text-tertiary)' }}>
-                  {otherTyping
-                    ? (t('chat.typing') || 'écrit...')
-                    : otherOnline
-                      ? (t('chat.online') || 'En ligne')
-                      : t('chat.session')}
-                </p>
+                {/* Infos */}
+                <div className="min-w-0">
+                  <h1 className="font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                    {otherUserName || 'Utilisateur'}
+                  </h1>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="flex items-center gap-1" style={{ color: 'var(--text-tertiary)' }}>
+                      <Clock className="w-3 h-3" />
+                      {otherOnline ? 'En ligne' : 'Hors ligne'}
+                    </span>
+                    {sessionInfo && (
+                      <>
+                        <span className="w-1 h-1 rounded-full" style={{ backgroundColor: 'var(--border)' }} />
+                        <span className="flex items-center gap-1" style={{ color: 'var(--text-tertiary)' }}>
+                          <Calendar className="w-3 h-3" />
+                          {new Date(sessionInfo.date_debut).toLocaleDateString(locale, { day: 'numeric', month: 'short' })}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
-            <button
-              onClick={startCall}
-              className="call-btn flex-shrink-0 flex items-center justify-center w-10 h-10 sm:w-auto sm:px-4 sm:gap-2 rounded-full sm:rounded-xl transition-transform hover:scale-105 active:scale-95"
-              style={{ backgroundColor: 'var(--success)', color: '#fff' }}
-              title={t('chat.video_call')}
-            >
-              <Video className="w-5 h-5" />
-              <span className="hidden sm:inline text-sm font-medium">{t('chat.video_call')}</span>
-            </button>
+            {/* Actions */}
+            <div className="flex items-center gap-1">
+              {isCallActive && (
+                <div className="px-3 py-1.5 rounded-lg bg-green-500/10 text-green-600 text-xs font-medium flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                  {formatDuration(callDuration)}
+                </div>
+              )}
+              <button
+                onClick={startCall}
+                disabled={isCallActive}
+                className="p-2.5 rounded-lg transition-all hover:bg-[var(--bg-secondary)] disabled:opacity-50"
+                style={{ color: isCallActive ? 'var(--text-secondary)' : 'var(--accent)' }}
+                title="Appel vidéo"
+              >
+                {isCallActive ? <Video className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="relative flex-1 min-h-0">
+      {/* ===== MESSAGES (SCROLLABLE UNIQUEMENT ICI) ===== */}
+      <div className="flex-1 min-h-0 relative">
         <div
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="h-full max-w-5xl mx-auto w-full px-3 sm:px-4 py-5 overflow-y-auto"
+          className="h-full px-4 py-4 overflow-y-auto"
+          style={{
+            scrollBehavior: 'smooth',
+          }}
         >
-          <div className="space-y-0.5">
+          <div className="max-w-4xl mx-auto">
             {rows.length === 0 ? (
-              <div className="flex flex-col items-center justify-center text-center py-20 gap-3">
+              <div className="flex flex-col items-center justify-center h-full text-center gap-4">
                 <div
-                  className="w-16 h-16 rounded-full flex items-center justify-center"
+                  className="w-20 h-20 rounded-2xl flex items-center justify-center"
                   style={{ backgroundColor: 'var(--bg-secondary)' }}
                 >
-                  <span className="text-2xl">💬</span>
+                  <MessageCircle className="w-10 h-10" style={{ color: 'var(--text-tertiary)' }} />
                 </div>
-                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                  {t('chat.no_messages')}
-                </p>
-                <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                  {otherUserName ? `Dites bonjour à ${otherUserName.split(' ')[0]}` : ''}
-                </p>
+                <div>
+                  <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    Aucun message
+                  </p>
+                  <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                    {otherUserName ? `Dites bonjour à ${otherUserName.split(' ')[0]}` : 'Commencez la conversation'}
+                  </p>
+                </div>
               </div>
             ) : (
-              rows.map((row) => {
-                if (row.kind === 'date') {
+              <>
+                {rows.map((row) => {
+                  if (row.kind === 'date') {
+                    return (
+                      <div key={row.key} className="flex items-center gap-3 my-6">
+                        <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border)' }} />
+                        <span
+                          className="text-xs font-medium px-4 py-1 rounded-lg"
+                          style={{ 
+                            backgroundColor: 'var(--bg-secondary)',
+                            color: 'var(--text-tertiary)',
+                          }}
+                        >
+                          {row.label}
+                        </span>
+                        <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border)' }} />
+                      </div>
+                    );
+                  }
+
+                  const message = row.message;
+                  const isOwn = message.expediteur_id === user?.id;
+                  const fullUrl = getFullUrl(message.fichier_url || '');
+                  const isImage = isImageFile(fullUrl);
+                  const isFile = message.type_message === 'fichier' && message.fichier_url;
+
+                  const radius = isOwn
+                    ? '16px 16px 4px 16px'
+                    : '16px 16px 16px 4px';
+
                   return (
-                    <div key={row.key} className="flex items-center gap-3 my-5 select-none">
-                      <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border)' }} />
-                      <span
-                        className="text-xs font-medium px-3 py-1 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-tertiary)' }}
-                      >
-                        {row.label}
-                      </span>
-                      <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border)' }} />
-                    </div>
-                  );
-                }
-
-                const message = row.message;
-                const isOwn = message.expediteur_id === user?.id;
-                const fullUrl = getFullUrl(message.fichier_url || '');
-                const isImage = isImageFile(fullUrl);
-                const isFile = message.type_message === 'fichier' && message.fichier_url;
-
-                const radius = isOwn
-                  ? `${row.isFirstInGroup ? '1.25rem' : '0.45rem'} 1.25rem 1.25rem ${row.isLastInGroup ? '1.25rem' : '0.45rem'}`
-                  : `1.25rem ${row.isFirstInGroup ? '1.25rem' : '0.45rem'} ${row.isLastInGroup ? '1.25rem' : '0.45rem'} 1.25rem`;
-
-                return (
-                  <div
-                    key={row.key}
-                    className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group relative animate-message-in`}
-                    style={{ marginTop: row.isFirstInGroup ? '0.65rem' : '0.15rem' }}
-                  >
-                    <div className={`flex items-end gap-2 max-w-[78%] sm:max-w-[65%] ${isOwn ? 'flex-row-reverse' : ''}`}>
-                      {!isOwn && (
-                        otherUserPhoto && !photoFailed ? (
-                          <img
-                            src={getFullUrl(otherUserPhoto)}
-                            alt={otherUserName}
-                            onError={() => setPhotoFailed(true)}
-                            className="w-6 h-6 rounded-full object-cover flex-shrink-0"
-                            style={{ visibility: row.isLastInGroup ? 'visible' : 'hidden' }}
-                          />
-                        ) : (
-                          <div
-                            className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                            style={{
-                              backgroundColor: otherAvatarColor,
-                              visibility: row.isLastInGroup ? 'visible' : 'hidden',
-                            }}
-                          >
-                            {otherInitials}
-                          </div>
-                        )
-                      )}
-
-                      <div
-                        className="chat-bubble relative px-4 py-2.5"
-                        style={{
-                          background: isOwn
-                            ? 'linear-gradient(135deg, var(--accent), var(--accent-hover))'
-                            : 'var(--card-bg)',
-                          color: isOwn ? '#06231D' : 'var(--text-primary)',
-                          border: isOwn ? 'none' : '1px solid var(--border)',
-                          borderRadius: radius,
-                          boxShadow: 'var(--shadow-card)',
-                        }}
-                      >
-                        {isFile ? (
-                          <div onClick={() => handleFileClick(fullUrl, message.contenu, !!isImage)} className="cursor-pointer">
-                            {isImage ? (
+                    <motion.div
+                      key={row.key}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-1`}
+                    >
+                      <div className={`flex items-end gap-2 max-w-[75%] ${isOwn ? 'flex-row-reverse' : ''}`}>
+                        {!isOwn && (
+                          <div className="flex-shrink-0" style={{ visibility: row.isLastInGroup ? 'visible' : 'hidden' }}>
+                            {otherUserPhoto && !photoFailed ? (
                               <img
-                                src={fullUrl}
-                                alt={message.contenu}
-                                className="max-w-[220px] max-h-[180px] rounded-lg object-cover hover:opacity-90 transition-opacity"
+                                src={getFullUrl(otherUserPhoto)}
+                                alt={otherUserName}
+                                onError={() => setPhotoFailed(true)}
+                                className="w-7 h-7 rounded-lg object-cover"
                               />
                             ) : (
                               <div
-                                className="flex items-center gap-2 p-2 rounded-lg transition-colors"
-                                style={{ backgroundColor: isOwn ? 'rgba(6,35,29,0.1)' : 'var(--bg-secondary)' }}
+                                className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white"
+                                style={{ backgroundColor: otherAvatarColor }}
                               >
-                                <File className="w-5 h-5 flex-shrink-0" style={{ color: isOwn ? '#06231D' : 'var(--accent)' }} />
-                                <span className="text-sm break-words underline-offset-2 hover:underline">{message.contenu}</span>
-                                <Download className="w-4 h-4 opacity-60 flex-shrink-0" />
+                                {otherInitials}
                               </div>
                             )}
                           </div>
-                        ) : (
-                          <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">{message.contenu}</p>
                         )}
 
-                        <div className={`flex items-center gap-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                          <span className="font-mono-data text-[11px]" style={{ opacity: 0.65 }}>
-                            {new Date(message.envoye_le).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
-                          </span>
+                        <div
+                          className="relative px-4 py-2.5"
+                          style={{
+                            background: isOwn
+                              ? 'var(--accent)'
+                              : 'var(--card-bg)',
+                            color: isOwn ? '#06231D' : 'var(--text-primary)',
+                            border: isOwn ? 'none' : '1px solid var(--border)',
+                            borderRadius: radius,
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                          }}
+                        >
+                          {isFile ? (
+                            <div 
+                              onClick={() => handleFileClick(fullUrl, message.contenu, !!isImage)} 
+                              className="cursor-pointer"
+                            >
+                              {isImage ? (
+                                <div className="rounded-lg overflow-hidden">
+                                  <img
+                                    src={fullUrl}
+                                    alt={message.contenu}
+                                    className="max-w-[200px] max-h-[180px] object-cover hover:opacity-90 transition-opacity"
+                                  />
+                                </div>
+                              ) : (
+                                <div
+                                  className="flex items-center gap-3 p-2 rounded-lg"
+                                  style={{ backgroundColor: isOwn ? 'rgba(6,35,29,0.08)' : 'var(--bg-secondary)' }}
+                                >
+                                  <File className="w-5 h-5 flex-shrink-0" style={{ color: isOwn ? '#06231D' : 'var(--accent)' }} />
+                                  <span className="text-sm truncate">{message.contenu.replace(/[📎📷]/g, '').trim()}</span>
+                                  <Download className="w-4 h-4 opacity-50 flex-shrink-0" />
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">{message.contenu}</p>
+                          )}
+
+                          <div className={`flex items-center gap-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                            <span className="text-[10px] opacity-60">
+                              {new Date(message.envoye_le).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {isOwn && (
+                              message.lu
+                                ? <CheckCheck className="w-3 h-3 opacity-60" />
+                                : <Check className="w-3 h-3 opacity-40" />
+                            )}
+                          </div>
+
                           {isOwn && (
-                            message.lu
-                              ? <CheckCheck className="w-3.5 h-3.5" style={{ opacity: 0.65 }} />
-                              : <Check className="w-3.5 h-3.5" style={{ opacity: 0.5 }} />
+                            <button
+                              onClick={() => setMenuOpenFor(menuOpenFor === message.id ? null : message.id)}
+                              className="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[var(--bg-secondary)]"
+                            >
+                              <MoreVertical className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />
+                            </button>
+                          )}
+
+                          {isOwn && menuOpenFor === message.id && (
+                            <div
+                              ref={menuRef}
+                              className="absolute right-0 top-full mt-1 rounded-lg shadow-lg overflow-hidden z-30 min-w-[140px]"
+                              style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}
+                            >
+                              <button
+                                onClick={() => deleteMessage(message.id)}
+                                className="flex items-center gap-2 px-4 py-2.5 text-sm w-full transition-colors hover:bg-[var(--bg-secondary)]"
+                                style={{ color: 'var(--danger)' }}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Supprimer
+                              </button>
+                            </div>
                           )}
                         </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
 
-                        {isOwn && (
-                          <button
-                            onClick={() => setMenuOpenFor(menuOpenFor === message.id ? null : message.id)}
-                            className="absolute -left-7 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-[var(--bg-secondary)]"
-                          >
-                            <MoreVertical className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />
-                          </button>
-                        )}
-
-                        {isOwn && menuOpenFor === message.id && (
-                          <div
-                            ref={menuRef}
-                            className="absolute right-0 top-full mt-1 rounded-lg shadow-lg overflow-hidden z-30 animate-pop-in"
-                            style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}
-                          >
-                            <button
-                              onClick={() => deleteMessage(message.id)}
-                              className="flex items-center gap-2 px-3 py-2 text-sm w-full transition-colors hover:bg-[var(--bg-secondary)] whitespace-nowrap"
-                              style={{ color: 'var(--danger)' }}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              {t('chat.delete')}
-                            </button>
-                          </div>
-                        )}
+                {otherTyping && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-end gap-2 mt-1"
+                  >
+                    <div className="flex-shrink-0">
+                      {otherUserPhoto && !photoFailed ? (
+                        <img
+                          src={getFullUrl(otherUserPhoto)}
+                          alt={otherUserName}
+                          onError={() => setPhotoFailed(true)}
+                          className="w-7 h-7 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <div
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white"
+                          style={{ backgroundColor: otherAvatarColor }}
+                        >
+                          {otherInitials}
+                        </div>
+                      )}
+                    </div>
+                    <div className="px-4 py-2.5 rounded-lg" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
+                      <div className="flex gap-1.5">
+                        <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: 'var(--text-tertiary)', animationDelay: '0ms' }} />
+                        <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: 'var(--text-tertiary)', animationDelay: '150ms' }} />
+                        <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: 'var(--text-tertiary)', animationDelay: '300ms' }} />
                       </div>
                     </div>
-                  </div>
-                );
-              })
-            )}
-
-            {otherTyping && (
-              <div className="flex justify-start items-end gap-2 mt-2 animate-message-in">
-                {otherUserPhoto && !photoFailed ? (
-                  <img
-                    src={getFullUrl(otherUserPhoto)}
-                    alt={otherUserName}
-                    onError={() => setPhotoFailed(true)}
-                    className="w-6 h-6 rounded-full object-cover flex-shrink-0"
-                  />
-                ) : (
-                  <div
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                    style={{ backgroundColor: otherAvatarColor }}
-                  >
-                    {otherInitials}
-                  </div>
+                  </motion.div>
                 )}
-                <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
-                  <div className="flex gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: 'var(--text-tertiary)', animationDelay: '0ms' }} />
-                    <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: 'var(--text-tertiary)', animationDelay: '150ms' }} />
-                    <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: 'var(--text-tertiary)', animationDelay: '300ms' }} />
-                  </div>
-                </div>
-              </div>
-            )}
 
-            <div ref={messagesEndRef} />
+                <div ref={messagesEndRef} />
+              </>
+            )}
           </div>
         </div>
-
-        {/* Fade en haut de la zone de scroll */}
-        <div
-          className="pointer-events-none absolute top-0 left-0 right-0 h-6"
-          style={{ background: 'linear-gradient(to bottom, var(--bg-primary), transparent)' }}
-        />
 
         {/* Bouton retour en bas */}
         {!isAtBottom && (
-          <button
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
             onClick={() => scrollToBottom(true)}
-            className="absolute bottom-5 right-6 sm:right-10 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 animate-pop-in z-10"
-            style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-secondary)', boxShadow: 'var(--shadow-card-hover)' }}
-            title="Aller en bas"
+            className="absolute bottom-4 right-4 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"
+            style={{ 
+              backgroundColor: 'var(--card-bg)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-secondary)',
+            }}
           >
             <ChevronDown className="w-5 h-5" />
-          </button>
+          </motion.button>
         )}
       </div>
 
-      {/* Modal image */}
-      {selectedImage && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in"
-          style={{ backgroundColor: 'rgba(0,0,0,0.92)' }}
-          onClick={() => setSelectedImage(null)}
-        >
-          <div className="relative max-w-4xl max-h-[90vh] p-4">
-            <button onClick={() => setSelectedImage(null)} className="absolute -top-10 right-0 text-white hover:opacity-70 transition-opacity">
-              <X className="w-8 h-8" />
-            </button>
-            <img src={selectedImage} alt="Agrandissement" className="max-w-full max-h-[85vh] object-contain rounded-lg" />
-            <button
-              onClick={(e) => { e.stopPropagation(); downloadFile(selectedImage, 'image'); }}
-              className="absolute -bottom-10 right-0 px-4 py-2 rounded-lg flex items-center gap-2 transition-transform hover:scale-105"
-              style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}
-            >
-              <Download className="w-4 h-4" />
-              {t('chat.download')}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Visio */}
-      {showVideo && (
-        <SimpleJitsi
-          roomName={sessionId}
-          userName={`${user?.prenom} ${user?.nom}`}
-          contactName={otherUserName}
-          contactId={otherUserId || undefined}
-          onClose={endCall}
-        />
-      )}
-
-      {/* Zone de saisie */}
-      <div className="flex-shrink-0 relative" style={{ backgroundColor: 'var(--card-bg)', borderTop: '1px solid var(--border)' }}>
-        <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3">
-
+      {/* ===== ZONE DE SAISIE FIXE ===== */}
+      <div 
+        className="flex-shrink-0"
+        style={{ 
+          backgroundColor: 'var(--card-bg)',
+          borderTop: '1px solid var(--border)',
+        }}
+      >
+        <div className="px-4 py-3">
+          {/* Prévisualisation des fichiers */}
           {filePreviews.length > 0 && (
-            <div className="mb-3 p-3 rounded-xl animate-pop-in" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              <div className="flex flex-wrap gap-2">
+            <motion.div 
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-3 p-3 rounded-xl" 
+              style={{ backgroundColor: 'var(--bg-secondary)' }}
+            >
+              <div className="flex flex-wrap gap-3">
                 {filePreviews.map((preview, idx) => (
                   <div key={idx} className="relative group">
                     {preview.url ? (
-                      <img src={preview.url} alt={preview.name} className="w-16 h-16 rounded-lg object-cover" />
+                      <div className="w-16 h-16 rounded-lg overflow-hidden">
+                        <img src={preview.url} alt={preview.name} className="w-full h-full object-cover" />
+                      </div>
                     ) : (
-                      <div
-                        className="w-16 h-16 rounded-lg flex items-center justify-center"
-                        style={{ backgroundColor: 'var(--accent-soft)' }}
-                      >
+                      <div className="w-16 h-16 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--accent-soft)' }}>
                         <File className="w-8 h-8" style={{ color: 'var(--accent)' }} />
                       </div>
                     )}
                     <button
                       onClick={() => removeFile(idx)}
-                      className="absolute -top-2 -right-2 rounded-full p-1 transition-opacity"
+                      className="absolute -top-2 -right-2 rounded-full p-1 shadow-md"
                       style={{ backgroundColor: 'var(--danger)', color: '#fff' }}
                     >
                       <X className="w-3 h-3" />
                     </button>
-                    <p className="text-xs mt-1 truncate w-16" style={{ color: 'var(--text-tertiary)' }}>
+                    <p className="text-xs mt-1 truncate w-16 text-center" style={{ color: 'var(--text-tertiary)' }}>
                       {preview.name.substring(0, 10)}
                     </p>
                   </div>
                 ))}
               </div>
-            </div>
+            </motion.div>
           )}
 
+          {/* Input group */}
           <div className="flex items-end gap-2">
-            <div className="flex items-center gap-1 flex-shrink-0 pb-1.5">
+            <div className="flex items-center gap-0.5 pb-1.5">
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={sending || uploading}
-                className="p-2 rounded-full transition-colors disabled:opacity-50 hover:bg-[var(--bg-secondary)]"
+                className="p-2 rounded-lg transition-all hover:bg-[var(--bg-secondary)] disabled:opacity-40"
                 style={{ color: 'var(--text-secondary)' }}
-                title={t('chat.attach_file')}
+                title="Joindre un fichier"
               >
                 <Paperclip className="w-5 h-5" />
               </button>
@@ -982,15 +1001,15 @@ export default function ChatPage() {
               <div className="relative" ref={emojiRef}>
                 <button
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="p-2 rounded-full transition-colors hover:bg-[var(--bg-secondary)]"
+                  className="p-2 rounded-lg transition-all hover:bg-[var(--bg-secondary)]"
                   style={{ color: 'var(--text-secondary)' }}
-                  title={t('chat.emoji')}
+                  title="Emojis"
                 >
                   <Smile className="w-5 h-5" />
                 </button>
 
                 {showEmojiPicker && (
-                  <div className="absolute bottom-12 left-0 z-50 animate-pop-in">
+                  <div className="absolute bottom-12 left-0 z-50 shadow-xl rounded-2xl overflow-hidden">
                     <EmojiPicker onEmojiClick={handleEmojiClick} theme={theme === 'dark' ? ('dark' as any) : ('light' as any)} />
                   </div>
                 )}
@@ -1007,32 +1026,37 @@ export default function ChatPage() {
               disabled={sending || uploading}
             />
 
-            <textarea
-              ref={textareaRef}
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={handleKeyPress}
-              onKeyUp={handleTyping}
-              placeholder={t('chat.message_placeholder')}
-              disabled={sending || uploading}
-              rows={1}
-              className="chat-textarea flex-1 resize-none border rounded-2xl px-4 py-2.5 outline-none disabled:opacity-50 focus:ring-2"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                borderColor: 'var(--border)',
-                color: 'var(--text-primary)',
-                minHeight: '44px',
-                maxHeight: '120px',
-                '--tw-ring-color': 'var(--accent)',
-              } as React.CSSProperties}
-            />
+            <div className="flex-1 relative">
+              <textarea
+                ref={textareaRef}
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={handleKeyPress}
+                onKeyUp={handleTyping}
+                placeholder="Écrivez votre message..."
+                disabled={sending || uploading}
+                rows={1}
+                className="w-full resize-none border rounded-xl px-4 py-2.5 outline-none transition-all focus:ring-2"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--text-primary)',
+                  minHeight: '44px',
+                  maxHeight: '120px',
+                  '--tw-ring-color': 'var(--accent)',
+                } as React.CSSProperties}
+              />
+            </div>
 
             <button
               onClick={sendAll}
               disabled={!hasContent || sending || uploading}
-              className="flex-shrink-0 w-11 h-11 rounded-full transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center hover:scale-105 active:scale-95"
-              style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}
-              title={t('chat.send')}
+              className="flex-shrink-0 w-11 h-11 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center hover:scale-105 active:scale-95"
+              style={{ 
+                backgroundColor: hasContent && !sending && !uploading ? 'var(--accent)' : 'var(--bg-secondary)',
+                color: hasContent && !sending && !uploading ? '#06231D' : 'var(--text-tertiary)',
+              }}
+              title="Envoyer"
             >
               {sending || uploading ? (
                 <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -1043,59 +1067,72 @@ export default function ChatPage() {
           </div>
 
           <p className="text-xs mt-2 text-center" style={{ color: 'var(--text-tertiary)' }}>
-            {t('chat.hint')}
+            Appuyez sur Entrée pour envoyer · Shift+Entrée pour sauter une ligne
           </p>
         </div>
       </div>
 
+      {/* Appels récents */}
       {!showVideo && (
-        <div className="max-w-5xl mx-auto px-4 pb-2 flex-shrink-0">
+        <div className="flex-shrink-0 px-4 pb-3">
           <CallHistory onCallBack={handleCallBack} />
         </div>
       )}
 
-      <style jsx global>{`
-        @keyframes message-in {
-          from { opacity: 0; transform: translateY(6px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-message-in {
-          animation: message-in 0.18s ease-out;
-        }
-        @keyframes pop-in {
-          from { opacity: 0; transform: scale(0.95); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        .animate-pop-in {
-          animation: pop-in 0.15s ease-out;
-        }
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.15s ease-out;
-        }
+      {/* Modal image */}
+      <AnimatePresence>
+        {selectedImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(0,0,0,0.9)' }}
+            onClick={() => setSelectedImage(null)}
+          >
+            <div className="relative max-w-4xl max-h-[90vh] p-4">
+              <button 
+                onClick={() => setSelectedImage(null)} 
+                className="absolute -top-12 right-0 text-white hover:opacity-70 transition-opacity"
+              >
+                <X className="w-8 h-8" />
+              </button>
+              <img 
+                src={selectedImage} 
+                alt="Agrandissement" 
+                className="max-w-full max-h-[85vh] object-contain rounded-xl" 
+              />
+              <button
+                onClick={(e) => { e.stopPropagation(); downloadFile(selectedImage, 'image'); }}
+                className="absolute -bottom-12 right-0 px-5 py-2.5 rounded-xl flex items-center gap-2 transition-transform hover:scale-105"
+                style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}
+              >
+                <Download className="w-4 h-4" />
+                Télécharger
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-        .chat-bubble {
-          transition: box-shadow 0.2s ease;
-        }
-        .call-btn {
-          transition: transform 0.2s ease, filter 0.2s ease;
-        }
-        .call-btn:hover {
-          filter: brightness(1.05);
-        }
-        .chat-textarea {
-          transition: border-color 0.2s ease;
-        }
+      {/* Visio */}
+      {showVideo && (
+        <SimpleJitsi
+          roomName={sessionId}
+          userName={`${user?.prenom} ${user?.nom}`}
+          contactName={otherUserName}
+          contactId={otherUserId || undefined}
+          onClose={endCall}
+        />
+      )}
 
-        @media (prefers-reduced-motion: reduce) {
-          .animate-message-in, .animate-pop-in, .animate-fade-in {
-            animation: none;
-          }
-        }
-      `}</style>
+      {incomingCall && (
+        <IncomingCallModal
+          callerName={incomingCall.fromName}
+          onAccept={acceptCall}
+          onReject={rejectCall}
+        />
+      )}
     </div>
   );
 }
