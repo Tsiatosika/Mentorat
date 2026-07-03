@@ -1,31 +1,35 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Mail, Lock, Eye, EyeOff, LogIn, Sparkles, Target, Shield, FileText, Sun, Moon } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, LogIn, Sparkles, Target, Shield, FileText, AlertCircle } from 'lucide-react';
 import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Logo } from '@/components/ui/Logo';
-import toast from 'react-hot-toast';
+import { BACKEND_URL } from '@/services/api';
 
-function LoginForm() {
+function LoginFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, loginWithGoogle, user } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { user } = useAuth();
+  const { theme } = useTheme();
   const { t } = useLanguage();
+  
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
   const [formData, setFormData] = useState({
     email: '',
     mot_de_passe: '',
   });
+  
+  const isSubmitting = useRef(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
-  const redirectTo = searchParams.get('redirect') ||
+  const redirectTo = searchParams?.get('redirect') ||
                      sessionStorage.getItem('redirectAfterLogin') ||
                      '/dashboard';
 
@@ -35,77 +39,159 @@ function LoginForm() {
     }
   }, [user, router, redirectTo]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.email || !formData.mot_de_passe) {
-      toast.error(t('auth.fields_required'));
-      return;
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field as keyof typeof errors]) {
+      setErrors(prev => ({ ...prev, [field]: undefined }));
     }
-
-    setLoading(true);
-    try {
-      await login(formData.email, formData.mot_de_passe);
-      sessionStorage.removeItem('redirectAfterLogin');
-      router.push(redirectTo);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || t('auth.login_error'));
-    } finally {
-      setLoading(false);
+    if (errors.general) {
+      setErrors(prev => ({ ...prev, general: undefined }));
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
-    if (!credentialResponse.credential) {
-      toast.error(t('auth.google_error'));
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (isSubmitting.current || loading) return;
+    isSubmitting.current = true;
+    setLoading(true);
+
+    // Validation
+    const newErrors: { email?: string; password?: string } = {};
+    if (!formData.email) {
+      newErrors.email = "L'email est requis";
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = "Veuillez entrer un email valide";
+    }
+    if (!formData.mot_de_passe) {
+      newErrors.password = "Le mot de passe est requis";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      setLoading(false);
+      isSubmitting.current = false;
       return;
     }
 
-    setGoogleLoading(true);
     try {
-      const { needsRole } = await loginWithGoogle(credentialResponse.credential);
-      sessionStorage.removeItem('redirectAfterLogin');
+      // URL CORRIGÉE - Utilise BACKEND_URL de vos services
+      const loginUrl = `${BACKEND_URL}/api/auth/login`;
+      console.log('Login URL:', loginUrl);
+      
+      const response = await fetch(loginUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          mot_de_passe: formData.mot_de_passe,
+        }),
+      });
 
-      if (needsRole) {
-        router.push('/complete-profile');
-      } else {
-        router.push(redirectTo);
+      const data = await response.json();
+
+      if (!response.ok) {
+        const message = data.message || data.error || 'Erreur de connexion';
+        if (message.toLowerCase().includes('email') || message.toLowerCase().includes('mail')) {
+          setErrors({ email: message });
+        } else if (message.toLowerCase().includes('mot de passe') || message.toLowerCase().includes('password')) {
+          setErrors({ password: message });
+        } else {
+          setErrors({ general: message });
+        }
+        setLoading(false);
+        isSubmitting.current = false;
+        return;
       }
-    } catch (error) {
-      // déjà géré dans loginWithGoogle (toast)
-    } finally {
-      setGoogleLoading(false);
+
+      // Succès
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        sessionStorage.removeItem('redirectAfterLogin');
+        window.location.href = redirectTo;
+      } else {
+        setErrors({ general: 'Erreur de connexion' });
+        setLoading(false);
+        isSubmitting.current = false;
+      }
+    } catch (error: any) {
+      console.error('Erreur détaillée:', error);
+      setErrors({ general: 'Erreur de connexion au serveur. Vérifiez votre connexion.' });
+      setLoading(false);
+      isSubmitting.current = false;
+    }
+  };
+
+  // Gestion Google Login
+  const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
+    if (!credentialResponse.credential) {
+      setErrors({ general: "Erreur Google" });
+      return;
+    }
+
+    try {
+      const googleUrl = `${BACKEND_URL}/api/auth/google`;
+      const response = await fetch(googleUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          credential: credentialResponse.credential,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrors({ general: data.message || 'Erreur Google' });
+        return;
+      }
+
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        
+        if (data.needsRole) {
+          window.location.href = '/complete-profile';
+        } else {
+          sessionStorage.removeItem('redirectAfterLogin');
+          window.location.href = redirectTo;
+        }
+      }
+    } catch (error: any) {
+      console.error('Erreur Google:', error);
+      setErrors({ general: 'Erreur de connexion Google' });
     }
   };
 
   const handleGoogleError = () => {
-    toast.error(t('auth.google_cancelled'));
+    setErrors({ general: "Connexion Google annulée" });
   };
 
   const features = [
-    { icon: Sparkles, title: t('auth.feat1_title'), desc: t('auth.feat1_desc') },
-    { icon: Target, title: t('auth.feat2_title'), desc: t('auth.feat2_desc') },
-    { icon: Shield, title: t('auth.feat3_title'), desc: t('auth.feat3_desc') },
-    { icon: FileText, title: t('auth.feat4_title'), desc: t('auth.feat4_desc') },
+    { icon: Sparkles, title: "Trouvez le mentor idéal", desc: "Notre IA vous met en relation avec les meilleurs mentors" },
+    { icon: Target, title: "Objectifs personnalisés", desc: "Des sessions adaptées à vos besoins spécifiques" },
+    { icon: Shield, title: "Paiement sécurisé", desc: "Transactions protégées et garanties" },
+    { icon: FileText, title: "Suivi de progression", desc: "Suivez votre évolution en temps réel" },
   ];
 
   return (
-    <div className="min-h-screen relative" style={{ backgroundColor: 'var(--bg-primary)' }}>
-
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-          {/* Colonne gauche - Features */}
-          <div className="space-y-6 order-2 md:order-1 animate-in">
+          <div className="space-y-6 order-2 md:order-1">
             <div>
               <Logo size={56} />
-              <h1
-                className="font-display text-4xl md:text-5xl font-semibold mt-6 mb-4"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                {t('auth.login_hero_title')}
+              <h1 className="font-display text-4xl md:text-5xl font-semibold mt-6 mb-4" style={{ color: 'var(--text-primary)' }}>
+                Bienvenue sur MentorPath
               </h1>
               <p className="text-lg" style={{ color: 'var(--text-secondary)' }}>
-                {t('auth.login_hero_desc')}
+                Connectez-vous pour accéder à votre espace d'apprentissage
               </p>
             </div>
 
@@ -118,10 +204,7 @@ function LoginForm() {
                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
-                  <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: 'var(--accent-soft)' }}
-                  >
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--accent-soft)' }}>
                     <feature.icon className="w-5 h-5" style={{ color: 'var(--accent)' }} />
                   </div>
                   <div>
@@ -133,35 +216,31 @@ function LoginForm() {
             </div>
           </div>
 
-          {/* Colonne droite - Formulaire */}
-          <div
-            className="card order-1 md:order-2 p-8 animate-in"
-            style={{ animationDelay: '0.1s' }}
-          >
+          <div className="card order-1 md:order-2 p-8">
             <div className="text-center mb-8">
               <h2 className="font-display text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>
-                {t('auth.login_title')}
+                Connexion
               </h2>
-              <p style={{ color: 'var(--text-secondary)' }}>{t('auth.login_subtitle')}</p>
+              <p style={{ color: 'var(--text-secondary)' }}>Connectez-vous à votre compte</p>
             </div>
 
+            {errors.general && (
+              <div className="mb-4 p-3 rounded-lg flex items-start gap-2" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #EF4444' }}>
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#EF4444' }} />
+                <span className="text-sm" style={{ color: '#EF4444' }}>{errors.general}</span>
+              </div>
+            )}
+
             <div className="mb-6 flex justify-center">
-              {googleLoading ? (
-                <div
-                  className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin"
-                  style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
-                />
-              ) : (
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={handleGoogleError}
-                  theme={theme === 'dark' ? 'filled_black' : 'outline'}
-                  size="large"
-                  width="320"
-                  text="continue_with"
-                  shape="rectangular"
-                />
-              )}
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+                theme={theme === 'dark' ? 'filled_black' : 'outline'}
+                size="large"
+                width="320"
+                text="continue_with"
+                shape="rectangular"
+              />
             </div>
 
             <div className="relative mb-6">
@@ -170,106 +249,106 @@ function LoginForm() {
               </div>
               <div className="relative flex justify-center text-sm">
                 <span className="px-2" style={{ backgroundColor: 'var(--card-bg)', color: 'var(--text-tertiary)' }}>
-                  {t('auth.or')}
+                  ou
                 </span>
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
-                  {t('auth.email')}
-                </label>
-                <div className="relative">
-                  <Mail
-                    className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
-                    style={{ color: 'var(--text-tertiary)' }}
-                  />
-                  <input
-                    type="email"
-                    placeholder="votre@email.com"
-                    className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:border-transparent outline-none transition-all"
-                    style={{
-                      backgroundColor: 'var(--bg-secondary)',
-                      borderColor: 'var(--border)',
-                      color: 'var(--text-primary)',
-                    }}
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    required
-                  />
+            <form ref={formRef} onSubmit={handleSubmit} noValidate>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+                    Email
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+                    <input
+                      type="email"
+                      placeholder="votre@email.com"
+                      className={`w-full pl-10 pr-4 py-2 rounded-lg border outline-none transition-all ${errors.email ? 'border-red-500' : ''}`}
+                      style={{
+                        backgroundColor: 'var(--bg-secondary)',
+                        borderColor: errors.email ? '#EF4444' : 'var(--border)',
+                        color: 'var(--text-primary)',
+                      }}
+                      value={formData.email}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                    />
+                  </div>
+                  {errors.email && (
+                    <p className="mt-1 text-sm flex items-center gap-1" style={{ color: '#EF4444' }}>
+                      <AlertCircle className="w-4 h-4" />
+                      {errors.email}
+                    </p>
+                  )}
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
-                  {t('auth.password')}
-                </label>
-                <div className="relative">
-                  <Lock
-                    className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
-                    style={{ color: 'var(--text-tertiary)' }}
-                  />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="••••••••"
-                    className="w-full pl-10 pr-10 py-2 rounded-lg border focus:ring-2 focus:border-transparent outline-none transition-all"
-                    style={{
-                      backgroundColor: 'var(--bg-secondary)',
-                      borderColor: 'var(--border)',
-                      color: 'var(--text-primary)',
-                    }}
-                    value={formData.mot_de_passe}
-                    onChange={(e) => setFormData({ ...formData, mot_de_passe: e.target.value })}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
-                    ) : (
-                      <Eye className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
-                    )}
-                  </button>
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+                    Mot de passe
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      className={`w-full pl-10 pr-10 py-2 rounded-lg border outline-none transition-all ${errors.password ? 'border-red-500' : ''}`}
+                      style={{
+                        backgroundColor: 'var(--bg-secondary)',
+                        borderColor: errors.password ? '#EF4444' : 'var(--border)',
+                        color: 'var(--text-primary)',
+                      }}
+                      value={formData.mot_de_passe}
+                      onChange={(e) => handleInputChange('mot_de_passe', e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+                      ) : (
+                        <Eye className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+                      )}
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <p className="mt-1 text-sm flex items-center gap-1" style={{ color: '#EF4444' }}>
+                      <AlertCircle className="w-4 h-4" />
+                      {errors.password}
+                    </p>
+                  )}
+                  <div className="text-right mt-1">
+                    <Link href="/forgot-password" className="text-xs font-medium hover:underline" style={{ color: 'var(--accent)' }}>
+                      Mot de passe oublié ?
+                    </Link>
+                  </div>
                 </div>
-                <div className="text-right mt-1">
-                  <Link
-                    href="/forgot-password"
-                    className="text-xs font-medium hover:underline"
-                    style={{ color: 'var(--accent)' }}
-                  >
-                    {t('auth.forgot_password')}
-                  </Link>
-                </div>
-              </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 rounded-lg font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                style={{ backgroundColor: 'var(--accent)', color: theme === 'dark' ? '#06231D' : '#FFFFFF' }}
-                onMouseEnter={(e) => !loading && (e.currentTarget.style.backgroundColor = 'var(--accent-hover)')}
-                onMouseLeave={(e) => !loading && (e.currentTarget.style.backgroundColor = 'var(--accent)')}
-              >
-                {loading ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <LogIn className="w-5 h-5" />
-                    {t('auth.login_button')}
-                  </>
-                )}
-              </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 rounded-lg font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{ backgroundColor: 'var(--accent)', color: theme === 'dark' ? '#06231D' : '#FFFFFF' }}
+                >
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <LogIn className="w-5 h-5" />
+                      Se connecter
+                    </>
+                  )}
+                </button>
+              </div>
             </form>
 
             <div className="mt-6 text-center pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
               <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                {t('auth.no_account')}{' '}
+                Pas encore de compte ?{' '}
                 <Link href="/register" className="font-medium hover:underline" style={{ color: 'var(--accent)' }}>
-                  {t('auth.register_link')}
+                  S'inscrire
                 </Link>
               </p>
             </div>
@@ -284,13 +363,10 @@ export default function LoginPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div
-          className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin"
-          style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
-        />
+        <div className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
       </div>
     }>
-      <LoginForm />
+      <LoginFormContent />
     </Suspense>
   );
 }
