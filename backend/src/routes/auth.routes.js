@@ -3,6 +3,7 @@ const router = express.Router();
 const { body } = require('express-validator');
 const authController = require('../controllers/auth.controller');
 const { authenticate } = require('../middlewares/auth');
+const { updateMe, changePassword } = require('../controllers/auth.controller');
 
 // Validation pour l'inscription
 const registerValidation = [
@@ -58,8 +59,9 @@ router.put('/complete-profile', authenticate, completeProfileValidation, authCon
 // Déconnexion
 router.post('/logout', authenticate, authController.logout);
 
-// Profil utilisateur courant
 router.get('/me', authenticate, authController.getMe);
+router.put('/me', authenticate, updateMe);
+router.put('/change-password', authenticate, changePassword);
 
 // Rafraîchir le token
 router.post('/refresh-token', authenticate, authController.refreshToken);

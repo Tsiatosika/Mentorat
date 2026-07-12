@@ -240,4 +240,106 @@ const refreshToken = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, logout, getMe, refreshToken, googleAuth, completeProfile };
+// ============================================
+// METTRE À JOUR NOM / PRÉNOM
+// ============================================
+const updateMe = async (req, res, next) => {
+  const { nom, prenom } = req.body;
+
+  if (!nom?.trim() || !prenom?.trim()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Le nom et le prénom sont requis.'
+    });
+  }
+
+  try {
+    const result = await query(
+      `UPDATE utilisateurs 
+       SET nom = $1, prenom = $2, updated_at = NOW()
+       WHERE id = $3
+       RETURNING id, nom, prenom, email, role, photo_url`,
+      [nom.trim(), prenom.trim(), req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Utilisateur non trouvé.' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Profil mis à jour avec succès',
+      user: result.rows[0]
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ============================================
+// CHANGER LE MOT DE PASSE
+// ============================================
+const changePassword = async (req, res, next) => {
+  const { ancien_mot_de_passe, nouveau_mot_de_passe } = req.body;
+
+  if (!nouveau_mot_de_passe || nouveau_mot_de_passe.length < 8) {
+    return res.status(400).json({
+      success: false,
+      message: 'Le nouveau mot de passe doit contenir au moins 8 caractères.'
+    });
+  }
+
+  try {
+    const result = await query(
+      'SELECT id, mot_de_passe FROM utilisateurs WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Utilisateur non trouvé.' });
+    }
+
+    const user = result.rows[0];
+
+    // Cas : compte créé via Google, pas encore de mot de passe défini
+    if (!user.mot_de_passe) {
+      const hashedPassword = await bcrypt.hash(nouveau_mot_de_passe, 10);
+      await query(
+        'UPDATE utilisateurs SET mot_de_passe = $1, updated_at = NOW() WHERE id = $2',
+        [hashedPassword, user.id]
+      );
+      return res.json({ success: true, message: 'Mot de passe défini avec succès.' });
+    }
+
+    // Cas : compte avec mot de passe existant → vérifier l'ancien
+    if (!ancien_mot_de_passe) {
+      return res.status(400).json({
+        success: false,
+        message: 'Veuillez indiquer votre mot de passe actuel.'
+      });
+    }
+
+    const validPassword = await bcrypt.compare(ancien_mot_de_passe, user.mot_de_passe);
+    if (!validPassword) {
+      return res.status(401).json({
+        success: false,
+        message: 'Mot de passe actuel incorrect.'
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(nouveau_mot_de_passe, 10);
+    await query(
+      'UPDATE utilisateurs SET mot_de_passe = $1, updated_at = NOW() WHERE id = $2',
+      [hashedPassword, user.id]
+    );
+
+    res.json({ success: true, message: 'Mot de passe modifié avec succès.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { 
+  register, login, logout, getMe, refreshToken, googleAuth, completeProfile,
+  updateMe, changePassword 
+};

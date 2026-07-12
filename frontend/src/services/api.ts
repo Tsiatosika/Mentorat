@@ -35,6 +35,9 @@ export const authAPI = {
   refresh:          ()                       => api.post('/auth/refresh-token'),
   googleAuth:       (credential: string)     => api.post('/auth/google', { credential }),
   completeProfile:  (role: string)           => api.put('/auth/complete-profile', { role }),
+  updateProfile:    (data: { nom: string; prenom: string }) => api.put('/auth/me', data),
+  changePassword:   (data: { ancien_mot_de_passe?: string; nouveau_mot_de_passe: string }) =>
+    api.put('/auth/change-password', data),
 };
 
 export const mentorAPI = {
@@ -97,21 +100,14 @@ export const matchingAPI = {
 // RAPPORT API - CORRIGÉ
 // ═══════════════════════════════════════════
 export const rapportAPI = {
-  // POST /api/rapports/session/:session_id/generate
   generateSession: (sessionId: string) =>
     api.post(`/rapports/session/${sessionId}/generate`),
-
-  // GET /api/rapports/session/:session_id/download
   downloadRapport: (sessionId: string) =>
     api.get(`/rapports/session/${sessionId}/download`, { 
       responseType: 'blob' 
     }),
-
-  // GET /api/rapports/session/:session_id
   getSessionRapports: (sessionId: string) =>
     api.get(`/rapports/session/${sessionId}`),
-
-  // POST /api/rapports/progression/generate
   generateProgress: () =>
     api.post('/rapports/progression/generate'),
 };
@@ -156,6 +152,5 @@ export const notificationAPI = {
 export const domaineAPI = {
   getAll: () => api.get('/domaines'),
 };
-
 
 export default api;

@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Briefcase, BookOpen, Save, Upload, Tag, Plus, X, Search } from 'lucide-react';
+import { User, Briefcase, BookOpen, Save, Upload, Tag, Plus, X, Search, Lock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { mentorAPI, mentoreAPI, uploadAPI, BACKEND_URL, competenceAPI } from '@/services/api';
+import { mentorAPI, mentoreAPI, uploadAPI, BACKEND_URL, competenceAPI, authAPI } from '@/services/api';
 import toast from 'react-hot-toast';
 import { Avatar } from '@/components/ui/Avatar';
 
@@ -28,6 +28,8 @@ export default function ProfilePage() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState({
+    nom: '',
+    prenom: '',
     bio: '',
     domaine: '',
     niveau_etude: '',
@@ -37,6 +39,14 @@ export default function ProfilePage() {
     annees_experience: 0,
     disponible: true,
   });
+
+  // ── Sécurité / mot de passe ──
+  const [passwordData, setPasswordData] = useState({
+    ancien_mot_de_passe: '',
+    nouveau_mot_de_passe: '',
+    confirmation: '',
+  });
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const NIVEAUX = [
     { value: 'debutant', label: 'Débutant' },
@@ -77,7 +87,10 @@ export default function ProfilePage() {
         const p = res.data.profile;
         setProfile(p);
         setPhotoUrl(p.photo_url || user?.photo_url || null);
-        setFormData({
+        setFormData(prev => ({
+          ...prev,
+          nom: user?.nom || '',
+          prenom: user?.prenom || '',
           bio: p.bio || '',
           domaine: p.domaine || '',
           niveau_etude: '',
@@ -86,13 +99,16 @@ export default function ProfilePage() {
           competences: p.competences || [],
           annees_experience: p.annees_experience || 0,
           disponible: p.disponible ?? true,
-        });
+        }));
       } else {
         const res = await mentoreAPI.getProfile();
         const p = res.data.profile;
         setProfile(p);
         setPhotoUrl(p.photo_url || user?.photo_url || null);
-        setFormData({
+        setFormData(prev => ({
+          ...prev,
+          nom: user?.nom || '',
+          prenom: user?.prenom || '',
           bio: '',
           domaine: p.domaine || '',
           niveau_etude: p.niveau_etude || '',
@@ -101,7 +117,7 @@ export default function ProfilePage() {
           competences: [],
           annees_experience: 0,
           disponible: true,
-        });
+        }));
       }
     } catch (error) {
       console.error('Erreur chargement profil:', error);
@@ -277,8 +293,23 @@ export default function ProfilePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.nom.trim() || !formData.prenom.trim()) {
+      toast.error('Le nom et le prénom sont requis.');
+      return;
+    }
+
     setSaving(true);
     try {
+      // Mise à jour nom / prénom (commun aux deux rôles)
+      const res = await authAPI.updateProfile({
+        nom: formData.nom.trim(),
+        prenom: formData.prenom.trim(),
+      });
+      if (user) {
+        updateUser({ ...user, nom: res.data.user.nom, prenom: res.data.user.prenom } as any);
+      }
+
       if (user?.role === 'mentor') {
         await mentorAPI.updateProfile({
           bio: formData.bio,
@@ -300,6 +331,33 @@ export default function ProfilePage() {
       toast.error(error.response?.data?.message || t('common.error'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!passwordData.nouveau_mot_de_passe || passwordData.nouveau_mot_de_passe.length < 8) {
+      toast.error('Le mot de passe doit contenir au moins 8 caractères.');
+      return;
+    }
+    if (passwordData.nouveau_mot_de_passe !== passwordData.confirmation) {
+      toast.error('Les mots de passe ne correspondent pas.');
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      await authAPI.changePassword({
+        ancien_mot_de_passe: passwordData.ancien_mot_de_passe || undefined,
+        nouveau_mot_de_passe: passwordData.nouveau_mot_de_passe,
+      });
+      toast.success('Mot de passe mis à jour avec succès.');
+      setPasswordData({ ancien_mot_de_passe: '', nouveau_mot_de_passe: '', confirmation: '' });
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erreur lors du changement de mot de passe.');
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -355,12 +413,29 @@ export default function ProfilePage() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.nom_complet')}</label>
-                <input disabled value={`${user?.prenom} ${user?.nom}`} className="w-full px-4 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }} />
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Prénom</label>
+                <input
+                  value={formData.prenom}
+                  onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
+                  className="w-full px-4 py-2 border rounded-lg outline-none transition-all profile-input-hover"
+                  style={inputStyle}
+                />
               </div>
               <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Nom</label>
+                <input
+                  value={formData.nom}
+                  onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                  className="w-full px-4 py-2 border rounded-lg outline-none transition-all profile-input-hover"
+                  style={inputStyle}
+                />
+              </div>
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Email</label>
                 <input disabled value={user?.email || ''} className="w-full px-4 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }} />
+                <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                  L'email ne peut pas être modifié depuis cette page.
+                </p>
               </div>
             </div>
           </div>
@@ -550,6 +625,65 @@ export default function ProfilePage() {
             </button>
           </div>
         </form>
+
+        {/* ═══════════ SÉCURITÉ / MOT DE PASSE ═══════════ */}
+        <div className="card p-6 fade-in-up profile-card-hover" style={{ animationDelay: '0.22s' }}>
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+            <Lock className="w-5 h-5" style={{ color: 'var(--accent)' }} /> Sécurité
+          </h2>
+          <form onSubmit={handleChangePassword} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                Mot de passe actuel
+              </label>
+              <input
+                type="password"
+                placeholder="Laissez vide si vous êtes connecté via Google"
+                className="w-full px-4 py-2 border rounded-lg outline-none transition-all profile-input-hover"
+                style={inputStyle}
+                value={passwordData.ancien_mot_de_passe}
+                onChange={(e) => setPasswordData({ ...passwordData, ancien_mot_de_passe: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                  Nouveau mot de passe
+                </label>
+                <input
+                  type="password"
+                  className="w-full px-4 py-2 border rounded-lg outline-none transition-all profile-input-hover"
+                  style={inputStyle}
+                  value={passwordData.nouveau_mot_de_passe}
+                  onChange={(e) => setPasswordData({ ...passwordData, nouveau_mot_de_passe: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                  Confirmer le mot de passe
+                </label>
+                <input
+                  type="password"
+                  className="w-full px-4 py-2 border rounded-lg outline-none transition-all profile-input-hover"
+                  style={inputStyle}
+                  value={passwordData.confirmation}
+                  onChange={(e) => setPasswordData({ ...passwordData, confirmation: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={changingPassword || !passwordData.nouveau_mot_de_passe}
+                className="flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all disabled:opacity-50 hover-save-btn"
+                style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}
+              >
+                <Save className="w-4 h-4" />
+                {changingPassword ? 'Modification...' : 'Modifier le mot de passe'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
 
       <style jsx global>{`
