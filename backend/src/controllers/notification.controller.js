@@ -6,7 +6,7 @@ const { query } = require('../config/db');
 const getNotifications = async (req, res, next) => {
   try {
     const result = await query(
-      `SELECT id, type, titre, message, lien, lue, created_at
+      `SELECT id, type, titre, message, lien, lu, created_at
        FROM notifications
        WHERE utilisateur_id = $1
        ORDER BY created_at DESC
@@ -33,7 +33,7 @@ const markAsRead = async (req, res, next) => {
   try {
     await query(
       `UPDATE notifications 
-       SET lue = true, lue_le = NOW()
+       SET lu = true, lu_le = NOW()
        WHERE id = $1 AND utilisateur_id = $2`,
       [id, req.user.id]
     );
@@ -52,8 +52,8 @@ const markAllAsRead = async (req, res, next) => {
   try {
     await query(
       `UPDATE notifications 
-       SET lue = true, lue_le = NOW()
-       WHERE utilisateur_id = $1 AND lue = false`,
+       SET lu = true, lu_le = NOW()
+       WHERE utilisateur_id = $1 AND lu = false`,
       [req.user.id]
     );
 

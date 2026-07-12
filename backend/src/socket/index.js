@@ -89,11 +89,10 @@ const sendMessage = async (io, socket, data) => {
       return;
     }
     
-    // Sauvegarder le message
     const result = await query(
       `INSERT INTO messages (session_id, expediteur_id, contenu, type_message, fichier_url)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, session_id, expediteur_id, contenu, type_message, fichier_url, envoye_le, lu`,
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id, session_id, expediteur_id, contenu, type_message, fichier_url, created_at AS envoye_le, lu`,
       [session_id, socket.user.id, contenu || (fichier_nom || 'Fichier'), type_message, fichier_url]
     );
     
@@ -159,15 +158,16 @@ const getHistory = async (socket, data) => {
       return;
     }
     
+   // APRÈS
     const result = await query(
       `SELECT m.id, m.session_id, m.expediteur_id, m.contenu, m.type_message, 
-              m.fichier_url, m.envoye_le, m.lu, m.lu_le,
+              m.fichier_url, m.created_at AS envoye_le, m.lu, m.lu_le,
               u.nom, u.prenom
-       FROM messages m
-       JOIN utilisateurs u ON u.id = m.expediteur_id
-       WHERE m.session_id = $1
-       ORDER BY m.envoye_le ASC
-       LIMIT $2 OFFSET $3`,
+      FROM messages m
+      JOIN utilisateurs u ON u.id = m.expediteur_id
+      WHERE m.session_id = $1
+      ORDER BY m.created_at ASC
+      LIMIT $2 OFFSET $3`,
       [session_id, limit, offset]
     );
     
