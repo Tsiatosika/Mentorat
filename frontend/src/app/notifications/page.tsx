@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, Check, X, MessageCircle, FileText, UserPlus } from 'lucide-react';
+import { Bell, Check, X, MessageCircle, FileText, UserPlus, ArrowUpRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import toast from 'react-hot-toast';
@@ -13,7 +13,7 @@ interface Notification {
   titre: string;
   message: string;
   lien?: string;
-  lue: boolean;
+  lu: boolean;
   created_at: string;
 }
 
@@ -50,7 +50,8 @@ export default function NotificationsPage() {
     }
   };
 
-  const markAsRead = async (id: string, lien?: string) => {
+  // Marque comme lu SANS naviguer — reste sur la page
+  const markAsRead = async (id: string) => {
     try {
       const token = localStorage.getItem('token');
       await fetch(`http://localhost:5000/api/notifications/${id}/read`, {
@@ -58,14 +59,17 @@ export default function NotificationsPage() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       setNotifications(prev =>
-        prev.map(n => n.id === id ? { ...n, lue: true } : n)
+        prev.map(n => n.id === id ? { ...n, lu: true } : n)
       );
-      if (lien) {
-        router.push(lien);
-      }
     } catch (error) {
       console.error('Erreur:', error);
     }
+  };
+
+  // Ouvre le lien associé (action explicite et séparée)
+  const openLink = (id: string, lien: string) => {
+    markAsRead(id);
+    router.push(lien);
   };
 
   const markAllAsRead = async () => {
@@ -75,7 +79,7 @@ export default function NotificationsPage() {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      setNotifications(prev => prev.map(n => ({ ...n, lue: true })));
+      setNotifications(prev => prev.map(n => ({ ...n, lu: true })));
       toast.success(t('notif.mark_all_success'));
     } catch (error) {
       console.error('Erreur:', error);
@@ -115,7 +119,7 @@ export default function NotificationsPage() {
     );
   }
 
-  const unreadCount = notifications.filter(n => !n.lue).length;
+  const unreadCount = notifications.filter(n => !n.lu).length;
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
@@ -155,8 +159,8 @@ export default function NotificationsPage() {
             {notifications.map((notif) => (
               <div
                 key={notif.id}
-                onClick={() => markAsRead(notif.id, notif.lien)}
-                className={`card p-4 cursor-pointer transition-all relative ${!notif.lue ? 'bookmark' : ''}`}
+                onClick={() => !notif.lu && markAsRead(notif.id)}
+                className={`card p-4 transition-all relative ${!notif.lu ? 'bookmark cursor-pointer' : ''}`}
               >
                 <div className="flex gap-4">
                   <div
@@ -168,18 +172,33 @@ export default function NotificationsPage() {
                   <div className="flex-1">
                     <p
                       className="font-medium"
-                      style={{ color: 'var(--text-primary)', fontWeight: !notif.lue ? 600 : 500 }}
+                      style={{ color: 'var(--text-primary)', fontWeight: !notif.lu ? 600 : 500 }}
                     >
                       {notif.titre}
                     </p>
                     <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
                       {notif.message}
                     </p>
-                    <p className="text-xs mt-2" style={{ color: 'var(--text-tertiary)' }}>
-                      {formatDate(notif.created_at)}
-                    </p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                        {formatDate(notif.created_at)}
+                      </p>
+                      {notif.lien && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openLink(notif.id, notif.lien!);
+                          }}
+                          className="text-xs font-medium flex items-center gap-1 hover:underline"
+                          style={{ color: 'var(--accent)' }}
+                        >
+                          Voir
+                          <ArrowUpRight className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  {!notif.lue && (
+                  {!notif.lu && (
                     <div className="flex-shrink-0">
                       <div className="w-3 h-3 rounded-full mt-2" style={{ backgroundColor: 'var(--accent)' }} />
                     </div>
