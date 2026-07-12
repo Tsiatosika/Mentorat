@@ -172,8 +172,9 @@ export default function MentorsPage() {
     return numNote.toFixed(1);
   };
 
-  const getPhotoUrl = (url: string | null | undefined) => {
-    if (!url) return null;
+  // ═══ CORRECTION : Retourne string | undefined au lieu de string | null ═══
+  const getPhotoUrl = (url: string | null | undefined): string | undefined => {
+    if (!url) return undefined;
     if (url.startsWith('http')) return url;
     const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000';
     return `${baseUrl}${url}`;
@@ -354,18 +355,19 @@ export default function MentorsPage() {
                     onMouseEnter={() => setHoveredMentor(mentor.id)}
                     onMouseLeave={() => setHoveredMentor(null)}
                   >
-                    {/* Avatar + Nom */}
+                    {/* ═══ AVATAR + NOM (CORRIGÉ) ═══ */}
                     <div className="flex items-start gap-3 mb-3">
-                      <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0" style={{ backgroundColor: 'var(--accent-soft)', border: '2px solid var(--accent-soft)' }}>
-                        {mentor.photo_url ? (
-                          <img src={getPhotoUrl(mentor.photo_url)} alt={`${mentor.prenom} ${mentor.nom}`} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
+                      <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: 'var(--accent-soft)', border: '2px solid var(--accent-soft)' }}>
+                        {(() => {
+                          const photoUrl = getPhotoUrl(mentor.photo_url);
+                          return photoUrl ? (
+                            <img src={photoUrl} alt={`${mentor.prenom} ${mentor.nom}`} className="w-full h-full object-cover" />
+                          ) : (
                             <span className="font-bold text-lg" style={{ color: 'var(--accent-text-on-soft)' }}>
                               {String(mentor.prenom?.[0] || '')}{String(mentor.nom?.[0] || '')}
                             </span>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold leading-tight truncate" style={{ color: isHovered ? 'var(--accent)' : 'var(--text-primary)' }}>
@@ -383,15 +385,13 @@ export default function MentorsPage() {
                       </div>
                     </div>
 
-                    {/* ─── COMPÉTENCES (CORRIGÉ) ─── */}
+                    {/* ─── COMPÉTENCES ─── */}
                     {mentor.competences && mentor.competences.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mb-3">
                         {mentor.competences.slice(0, 4).map((comp: any, ci: number) => {
-                          // ⚠️ CORRECTION : Toujours extraire le nom comme chaîne
                           const compName = getCompName(comp);
                           const compNiveau = getCompNiveau(comp);
                           
-                          // Ne rien afficher si pas de nom
                           if (!compName) return null;
                           
                           return (
@@ -405,7 +405,6 @@ export default function MentorsPage() {
                               }}
                               title={compNiveau ? `Niveau: ${getNiveauLabel(compNiveau)}` : undefined}
                             >
-                              {/* ⚠️ ICI on affiche compName qui est TOUJOURS une string */}
                               {compName}
                             </span>
                           );

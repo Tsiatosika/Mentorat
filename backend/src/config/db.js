@@ -1,47 +1,81 @@
+// src/config/db.js
 const { Pool } = require('pg');
 
 // Configuration du pool de connexions PostgreSQL
 const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  max: 20,                     // Nombre maximum de connexions
-  idleTimeoutMillis: 30000,    // Temps avant fermeture d'une connexion inactive
-  connectionTimeoutMillis: 2000,
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '5432', 10),
+  database: process.env.DB_NAME || 'mentorat_db',
+  user: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD || 'postgres',
+  max: process.env.NODE_ENV === 'production' ? 20 : 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: process.env.NODE_ENV === 'production' ? 10000 : 5000,
 });
 
-// Test de connexion
-const testConnection = async () => {
-  try {
-    const client = await pool.connect();
-    console.log('✅ PostgreSQL connecté avec succès');
-    
-    const result = await client.query('SELECT NOW() as now, version() as version');
-    console.log(`📅 Heure serveur: ${result.rows[0].now}`);
-    console.log(`🐘 Version PostgreSQL: ${result.rows[0].version.split(',')[0]}`);
-    
-    client.release();
-    return true;
-  } catch (error) {
-    console.error('❌ Erreur de connexion PostgreSQL:', error.message);
-    throw error;
+// Logs des événements du pool
+pool.on('connect', () => {
+  console.log('🔌 Nouvelle connexion PostgreSQL');
+});
+
+pool.on('error', (err) => {
+  console.error('❌ Erreur pool PostgreSQL:', err.message);
+});
+
+pool.on('remove', () => {
+  console.log('🔌 Connexion PostgreSQL fermée');
+});
+
+/**
+ * Test de connexion avec retry
+ * @param {number} retries - Nombre de tentatives
+ * @param {number} delay - Délai entre les tentatives en ms
+ */
+const testConnection = async (retries = 5, delay = 3000) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const client = await pool.connect();
+      const result = await client.query('SELECT NOW() as now, version() as version');
+      console.log('✅ PostgreSQL connecté avec succès');
+      console.log(`   📅 Heure serveur: ${result.rows[0].now}`);
+      console.log(`   🐘 ${result.rows[0].version.split(',')[0]}`);
+      client.release();
+      return true;
+    } catch (error) {
+      console.error(`❌ Tentative ${i + 1}/${retries}: ${error.message}`);
+      if (i < retries - 1) {
+        console.log(`   ⏳ Nouvelle tentative dans ${delay / 1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw new Error(`Impossible de se connecter après ${retries} tentatives: ${error.message}`);
+      }
+    }
   }
 };
 
-// Fonction utilitaire pour exécuter des requêtes
+/**
+ * Exécuter une requête SQL
+ */
 const query = async (text, params) => {
+  const start = Date.now();
   const client = await pool.connect();
   try {
     const result = await client.query(text, params);
+    const duration = Date.now() - start;
+    
+    if (duration > 1000) {
+      console.warn(`⚠️ Requête lente (${duration}ms): ${text.substring(0, 100)}...`);
+    }
+    
     return result;
   } finally {
     client.release();
   }
 };
 
-// Transaction helper
+/**
+ * Exécuter une transaction
+ */
 const transaction = async (callback) => {
   const client = await pool.connect();
   try {
@@ -49,9 +83,20 @@ const transaction = async (callback) => {
     const result = await callback(client);
     await client.query('COMMIT');
     return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
   } finally {
     client.release();
   }
 };
 
-module.exports = { pool, query, transaction, testConnection };
+/**
+ * Fermer le pool proprement
+ */
+const closePool = async () => {
+  await pool.end();
+  console.log('🔌 Pool PostgreSQL fermé');
+};
+
+module.exports = { pool, query, transaction, testConnection, closePool };

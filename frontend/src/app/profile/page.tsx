@@ -19,8 +19,7 @@ export default function ProfilePage() {
   const [tagInput, setTagInput] = useState('');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [hoveredTag, setHoveredTag] = useState<string | null>(null);
-  
-  // États pour les compétences
+
   const [availableCompetences, setAvailableCompetences] = useState<any[]>([]);
   const [competenceSearch, setCompetenceSearch] = useState('');
   const [showCompetenceDropdown, setShowCompetenceDropdown] = useState(false);
@@ -52,7 +51,6 @@ export default function ProfilePage() {
     'Data Science', 'Cybersecurite', 'Autre'
   ];
 
-  // Fermer le dropdown quand on clique ailleurs
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -122,23 +120,19 @@ export default function ProfilePage() {
     }
   };
 
-  // Filtrer les compétences disponibles (celles pas encore ajoutées)
   const filteredCompetences = availableCompetences.filter(
-    (comp: any) => 
+    (comp: any) =>
       comp.nom?.toLowerCase().includes(competenceSearch.toLowerCase()) &&
       !formData.competences.some((c: any) => c.id === comp.id || c.competence_id === comp.id)
   );
 
-  // Ajouter une compétence existante
   const handleAddExistingCompetence = async (competence: any) => {
     setAddingCompetence(true);
     try {
-      await mentorAPI.addCompetence({ 
-        competence_id: competence.id, 
-        niveau: selectedNiveau 
+      await mentorAPI.addCompetence({
+        competence_id: competence.id,
+        niveau: selectedNiveau
       });
-      
-      // Ajouter localement
       setFormData(prev => ({
         ...prev,
         competences: [...prev.competences, {
@@ -147,7 +141,6 @@ export default function ProfilePage() {
           niveau: selectedNiveau
         }]
       }));
-      
       toast.success('Competence ajoutee');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erreur');
@@ -158,28 +151,22 @@ export default function ProfilePage() {
     }
   };
 
-  // Ajouter une nouvelle compétence personnalisée
   const handleAddCustomCompetence = async () => {
     const nom = competenceSearch.trim();
     if (!nom || nom.length < 2) {
       toast.error('Veuillez entrer un nom de competence (minimum 2 caracteres)');
       return;
     }
-
-    // Vérifier si déjà dans la liste
     if (formData.competences.some((c: any) => c.nom?.toLowerCase() === nom.toLowerCase())) {
       toast.error('Cette competence existe deja dans votre profil');
       return;
     }
-
     setAddingCompetence(true);
     try {
-      const response = await mentorAPI.addCompetence({ 
-        competence_nom: nom, 
-        niveau: selectedNiveau 
+      const response = await mentorAPI.addCompetence({
+        competence_nom: nom,
+        niveau: selectedNiveau
       });
-      
-      // Ajouter localement
       setFormData(prev => ({
         ...prev,
         competences: [...prev.competences, {
@@ -188,10 +175,7 @@ export default function ProfilePage() {
           niveau: selectedNiveau
         }]
       }));
-      
       toast.success('Competence ajoutee avec succes !');
-      
-      // Rafraîchir la liste des compétences disponibles
       fetchAvailableCompetences();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erreur');
@@ -202,13 +186,12 @@ export default function ProfilePage() {
     }
   };
 
-  // Supprimer une compétence
   const handleRemoveCompetence = async (competenceId: string) => {
     try {
       await mentorAPI.removeCompetence(competenceId);
       setFormData(prev => ({
         ...prev,
-        competences: prev.competences.filter((c: any) => 
+        competences: prev.competences.filter((c: any) =>
           c.id !== competenceId && c.competence_id !== competenceId
         )
       }));
@@ -218,17 +201,15 @@ export default function ProfilePage() {
     }
   };
 
-  // Mettre à jour le niveau d'une compétence
   const handleUpdateNiveau = async (competenceId: string, newNiveau: string) => {
     setFormData(prev => ({
       ...prev,
-      competences: prev.competences.map((c: any) => 
-        (c.id === competenceId || c.competence_id === competenceId) 
+      competences: prev.competences.map((c: any) =>
+        (c.id === competenceId || c.competence_id === competenceId)
           ? { ...c, niveau: newNiveau }
           : c
       )
     }));
-    
     try {
       await mentorAPI.addCompetence({ competence_id: competenceId, niveau: newNiveau });
     } catch (error: any) {
@@ -256,7 +237,6 @@ export default function ProfilePage() {
   const handleCompetenceKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      // Si pas de résultats dans la recherche, ajouter comme nouvelle compétence
       if (filteredCompetences.length === 0 && competenceSearch.trim().length >= 2) {
         handleAddCustomCompetence();
       }
@@ -267,14 +247,18 @@ export default function ProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) { toast.error('Photo trop lourde (max 5 Mo)'); return; }
+    if (!file.type.startsWith('image/')) { toast.error('Format non supporté'); return; }
     try {
       const res = await uploadAPI.photo(file);
-      updateUser({ ...user, photo_url: res.data.url });
+      if (user) {
+        const updatedUser = { ...user, photo_url: res.data.url } as any;
+        updateUser(updatedUser);
+      }
       setPhotoUrl(res.data.url);
       toast.success(t('common.success'));
       fetchProfile();
-    } catch {
-      toast.error(t('common.error'));
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || t('common.error'));
     }
   };
 
@@ -286,8 +270,8 @@ export default function ProfilePage() {
       await uploadAPI.cv(file);
       toast.success('CV uploade avec succes');
       fetchProfile();
-    } catch {
-      toast.error(t('common.error'));
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || t('common.error'));
     }
   };
 
@@ -312,8 +296,8 @@ export default function ProfilePage() {
       }
       toast.success(t('common.success'));
       fetchProfile();
-    } catch {
-      toast.error(t('common.error'));
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || t('common.error'));
     } finally {
       setSaving(false);
     }
@@ -372,11 +356,11 @@ export default function ProfilePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.nom_complet')}</label>
-                <input disabled value={`${user?.prenom} ${user?.nom}`} className="w-full px-4 py-2 rounded-lg profile-input-disabled" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }} />
+                <input disabled value={`${user?.prenom} ${user?.nom}`} className="w-full px-4 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }} />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Email</label>
-                <input disabled value={user?.email || ''} className="w-full px-4 py-2 rounded-lg profile-input-disabled" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }} />
+                <input disabled value={user?.email || ''} className="w-full px-4 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }} />
               </div>
             </div>
           </div>
@@ -388,7 +372,6 @@ export default function ProfilePage() {
               {isMentor ? t('profile.experience') : 'Profil academique'}
             </h2>
             <div className="space-y-4">
-              {/* Domaine */}
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.domaine')}</label>
                 <select className="w-full px-4 py-2 border rounded-lg outline-none transition-all profile-input-hover" style={inputStyle} value={formData.domaine} onChange={(e) => setFormData({ ...formData, domaine: e.target.value })}>
@@ -399,13 +382,11 @@ export default function ProfilePage() {
 
               {isMentor ? (
                 <>
-                  {/* Bio */}
                   <div>
                     <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.bio')}</label>
                     <textarea rows={4} placeholder={t('profile.bio_placeholder')} className="w-full px-4 py-2 border rounded-lg outline-none transition-all resize-none profile-input-hover" style={inputStyle} value={formData.bio} onChange={(e) => setFormData({ ...formData, bio: e.target.value })} />
                   </div>
 
-                  {/* Expérience + Disponible */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.annees_experience')}</label>
@@ -421,16 +402,15 @@ export default function ProfilePage() {
                     </div>
                   </div>
 
-                  {/* ─── COMPÉTENCES ─── */}
+                  {/* Compétences */}
                   <div>
                     <label className="block text-sm font-medium mb-1 flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
                       <Tag className="w-4 h-4" /> Competences techniques
                     </label>
                     <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>
-                      Ajoutez vos competences techniques. Si votre competence n&apos;existe pas, tapez-la et appuyez sur Entree pour la creer.
+                      Ajoutez vos competences techniques.
                     </p>
 
-                    {/* Compétences existantes */}
                     {formData.competences.length > 0 && (
                       <div className="flex flex-wrap gap-2 mb-4">
                         {formData.competences.map((comp: any) => (
@@ -455,7 +435,6 @@ export default function ProfilePage() {
                       </div>
                     )}
 
-                    {/* Ajouter une compétence */}
                     <div className="relative" ref={dropdownRef}>
                       <div className="flex gap-2">
                         <div className="relative flex-1">
@@ -466,10 +445,7 @@ export default function ProfilePage() {
                             className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none transition-all text-sm profile-input-hover"
                             style={inputStyle}
                             value={competenceSearch}
-                            onChange={(e) => {
-                              setCompetenceSearch(e.target.value);
-                              setShowCompetenceDropdown(true);
-                            }}
+                            onChange={(e) => { setCompetenceSearch(e.target.value); setShowCompetenceDropdown(true); }}
                             onFocus={() => setShowCompetenceDropdown(true)}
                             onKeyDown={handleCompetenceKeyDown}
                           />
@@ -479,7 +455,6 @@ export default function ProfilePage() {
                         </select>
                       </div>
 
-                      {/* Bouton pour ajouter une compétence personnalisée (toujours visible) */}
                       {competenceSearch.trim().length >= 2 && (
                         <div className="mt-2">
                           <button
@@ -494,25 +469,16 @@ export default function ProfilePage() {
                             ) : (
                               <Plus className="w-4 h-4" />
                             )}
-                            Ajouter &quot;{competenceSearch.trim()}&quot; comme nouvelle competence
+                            Ajouter &quot;{competenceSearch.trim()}&quot;
                           </button>
                         </div>
                       )}
 
-                      {/* Dropdown des compétences existantes */}
                       {showCompetenceDropdown && filteredCompetences.length > 0 && (
                         <div className="absolute z-50 w-full mt-1 rounded-lg shadow-lg max-h-48 overflow-y-auto" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
-                          <div className="px-3 py-2 text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>
-                            Competences existantes
-                          </div>
+                          <div className="px-3 py-2 text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>Competences existantes</div>
                           {filteredCompetences.slice(0, 8).map((comp: any) => (
-                            <button
-                              key={comp.id}
-                              type="button"
-                              className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-between"
-                              style={{ color: 'var(--text-primary)' }}
-                              onClick={() => handleAddExistingCompetence(comp)}
-                            >
+                            <button key={comp.id} type="button" className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-between" style={{ color: 'var(--text-primary)' }} onClick={() => handleAddExistingCompetence(comp)}>
                               <span>{comp.nom}</span>
                               <Plus className="w-3 h-3" style={{ color: 'var(--accent)' }} />
                             </button>
@@ -520,9 +486,6 @@ export default function ProfilePage() {
                         </div>
                       )}
                     </div>
-                    <p className="text-xs mt-2" style={{ color: 'var(--text-tertiary)' }}>
-                      💡 Conseil : Si votre competence n&apos;apparait pas dans la liste, tapez son nom et cliquez sur le bouton pour la creer.
-                    </p>
                   </div>
 
                   {/* CV */}
@@ -544,7 +507,6 @@ export default function ProfilePage() {
                 </>
               ) : (
                 <>
-                  {/* Mentoré */}
                   <div>
                     <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.niveau_etude')}</label>
                     <input type="text" placeholder={t('profile.niveau_etude_placeholder')} className="w-full px-4 py-2 border rounded-lg outline-none transition-all profile-input-hover" style={inputStyle} value={formData.niveau_etude} onChange={(e) => setFormData({ ...formData, niveau_etude: e.target.value })} />
@@ -581,7 +543,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Bouton Enregistrer */}
           <div className="flex justify-end fade-in-up" style={{ animationDelay: '0.2s' }}>
             <button type="submit" disabled={saving} className="flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all disabled:opacity-50 hover-save-btn" style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}>
               <Save className="w-4 h-4" />

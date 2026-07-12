@@ -35,9 +35,9 @@ export default function NewSessionPage() {
 
   const fetchMentor = async () => {
     try {
-      const mentorRes = await publicAPI.getMentorById(mentorId);
+      const mentorRes = await publicAPI.getMentorById(mentorId!);
       setMentor(mentorRes.data.mentor);
-      const dispoRes = await disponibiliteAPI.getByMentor(mentorId);
+      const dispoRes = await disponibiliteAPI.getByMentor(mentorId!);
       setDisponibilites(dispoRes.data.disponibilites || []);
     } catch (error) {
       console.error('Erreur:', error);

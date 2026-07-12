@@ -23,7 +23,7 @@ interface Avis {
 }
 
 // ═══════════════════════════════════════════
-// FONCTION UTILITAIRE POUR EXTRAIRE LE NOM
+// FONCTIONS UTILITAIRES
 // ═══════════════════════════════════════════
 function getCompName(comp: any): string {
   if (!comp) return '';
@@ -63,7 +63,6 @@ export default function MentorDetailPage() {
     try {
       const response = await publicAPI.getMentorById(mentorId);
       if (response.data.success && response.data.mentor) {
-        // Normaliser les compétences
         const mentorData = response.data.mentor;
         if (mentorData.competences) {
           mentorData.competences = mentorData.competences.map((c: any) => {
@@ -110,8 +109,9 @@ export default function MentorDetailPage() {
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  const getPhotoUrl = (url: string | null | undefined) => {
-    if (!url) return null;
+  // ═══ CORRECTION : Accepter string | null | undefined ═══
+  const getPhotoUrl = (url: string | null | undefined): string | undefined => {
+    if (!url) return undefined;
     if (url.startsWith('http')) return url;
     const baseUrl = BACKEND_URL.replace(/\/api\/?$/, '');
     return `${baseUrl}${url}`;
@@ -143,7 +143,7 @@ export default function MentorDetailPage() {
     );
   }
 
-  // Normaliser les compétences (défensif)
+  // Normaliser les compétences
   const competences = (mentor.competences || []).map((c: any) => {
     if (typeof c === 'string') return c;
     if (typeof c === 'object' && c.nom) return c.nom;
@@ -155,6 +155,9 @@ export default function MentorDetailPage() {
     { key: 'note_pedagogie' as const, label: t('mentors.criteria_pedagogy') },
     { key: 'note_disponibilite' as const, label: t('mentors.criteria_availability') },
   ];
+
+  // ═══ CORRECTION : Photo URL sécurisée ═══
+  const photoUrl = getPhotoUrl(mentor.photo_url);
 
   return (
     <div className="min-h-screen mentor-detail-page" style={{ backgroundColor: 'var(--bg-primary)' }}>
@@ -171,8 +174,12 @@ export default function MentorDetailPage() {
             <div className="flex flex-col md:flex-row items-center md:items-start gap-6 relative z-10">
               <div className="avatar-pop">
                 <div className="w-32 h-32 rounded-full overflow-hidden flex items-center justify-center" style={{ backgroundColor: 'var(--accent-soft)', border: '3px solid var(--accent-soft)' }}>
-                  {mentor.photo_url ? (
-                    <img src={getPhotoUrl(mentor.photo_url)} alt={`${mentor.prenom} ${mentor.nom}`} className="w-full h-full object-cover" />
+                  {photoUrl ? (
+                    <img 
+                      src={photoUrl} 
+                      alt={`${mentor.prenom} ${mentor.nom}`} 
+                      className="w-full h-full object-cover" 
+                    />
                   ) : (
                     <span className="text-3xl font-bold" style={{ color: 'var(--accent-text-on-soft)' }}>
                       {mentor.prenom?.[0]}{mentor.nom?.[0]}
@@ -220,7 +227,7 @@ export default function MentorDetailPage() {
                   <p style={{ color: 'var(--text-secondary)' }} className="leading-relaxed">{mentor.bio || t('mentors.no_bio')}</p>
                 </div>
 
-                {/* ═══ COMPÉTENCES CORRIGÉES ═══ */}
+                {/* Compétences */}
                 {competences.length > 0 && (
                   <div className="reveal-block" style={{ animationDelay: '0.1s' }}>
                     <h2 className="font-display text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>{t('matching.competences')}</h2>

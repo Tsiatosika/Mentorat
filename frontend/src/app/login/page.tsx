@@ -128,46 +128,45 @@ function LoginFormContent() {
 
   // Gestion Google Login
   const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
-    if (!credentialResponse.credential) {
-      setErrors({ general: "Erreur Google" });
+  if (!credentialResponse.credential) {
+    setErrors({ general: "Erreur Google" });
+    return;
+  }
+
+  try {
+    // URL CORRIGÉE - Utilise directement localhost
+    const googleUrl = `http://localhost:5000/api/auth/google`;
+    console.log('Google Auth URL:', googleUrl);
+    
+    const response = await fetch(googleUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential: credentialResponse.credential }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setErrors({ general: data.message || 'Erreur Google' });
       return;
     }
 
-    try {
-      const googleUrl = `${BACKEND_URL}/api/auth/google`;
-      const response = await fetch(googleUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          credential: credentialResponse.credential,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setErrors({ general: data.message || 'Erreur Google' });
-        return;
+    if (data.token) {
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      
+      if (data.needsRole) {
+        window.location.href = '/complete-profile';
+      } else {
+        sessionStorage.removeItem('redirectAfterLogin');
+        window.location.href = redirectTo;
       }
-
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        
-        if (data.needsRole) {
-          window.location.href = '/complete-profile';
-        } else {
-          sessionStorage.removeItem('redirectAfterLogin');
-          window.location.href = redirectTo;
-        }
-      }
-    } catch (error: any) {
-      console.error('Erreur Google:', error);
-      setErrors({ general: 'Erreur de connexion Google' });
     }
-  };
+  } catch (error: any) {
+    console.error('Erreur Google:', error);
+    setErrors({ general: 'Erreur de connexion Google' });
+  }
+};
 
   const handleGoogleError = () => {
     setErrors({ general: "Connexion Google annulée" });
