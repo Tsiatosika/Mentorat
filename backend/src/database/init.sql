@@ -1,12 +1,6 @@
--- backend/database/init.sql
--- Ce script s'exécute automatiquement au premier démarrage de PostgreSQL dans Docker
-
 -- Créer l'extension UUID si nécessaire
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ═══════════════════════════════════════════════════
--- 1. UTILISATEURS
--- ═══════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS utilisateurs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nom VARCHAR(100) NOT NULL,
@@ -26,9 +20,6 @@ CREATE TABLE IF NOT EXISTS utilisateurs (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- ═══════════════════════════════════════════════════
--- 2. PROFILS MENTOR
--- ═══════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS profils_mentor (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   utilisateur_id UUID UNIQUE REFERENCES utilisateurs(id) ON DELETE CASCADE,
@@ -44,9 +35,6 @@ CREATE TABLE IF NOT EXISTS profils_mentor (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- ═══════════════════════════════════════════════════
--- 3. PROFILS MENTORÉ
--- ═══════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS profils_mentore (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   utilisateur_id UUID UNIQUE REFERENCES utilisateurs(id) ON DELETE CASCADE,
@@ -59,9 +47,6 @@ CREATE TABLE IF NOT EXISTS profils_mentore (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- ═══════════════════════════════════════════════════
--- 4. COMPÉTENCES
--- ═══════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS competences (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nom VARCHAR(100) NOT NULL UNIQUE,
@@ -80,9 +65,6 @@ INSERT INTO competences (nom) VALUES
   ('WordPress'), ('Shopify')
 ON CONFLICT (nom) DO NOTHING;
 
--- ═══════════════════════════════════════════════════
--- 5. MENTOR-COMPÉTENCES (liaison)
--- ═══════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS mentor_competences (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   mentor_id UUID NOT NULL REFERENCES profils_mentor(id) ON DELETE CASCADE,
@@ -93,9 +75,6 @@ CREATE TABLE IF NOT EXISTS mentor_competences (
   UNIQUE(mentor_id, competence_id)
 );
 
--- ═══════════════════════════════════════════════════
--- 6. DOMAINES
--- ═══════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS domaines (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nom VARCHAR(100) NOT NULL UNIQUE,
@@ -113,9 +92,6 @@ INSERT INTO domaines (nom, description, icon) VALUES
   ('Data Science', 'Big Data, Machine Learning, statistiques', 'BarChart')
 ON CONFLICT (nom) DO NOTHING;
 
--- ═══════════════════════════════════════════════════
--- 7. SESSIONS
--- ═══════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   mentor_id UUID REFERENCES profils_mentor(id),
@@ -135,9 +111,6 @@ CREATE TABLE IF NOT EXISTS sessions (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- ═══════════════════════════════════════════════════
--- 8. MESSAGES
--- ═══════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
@@ -148,9 +121,6 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- ═══════════════════════════════════════════════════
--- 9. AVIS
--- ═══════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS avis (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   mentor_id UUID REFERENCES utilisateurs(id) ON DELETE CASCADE,
@@ -164,9 +134,6 @@ CREATE TABLE IF NOT EXISTS avis (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- ═══════════════════════════════════════════════════
--- 10. NOTIFICATIONS
--- ═══════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   utilisateur_id UUID REFERENCES utilisateurs(id) ON DELETE CASCADE,
@@ -178,9 +145,6 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- ═══════════════════════════════════════════════════
--- 11. DISPONIBILITÉS
--- ═══════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS disponibilites (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   mentor_id UUID REFERENCES profils_mentor(id) ON DELETE CASCADE,
@@ -191,9 +155,6 @@ CREATE TABLE IF NOT EXISTS disponibilites (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- ═══════════════════════════════════════════════════
--- 12. RAPPORTS
--- ═══════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS rapports (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID UNIQUE REFERENCES sessions(id),
@@ -202,9 +163,6 @@ CREATE TABLE IF NOT EXISTS rapports (
   genere_le TIMESTAMP DEFAULT NOW()
 );
 
--- ═══════════════════════════════════════════════════
--- 13. MATCHING SCORES
--- ═══════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS matching_scores (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   mentore_id UUID REFERENCES profils_mentore(id) ON DELETE CASCADE,
@@ -212,16 +170,17 @@ CREATE TABLE IF NOT EXISTS matching_scores (
   score DECIMAL(5,4) DEFAULT 0,
   score_competences DECIMAL(5,4) DEFAULT 0,
   score_domaine DECIMAL(5,4) DEFAULT 0,
+  score_dispo DECIMAL(5,4) DEFAULT 0,
+  score_objectifs DECIMAL(5,4) DEFAULT 0,
   score_reputation DECIMAL(5,4) DEFAULT 0,
   score_experience DECIMAL(5,4) DEFAULT 0,
+  algorithme VARCHAR(50),
+  calcule_le TIMESTAMP DEFAULT NOW(),
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
   UNIQUE(mentore_id, mentor_id)
 );
 
--- ═══════════════════════════════════════════════════
--- INDEX POUR LES PERFORMANCES
--- ═══════════════════════════════════════════════════
 CREATE INDEX IF NOT EXISTS idx_utilisateurs_email ON utilisateurs(email);
 CREATE INDEX IF NOT EXISTS idx_utilisateurs_role ON utilisateurs(role);
 CREATE INDEX IF NOT EXISTS idx_mc_mentor ON mentor_competences(mentor_id);

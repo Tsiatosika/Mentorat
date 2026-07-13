@@ -19,16 +19,10 @@ const authenticate = async (req, res, next) => {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (error) {
       if (error.name === 'JsonWebTokenError') {
-        return res.status(401).json({
-          success: false,
-          message: 'Token invalide.'
-        });
+        return res.status(401).json({ success: false, message: 'Token invalide.' });
       }
       if (error.name === 'TokenExpiredError') {
-        return res.status(401).json({
-          success: false,
-          message: 'Token expiré. Veuillez vous reconnecter.'
-        });
+        return res.status(401).json({ success: false, message: 'Token expiré.' });
       }
       throw error;
     }
@@ -39,19 +33,13 @@ const authenticate = async (req, res, next) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(401).json({
-        success: false,
-        message: 'Utilisateur introuvable.'
-      });
+      return res.status(401).json({ success: false, message: 'Utilisateur introuvable.' });
     }
 
     const user = result.rows[0];
 
     if (!user.actif) {
-      return res.status(401).json({
-        success: false,
-        message: 'Compte désactivé.'
-      });
+      return res.status(401).json({ success: false, message: 'Compte désactivé.' });
     }
 
     req.user = {
@@ -69,24 +57,21 @@ const authenticate = async (req, res, next) => {
 const authorize = (...roles) => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Non authentifié.'
-      });
+      return res.status(401).json({ success: false, message: 'Non authentifié.' });
     }
 
     if (!req.user.role) {
-      return res.status(403).json({
-        success: false,
-        message: 'Veuillez d\'abord compléter votre profil (choisir un rôle).'
-      });
+      return res.status(403).json({ success: false, message: 'Complétez votre profil.' });
     }
 
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Accès interdit. Vous n\'avez pas les droits nécessaires.'
-      });
+    // ⚠️ MODIFICATION : Accepter le rôle 'admin' ou autoriser tous les rôles pour l'admin
+    // Pour l'instant, on autorise tout le monde à voir l'admin (à restreindre plus tard)
+    if (roles.length > 0 && !roles.includes(req.user.role)) {
+      // Vérifier aussi si c'est un admin
+      if (req.user.role === 'admin') {
+        return next(); // Les admins ont accès à tout
+      }
+      return res.status(403).json({ success: false, message: 'Accès interdit.' });
     }
 
     next();

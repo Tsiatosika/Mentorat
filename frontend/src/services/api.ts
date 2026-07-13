@@ -27,6 +27,8 @@ api.interceptors.response.use(
   }
 );
 
+export { api };
+
 export const authAPI = {
   register:        (data: any)              => api.post('/auth/register', data),
   login:            (data: any)              => api.post('/auth/login', data),
@@ -96,9 +98,6 @@ export const matchingAPI = {
     api.post('/matching/recalculate-all', { mentore_ids: mentoreIds || null }),
 };
 
-// ═══════════════════════════════════════════
-// RAPPORT API - CORRIGÉ
-// ═══════════════════════════════════════════
 export const rapportAPI = {
   generateSession: (sessionId: string) =>
     api.post(`/rapports/session/${sessionId}/generate`),
@@ -151,6 +150,12 @@ export const notificationAPI = {
 
 export const domaineAPI = {
   getAll: () => api.get('/domaines'),
+};
+
+// ═══ ADMIN API ═══
+export const adminAPI = {
+  getDashboard: () => api.get('/admin/dashboard'),
+  getUsers: (params?: any) => api.get('/admin/users', { params }),
 };
 
 export default api;

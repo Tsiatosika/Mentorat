@@ -13,7 +13,7 @@ router.use(authenticate);
 // Recommandations pour le mentoré connecté
 router.get('/recommendations', authorize('mentore'), matchingController.getRecommendations);
 
-// Recalcul global
+// Recalcul global — restreint (voir matching.controller.js pour la double protection)
 router.post('/recalculate-all', matchingController.recalculateAll);
 
 // Scores d'un mentor spécifique

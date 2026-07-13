@@ -27,6 +27,8 @@ router.use('/disponibilites', disponibiliteRoutes);
 router.use('/upload',         uploadRoutes);
 router.use('/notifications',  notificationRoutes);
 router.use('/avis', require('./avis.routes'));
+router.use('/admin', require('./admin.routes'));
+
 
 // Routes mentors protégées
 router.get('/mentors/profile/me',
