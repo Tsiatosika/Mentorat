@@ -5,9 +5,7 @@ import { User } from '@/types';
 import api from '@/services/api';
 import toast from 'react-hot-toast';
 
-interface GoogleAuthResult {
-  needsRole: boolean;
-}
+interface GoogleAuthResult { needsRole: boolean; }
 
 interface AuthContextType {
   user: User | null;
@@ -15,7 +13,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (data: any) => Promise<void>;
   loginWithGoogle: (credential: string) => Promise<GoogleAuthResult>;
-  completeProfile: (role: 'mentor' | 'mentore') => Promise<void>;
+  completeProfile: (role: 'mentor' | 'mentore' | 'admin') => Promise<void>;
   logout: () => void;
   updateUser: (user: User) => void;
 }
@@ -24,9 +22,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };
 
@@ -37,14 +33,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const token = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
-
     if (token && savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (e) {
-        console.error('Erreur parsing user:', e);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+      try { setUser(JSON.parse(savedUser)); } catch (e) {
+        localStorage.removeItem('token'); localStorage.removeItem('user');
       }
     }
     setLoading(false);
@@ -52,11 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await api.post('/auth/login', {
-        email,
-        mot_de_passe: password
-      });
-
+      const response = await api.post('/auth/login', { email, mot_de_passe: password });
       if (response.data.success) {
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
@@ -66,7 +53,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(response.data.message || 'Erreur de connexion');
       }
     } catch (error: any) {
-      console.error('Login error:', error);
       toast.error(error.response?.data?.message || 'Erreur de connexion');
       throw error;
     }
@@ -75,24 +61,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (data: any) => {
     try {
       const response = await api.post('/auth/register', {
-        nom: data.nom,
-        prenom: data.prenom,
-        email: data.email,
-        mot_de_passe: data.mot_de_passe,
-        role: data.role
+        nom: data.nom, prenom: data.prenom, email: data.email,
+        mot_de_passe: data.mot_de_passe, role: data.role
       });
-
       if (response.data.success) {
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
         setUser(response.data.user);
         toast.success('Inscription réussie');
       } else {
-        throw new Error(response.data.message || 'Erreur d\'inscription');
+        throw new Error(response.data.message || "Erreur d'inscription");
       }
     } catch (error: any) {
-      console.error('Register error:', error);
-      toast.error(error.response?.data?.message || 'Erreur d\'inscription');
+      toast.error(error.response?.data?.message || "Erreur d'inscription");
       throw error;
     }
   };
@@ -100,7 +81,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithGoogle = async (credential: string): Promise<GoogleAuthResult> => {
     try {
       const response = await api.post('/auth/google', { credential });
-
       if (response.data.success) {
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
@@ -108,37 +88,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toast.success(response.data.message || 'Connexion réussie');
         return { needsRole: !!response.data.needsRole };
       } else {
-        throw new Error(response.data.message || 'Erreur de connexion Google');
+        throw new Error(response.data.message || 'Erreur Google');
       }
     } catch (error: any) {
-      console.error('Google login error:', error);
-      toast.error(error.response?.data?.message || 'Erreur de connexion Google');
+      toast.error(error.response?.data?.message || 'Erreur Google');
       throw error;
     }
   };
 
-  const completeProfile = async (role: 'mentor' | 'mentore') => {
+  const completeProfile = async (role: 'mentor' | 'mentore' | 'admin') => {
     try {
       const response = await api.put('/auth/complete-profile', { role });
-
       if (response.data.success) {
         localStorage.setItem('token', response.data.token);
-
-        // On reconstruit l'objet user à partir de l'état courant + nouveau rôle
         setUser((prevUser) => {
           if (!prevUser) return prevUser;
           const updatedUser = { ...prevUser, role };
           localStorage.setItem('user', JSON.stringify(updatedUser));
           return updatedUser;
         });
-
         toast.success('Profil complété avec succès');
       } else {
-        throw new Error(response.data.message || 'Erreur lors de la complétion du profil');
+        throw new Error(response.data.message || 'Erreur');
       }
     } catch (error: any) {
-      console.error('Complete profile error:', error);
-      toast.error(error.response?.data?.message || 'Erreur lors de la complétion du profil');
+      toast.error(error.response?.data?.message || 'Erreur');
       throw error;
     }
   };
@@ -157,9 +131,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider
-      value={{ user, loading, login, register, loginWithGoogle, completeProfile, logout, updateUser }}
-    >
+    <AuthContext.Provider value={{ user, loading, login, register, loginWithGoogle, completeProfile, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

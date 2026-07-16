@@ -6,9 +6,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useState, useEffect } from 'react';
 import {
-  Home, LayoutDashboard, Users, Calendar, MessageCircle, FileText,
+  LayoutDashboard, Users, Calendar, MessageCircle, FileText,
   Brain, UserCircle, Clock, LogOut, ChevronLeft, ChevronRight,
-  Menu, X
+  Menu, X, BarChart3, Wrench, ScrollText
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { Avatar } from '@/components/ui/Avatar';
@@ -29,6 +29,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
 
   const isMentor = user?.role === 'mentor';
   const isMentore = user?.role === 'mentore';
+  const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
     const saved = localStorage.getItem('sidebar-collapsed');
@@ -38,21 +39,14 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   useEffect(() => {
     if (mobileOpen) {
       document.body.style.overflow = 'hidden';
-      const onKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') setMobileOpen(false);
-      };
+      const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileOpen(false); };
       window.addEventListener('keydown', onKeyDown);
-      return () => {
-        document.body.style.overflow = '';
-        window.removeEventListener('keydown', onKeyDown);
-      };
+      return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKeyDown); };
     }
     document.body.style.overflow = '';
   }, [mobileOpen]);
@@ -64,38 +58,48 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
     if (onCollapseChange) onCollapseChange(newState);
   };
 
-  const isActive = (href: string) =>
-    href === '/' ? pathname === '/' : pathname.startsWith(href);
-
+  const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.startsWith(href);
   const sidebarWidth = collapsed ? '72px' : '260px';
 
   if (!mounted) return null;
 
+  // ═══ ADMIN MENUS ═══
+  let adminItems: { label: string; href: string; icon: any }[] = [];
+  if (isAdmin) {
+    adminItems = [
+      { label: 'Dashboard Admin', href: '/admin', icon: BarChart3 },
+      { label: 'Utilisateurs', href: '/admin/users', icon: Users },
+      { label: 'Sessions', href: '/admin/sessions', icon: Calendar },
+      { label: 'Compétences', href: '/admin/competences', icon: Wrench },
+      { label: 'Rapports', href: '/admin/reports', icon: ScrollText },
+    ];
+  }
+
+  // ═══ MENUS NORMAUX ═══
   let menuItems = [
-    { label: t('nav.home'), href: '/', icon: Home },
     { label: t('nav.dashboard'), href: '/dashboard', icon: LayoutDashboard },
   ];
 
-  if (isMentore) {
-    menuItems.push({ label: t('nav.mentors'), href: '/mentors', icon: Users });
+  if (!isAdmin) {
+    if (isMentore) {
+      menuItems.push({ label: t('nav.mentors'), href: '/mentors', icon: Users });
+    }
+    if (isMentor) {
+      menuItems.push({ label: t('tools.disponibilites'), href: '/disponibilites', icon: Clock });
+    }
+    menuItems = [
+      ...menuItems,
+      { label: t('nav.sessions'), href: '/sessions', icon: Calendar },
+      { label: t('nav.chat'), href: '/chat', icon: MessageCircle },
+      { label: t('nav.reports'), href: '/reports', icon: FileText },
+    ];
   }
-
-  if (isMentor) {
-    menuItems.push({ label: t('tools.disponibilites'), href: '/disponibilites', icon: Clock });
-  }
-
-  menuItems = [
-    ...menuItems,
-    { label: t('nav.sessions'), href: '/sessions', icon: Calendar },
-    { label: t('nav.chat'), href: '/chat', icon: MessageCircle },
-    { label: t('nav.reports'), href: '/reports', icon: FileText },
-  ];
 
   let toolItems = [
     { label: t('tools.profile'), href: '/profile', icon: UserCircle },
   ];
 
-  if (isMentore) {
+  if (isMentore && !isAdmin) {
     toolItems.push({ label: t('tools.matching'), href: '/matching', icon: Brain });
   }
 
@@ -105,35 +109,20 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
     return (
       <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
         <div
-          className="sidebar-menu-item"
-          data-active={active}
           style={{
-            position: 'relative',
-            display: 'flex',
-            alignItems: 'center',
+            position: 'relative', display: 'flex', alignItems: 'center',
             justifyContent: collapsed ? 'center' : 'flex-start',
-            gap: collapsed ? '0' : '12px',
-            padding: collapsed ? '12px' : '10px 12px',
-            borderRadius: '10px',
-            marginBottom: '4px',
+            gap: collapsed ? '0' : '12px', padding: collapsed ? '12px' : '10px 12px',
+            borderRadius: '10px', marginBottom: '4px',
             backgroundColor: active ? 'var(--accent-soft)' : 'transparent',
             color: active ? 'var(--accent-text-on-soft)' : 'var(--text-secondary)',
-            transition: 'background-color 0.2s, color 0.2s',
-            cursor: 'pointer',
+            transition: 'background-color 0.2s, color 0.2s', cursor: 'pointer',
           }}
+          onMouseEnter={(e) => { if (!active) e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)'; }}
+          onMouseLeave={(e) => { if (!active) e.currentTarget.style.backgroundColor = 'transparent'; }}
         >
           {active && (
-            <span
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: '8px',
-                bottom: '8px',
-                width: '3px',
-                borderRadius: '0 3px 3px 0',
-                backgroundColor: 'var(--accent)',
-              }}
-            />
+            <span style={{ position: 'absolute', left: 0, top: '8px', bottom: '8px', width: '3px', borderRadius: '0 3px 3px 0', backgroundColor: 'var(--accent)' }} />
           )}
           <Icon className="w-5 h-5" style={{ flexShrink: 0 }} />
           {!collapsed && <span style={{ fontSize: '13px', fontWeight: 500 }}>{item.label}</span>}
@@ -142,13 +131,24 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
     );
   };
 
+  const getRoleLabel = () => {
+    if (user?.role === 'admin') return 'Admin';
+    if (user?.role === 'mentor') return 'Mentor';
+    return 'Mentoré(e)';
+  };
+
   return (
     <>
       {/* Burger menu mobile */}
       <button
-        aria-label={mobileOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
-        aria-expanded={mobileOpen}
+        aria-label={mobileOpen ? 'Fermer' : 'Ouvrir'} aria-expanded={mobileOpen}
         onClick={() => setMobileOpen((v) => !v)}
+        style={{
+          display: 'none', position: 'fixed', top: '16px', left: '16px', width: '40px', height: '40px',
+          borderRadius: '10px', border: '1px solid var(--border)', backgroundColor: 'var(--card-bg)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)', zIndex: 60, cursor: 'pointer',
+          alignItems: 'center', justifyContent: 'center',
+        }}
         className="sidebar-burger"
       >
         {mobileOpen ? <X size={20} /> : <Menu size={20} />}
@@ -156,331 +156,130 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
 
       {/* Overlay mobile */}
       <div
-        className={`sidebar-overlay ${mobileOpen ? 'is-visible' : ''}`}
-        onClick={() => setMobileOpen(false)}
-        aria-hidden="true"
+        onClick={() => setMobileOpen(false)} aria-hidden="true"
+        style={{
+          display: 'none', position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)',
+          backdropFilter: 'blur(2px)', zIndex: 39, opacity: mobileOpen ? 1 : 0,
+          pointerEvents: mobileOpen ? 'auto' : 'none', transition: 'opacity 0.3s ease',
+        }}
+        className="sidebar-overlay"
       />
 
       {/* Sidebar */}
       <aside
-        className={`sidebar-aside ${mobileOpen ? 'is-open' : ''}`}
-        style={{ width: sidebarWidth }}
+        style={{
+          width: sidebarWidth, minHeight: '100vh', backgroundColor: 'var(--card-bg)',
+          borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column',
+          flexShrink: 0, position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 40,
+          transition: 'width 0.3s cubic-bezier(0.4,0,0.2,1)', overflow: 'hidden',
+        }}
       >
-        {/* En-tête avec logo et bouton toggle */}
-        <div className="sidebar-header">
+        {/* Header avec logo */}
+        <div style={{
+          padding: collapsed ? '16px 10px' : '16px 16px', display: 'flex',
+          alignItems: 'center', justifyContent: 'space-between',
+          borderBottom: '1px solid var(--border)', minHeight: '72px', gap: '8px',
+        }}>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', flex: 1, overflow: 'hidden', minWidth: 0 }}>
+            <Logo size={32} />
+            {!collapsed && (
+              <div style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>MentorIPath</div>
+                <div style={{ fontSize: '9px', color: 'var(--text-tertiary)' }}>UAZ — Informatique</div>
+              </div>
+            )}
+          </Link>
           <button
-            onClick={toggleSidebar}
-            aria-label={collapsed ? 'Agrandir la barre latérale' : 'Réduire la barre latérale'}
-            className="sidebar-toggle-btn"
+            onClick={toggleSidebar} aria-label={collapsed ? 'Agrandir' : 'Réduire'}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: '30px', height: '30px', borderRadius: '8px',
+              border: '1px solid var(--border)', backgroundColor: 'var(--card-bg)',
+              color: 'var(--text-secondary)', cursor: 'pointer', flexShrink: 0,
+              transition: 'all 0.2s ease', zIndex: 10,
+            }}
             title={collapsed ? 'Agrandir' : 'Réduire'}
           >
             {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
           </button>
         </div>
 
-        {/* Menu principal */}
-        <div className="sidebar-menu-section">
-          {!collapsed && (
-            <div className="sidebar-section-title">Accueil</div>
+        {/* Contenu scrollable */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: collapsed ? '8px 6px' : '12px 12px' }}>
+          {/* SECTION ADMIN */}
+          {isAdmin && (
+            <>
+              {!collapsed && (
+                <div style={{ fontSize: '10px', letterSpacing: '0.05em', color: '#8B5CF6', padding: '0 10px 8px', textTransform: 'uppercase', fontWeight: 600 }}>
+                  ADMINISTRATION
+                </div>
+              )}
+              {adminItems.map(renderItem)}
+            </>
           )}
-          {menuItems.map(renderItem)}
-        </div>
 
-        {/* Outils */}
-        <div className="sidebar-tools-section">
-          {!collapsed && toolItems.length > 0 && (
-            <div className="sidebar-section-title">MATCHING IA</div>
+          {/* SECTION NORMALE (non-admin) */}
+          {!isAdmin && (
+            <>
+              {!collapsed && (
+                <div style={{ fontSize: '10px', letterSpacing: '0.05em', color: 'var(--text-tertiary)', padding: '0 10px 8px', textTransform: 'uppercase', fontWeight: 600 }}>
+                  MENU
+                </div>
+              )}
+              {menuItems.map(renderItem)}
+
+              <div style={{ borderTop: '1px solid var(--border)', margin: '8px 0', paddingTop: collapsed ? '4px' : '8px' }}>
+                {!collapsed && (
+                  <div style={{ fontSize: '10px', letterSpacing: '0.05em', color: 'var(--text-tertiary)', padding: '0 10px 8px', textTransform: 'uppercase', fontWeight: 600 }}>
+                    OUTILS
+                  </div>
+                )}
+                {toolItems.map(renderItem)}
+              </div>
+            </>
           )}
-          {toolItems.map(renderItem)}
         </div>
 
         {/* Profil utilisateur */}
-        <div className="sidebar-profile">
-          <div className="sidebar-profile-inner">
-            <div className="sidebar-profile-avatar">
+        <div style={{ padding: collapsed ? '12px 10px' : '16px 16px', borderTop: '1px solid var(--border)' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between',
+            gap: collapsed ? '0' : '12px', padding: collapsed ? '4px 0' : '10px',
+            borderRadius: '12px', backgroundColor: collapsed ? 'transparent' : 'var(--bg-secondary)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: collapsed ? '0' : '12px', flex: collapsed ? 'none' : 1, minWidth: 0 }}>
               <Avatar photoUrl={user?.photo_url} prenom={user?.prenom} nom={user?.nom} size={collapsed ? 36 : 38} />
               {!collapsed && (
-                <div className="sidebar-profile-info">
-                  <div className="sidebar-profile-name">
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {user ? `${user.prenom} ${user.nom}` : 'Invité'}
                   </div>
-                  <div className="sidebar-profile-role">
-                    {user?.role === 'mentor' ? 'Mentor' : 'Mentoré(e)'}
-                  </div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{getRoleLabel()}</div>
                 </div>
               )}
             </div>
             {!collapsed && (
-              <button
-                onClick={logout}
-                className="sidebar-logout-btn"
-                title="Déconnexion"
-              >
+              <button onClick={logout} style={{ background: 'var(--danger-soft)', border: 'none', borderRadius: '8px', cursor: 'pointer', padding: '6px 10px', color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} title="Déconnexion">
                 <LogOut size={16} />
               </button>
             )}
           </div>
           {collapsed && (
-            <button
-              onClick={logout}
-              className="sidebar-logout-collapsed"
-              title="Déconnexion"
-            >
+            <button onClick={logout} style={{ width: '100%', marginTop: '8px', background: 'var(--danger-soft)', border: 'none', borderRadius: '8px', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)' }} title="Déconnexion">
               <LogOut size={16} />
             </button>
           )}
         </div>
       </aside>
 
-      <style jsx>{`
-        .sidebar-aside {
-          min-height: 100vh;
-          background-color: var(--card-bg);
-          border-right: 1px solid var(--border);
-          display: flex;
-          flex-direction: column;
-          flex-shrink: 0;
-          position: fixed;
-          top: 0;
-          left: 0;
-          bottom: 0;
-          z-index: 40;
-          transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          overflow: hidden;
-        }
-
-        .sidebar-header {
-          padding: ${collapsed ? '16px 10px' : '16px 16px'};
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          border-bottom: 1px solid var(--border);
-          min-height: 72px;
-          gap: 8px;
-        }
-
-        .sidebar-logo-link {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          text-decoration: none;
-          flex: 1;
-          overflow: hidden;
-          min-width: 0;
-        }
-
-        .sidebar-brand-text {
-          overflow: hidden;
-          white-space: nowrap;
-        }
-
-        .sidebar-brand-name {
-          font-size: 15px;
-          font-weight: 600;
-          color: var(--text-primary);
-        }
-
-        .sidebar-brand-subtitle {
-          font-size: 9px;
-          color: var(--text-tertiary);
-        }
-
-        /* Bouton de toggle - BIEN VISIBLE */
-        .sidebar-toggle-btn {
-          display: flex !important;
-          align-items: center;
-          justify-content: center;
-          width: 30px;
-          height: 30px;
-          border-radius: 8px;
-          border: 1px solid var(--border);
-          background-color: var(--card-bg);
-          color: var(--text-secondary);
-          cursor: pointer;
-          flex-shrink: 0;
-          transition: all 0.2s ease;
-          position: relative;
-          z-index: 10;
-        }
-
-        .sidebar-toggle-btn:hover {
-          background-color: var(--accent-soft);
-          color: var(--accent);
-          border-color: var(--accent);
-          transform: scale(1.1);
-        }
-
-        .sidebar-toggle-btn:active {
-          transform: scale(0.95);
-        }
-
-        .sidebar-menu-section {
-          padding: ${collapsed ? '12px 6px' : '16px 12px'};
-          flex: 1;
-          overflow-y: auto;
-        }
-
-        .sidebar-menu-section::-webkit-scrollbar {
-          width: 3px;
-        }
-
-        .sidebar-menu-section::-webkit-scrollbar-thumb {
-          background-color: var(--border);
-          border-radius: 3px;
-        }
-
-        .sidebar-section-title {
-          font-size: 10px;
-          letter-spacing: 0.05em;
-          color: var(--text-tertiary);
-          padding: 0 10px 12px;
-          text-transform: uppercase;
-          font-weight: 600;
-        }
-
-        .sidebar-tools-section {
-          padding: ${collapsed ? '8px 6px' : '12px 12px'};
-          border-top: 1px solid var(--border);
-          margin-top: 4px;
-        }
-
-        .sidebar-profile {
-          padding: ${collapsed ? '12px 10px' : '16px 16px'};
-          border-top: 1px solid var(--border);
-        }
-
-        .sidebar-profile-inner {
-          display: flex;
-          align-items: center;
-          justify-content: ${collapsed ? 'center' : 'space-between'};
-          gap: ${collapsed ? '0' : '12px'};
-          padding: ${collapsed ? '4px 0' : '10px'};
-          border-radius: 12px;
-          background-color: ${collapsed ? 'transparent' : 'var(--bg-secondary)'};
-        }
-
-        .sidebar-profile-avatar {
-          display: flex;
-          align-items: center;
-          gap: ${collapsed ? '0' : '12px'};
-          flex: ${collapsed ? 'none' : 1};
-          min-width: 0;
-        }
-
-        .sidebar-profile-info {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .sidebar-profile-name {
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--text-primary);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .sidebar-profile-role {
-          font-size: 10px;
-          color: var(--text-tertiary);
-        }
-
-        .sidebar-logout-btn {
-          background: var(--danger-soft);
-          border: none;
-          border-radius: 8px;
-          cursor: pointer;
-          padding: 6px 10px;
-          color: var(--danger);
-          transition: opacity 0.2s;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .sidebar-logout-btn:hover {
-          opacity: 0.7;
-        }
-
-        .sidebar-logout-collapsed {
-          width: 100%;
-          margin-top: 8px;
-          background: var(--danger-soft);
-          border: none;
-          border-radius: 8px;
-          cursor: pointer;
-          padding: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--danger);
-        }
-
-        .sidebar-logout-collapsed:hover {
-          opacity: 0.7;
-        }
-
-        /* Styles pour le menu burger mobile */
-        .sidebar-burger {
-          display: none;
-          position: fixed;
-          top: 16px;
-          left: 16px;
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          border: 1px solid var(--border);
-          background-color: var(--card-bg);
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-          z-index: 60;
-          cursor: pointer;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .sidebar-overlay {
-          display: none;
-          position: fixed;
-          inset: 0;
-          background-color: rgba(0, 0, 0, 0.45);
-          backdrop-filter: blur(2px);
-          z-index: 39;
-          opacity: 0;
-          pointer-events: none;
-          transition: opacity 0.3s ease;
-        }
-
-        .sidebar-overlay.is-visible {
-          opacity: 1;
-          pointer-events: auto;
-        }
-
+      <style jsx global>{`
+        .sidebar-toggle-btn:hover { background-color: var(--accent-soft) !important; color: var(--accent) !important; border-color: var(--accent) !important; transform: scale(1.1); }
         @media (max-width: 640px) {
-          .sidebar-burger {
-            display: flex;
-          }
-
-          .sidebar-overlay {
-            display: block;
-          }
-
-          .sidebar-aside {
-            width: ${MOBILE_DRAWER_WIDTH}px !important;
-            transform: translateX(-100%);
-            transition: transform 0.3s ease, width 0.3s ease !important;
-          }
-
-          .sidebar-aside.is-open {
-            transform: translateX(0);
-            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.18);
-          }
-
-          /* Cacher le bouton de toggle sur mobile car on a le burger */
-          .sidebar-toggle-btn {
-            display: none !important;
-          }
+          .sidebar-burger { display: flex !important; }
+          .sidebar-overlay { display: block !important; }
+          .sidebar-aside { width: ${MOBILE_DRAWER_WIDTH}px !important; transform: translateX(-100%); transition: transform 0.3s ease !important; }
+          .sidebar-aside.is-open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,0.18); }
+          .sidebar-toggle-btn { display: none !important; }
         }
       `}</style>
     </>

@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS utilisateurs (
   prenom VARCHAR(100) NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
   mot_de_passe VARCHAR(255),
-  role VARCHAR(20) CHECK (role IN ('mentor', 'mentore')),
+  role VARCHAR(20) CHECK (role IN ('mentor', 'mentore', 'admin')),
   google_id VARCHAR(255) UNIQUE,
   actif BOOLEAN DEFAULT true,
   email_verifie BOOLEAN DEFAULT false,
