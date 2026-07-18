@@ -567,6 +567,17 @@ body {
   animation: fadeInUp 0.5s ease forwards;
 }
 
+/* ─── ADMIN HEADER ─── */
+.admin-header {
+  background: linear-gradient(135deg, #3B82F6, #60A5FA);
+  padding: 28px 24px;
+}
+
+.dark .admin-header {
+  background: linear-gradient(135deg, #0F172A, #1E3A5F);
+}
+
+
 .stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
 .stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
 .stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
@@ -599,3 +610,4 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
