@@ -62,7 +62,7 @@ router.post('/logout', authenticate, authController.logout);
 router.get('/me', authenticate, authController.getMe);
 router.put('/me', authenticate, updateMe);
 router.put('/change-password', authenticate, changePassword);
-
+router.post('/verify-email', authController.verifyEmail);
 // Rafraîchir le token
 router.post('/refresh-token', authenticate, authController.refreshToken);
 

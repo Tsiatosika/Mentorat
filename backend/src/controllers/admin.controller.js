@@ -76,13 +76,22 @@ const toggleUser = async (req, res) => {
 
 const addCompetence = async (req, res) => {
   try {
-    const result = await query('INSERT INTO competences (nom) VALUES ($1) ON CONFLICT (nom) DO NOTHING RETURNING *', [req.body.nom?.trim()]);
-    if (result.rows.length === 0) return res.status(409).json({ success: false, message: 'Cette compétence existe déjà' });
+    const { nom, categorie } = req.body;
+    
+    if (!nom || !nom.trim()) {
+      return res.status(400).json({ success: false, message: 'Le nom est requis' });
+    }
+    
+    const result = await query(
+      'INSERT INTO competences (nom, categorie) VALUES ($1, $2) ON CONFLICT (nom) DO UPDATE SET categorie = EXCLUDED.categorie RETURNING *',
+      [nom.trim(), categorie || 'Autre']
+    );
     res.status(201).json({ success: true, competence: result.rows[0] });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 const deleteCompetence = async (req, res) => {
   try {
