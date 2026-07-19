@@ -202,7 +202,6 @@ export default function DashboardPage() {
           <span className="relative inline-block transition-all duration-300 hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-blue-500 hover:to-purple-600">
             {t('dashboard.welcome')}, {user.prenom}
           </span>{' '}
-          <span className="wave-emoji inline-block">👋</span>
         </h1>
       </div>
 

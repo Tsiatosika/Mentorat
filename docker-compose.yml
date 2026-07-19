@@ -25,6 +25,29 @@ services:
     networks:
       - mentoripath-network
 
+  ia_service:
+    build:
+      context: ./ia_service
+      dockerfile: Dockerfile
+    container_name: mentoripath-ia
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-mentorat_db}
+      WEIGHT_COMPETENCES: 0.40
+      WEIGHT_DISPONIBILITE: 0.25
+      WEIGHT_OBJECTIFS: 0.20
+      WEIGHT_REPUTATION: 0.15
+      SCORE_MIN: 0.10
+      TOP_N: 10
+      PORT: 8001
+      TZ: Indian/Antananarivo
+    ports:
+      - "8001:8001"
+    depends_on:
+      - postgres
+    networks:
+      - mentoripath-network
+
   backend:
     build:
       context: ./backend
@@ -49,14 +72,15 @@ services:
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USER: ${MAIL_USER:-}
       MAIL_PASS: ${MAIL_PASS:-}
+      IA_SERVICE_URL: http://ia_service:8001
       TZ: Indian/Antananarivo
     volumes:
       - uploads_data:/app/uploads
     ports:
       - "5000:5000"
     depends_on:
-      postgres:
-        condition: service_healthy
+      - postgres
+      - ia_service
     networks:
       - mentoripath-network
 
