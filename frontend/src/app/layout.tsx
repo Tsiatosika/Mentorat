@@ -32,11 +32,18 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { if (!loading) setIsCheckingAuth(false); }, [loading]);
 
-  const publicPages = ['/', '/login', '/register', '/mentors', '/about', '/domaines', '/admin'];
-  const isPublicPage = publicPages.some(page => pathname === page || pathname.startsWith('/mentors/'));
+  // Pages accessibles sans connexion
+  const publicPages = ['/login', '/register', '/about'];
+  const isPublicPage = publicPages.some(page => pathname === page);
+  
+  // Pages accessibles aux mentorés et visiteurs
+  const openPages = ['/', '/mentors', '/domaines'];
+  const isOpenPage = openPages.some(page => pathname === page || pathname.startsWith('/mentors/'));
+  
   const authPages = ['/login', '/register', '/complete-profile'];
   const isAuthPage = authPages.includes(pathname);
 
+  // Redirection après connexion
   useEffect(() => {
     if (user && user.role && pathname === '/login') {
       const savedRedirect = sessionStorage.getItem('redirectAfterLogin');
@@ -52,16 +59,27 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     }
   }, [user, pathname]);
 
+  // Redirection si non connecté
   useEffect(() => {
-    if (!loading && !isCheckingAuth && !user && !isPublicPage) {
+    if (!loading && !isCheckingAuth && !user && !isPublicPage && !isOpenPage && !pathname.startsWith('/admin')) {
       sessionStorage.setItem('redirectAfterLogin', pathname);
       router.push('/login');
     }
-  }, [user, loading, isCheckingAuth, isPublicPage, pathname]);
+  }, [user, loading, isCheckingAuth, pathname]);
 
+  // Redirection vers complete-profile si pas de rôle
   useEffect(() => {
     if (user && !user.role && pathname !== '/complete-profile') {
       router.push('/complete-profile');
+    }
+  }, [user, pathname]);
+
+  // Redirection admin/mentor hors de la home et mentors
+  useEffect(() => {
+    if (user && (user.role === 'mentor' || user.role === 'admin')) {
+      if (pathname === '/' || pathname === '/mentors' || pathname === '/domaines') {
+        router.push(user.role === 'admin' ? '/admin' : '/dashboard');
+      }
     }
   }, [user, pathname]);
 
@@ -100,7 +118,6 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
           <div className="p-4 sm:p-6 lg:p-8">{children}</div>
         </main>
       </div>
-      {/* ChatBot - visible uniquement si connecté */}
       {user && <ChatBot />}
     </div>
   );

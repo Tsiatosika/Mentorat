@@ -2,7 +2,11 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Briefcase, BookOpen, Save, Upload, Tag, Plus, X, Search, Lock } from 'lucide-react';
+import {
+  User, Briefcase, BookOpen, Save, Upload, Tag, Plus, X,
+  Search, Lock, CheckCircle, AlertCircle, ChevronRight,
+  Sparkles, Shield
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { mentorAPI, mentoreAPI, uploadAPI, BACKEND_URL, competenceAPI, authAPI } from '@/services/api';
@@ -13,12 +17,13 @@ export default function ProfilePage() {
   const { user, updateUser } = useAuth();
   const { t } = useLanguage();
   const router = useRouter();
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [tagInput, setTagInput] = useState('');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [hoveredTag, setHoveredTag] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'info' | 'profil' | 'securite'>('info');
 
   const [availableCompetences, setAvailableCompetences] = useState<any[]>([]);
   const [competenceSearch, setCompetenceSearch] = useState('');
@@ -40,7 +45,6 @@ export default function ProfilePage() {
     disponible: true,
   });
 
-  // ── Sécurité / mot de passe ──
   const [passwordData, setPasswordData] = useState({
     ancien_mot_de_passe: '',
     nouveau_mot_de_passe: '',
@@ -56,9 +60,7 @@ export default function ProfilePage() {
   ];
 
   const DOMAINES = [
-    'Informatique', 'Marketing', 'Design', 'Finance', 'Management',
-    'Communication', 'Droit', 'Sante', 'Education', 'Ingenierie',
-    'Data Science', 'Cybersecurite', 'Autre'
+    'Informatique', 'Gestion', 'Communication', 'Droit', 'Langue Anglophone', 'Médecine'
   ];
 
   useEffect(() => {
@@ -74,9 +76,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!user) { router.push('/login'); return; }
     fetchProfile();
-    if (user?.role === 'mentor') {
-      fetchAvailableCompetences();
-    }
+    if (user?.role === 'mentor') fetchAvailableCompetences();
   }, [user, router]);
 
   const fetchProfile = async () => {
@@ -119,8 +119,7 @@ export default function ProfilePage() {
           disponible: true,
         }));
       }
-    } catch (error) {
-      console.error('Erreur chargement profil:', error);
+    } catch {
       toast.error(t('common.error'));
     } finally {
       setLoading(false);
@@ -131,9 +130,7 @@ export default function ProfilePage() {
     try {
       const response = await competenceAPI.getAll();
       setAvailableCompetences(response.data.competences || response.data.data || []);
-    } catch (error) {
-      console.error('Erreur chargement competences:', error);
-    }
+    } catch {}
   };
 
   const filteredCompetences = availableCompetences.filter(
@@ -145,21 +142,14 @@ export default function ProfilePage() {
   const handleAddExistingCompetence = async (competence: any) => {
     setAddingCompetence(true);
     try {
-      await mentorAPI.addCompetence({
-        competence_id: competence.id,
-        niveau: selectedNiveau
-      });
+      await mentorAPI.addCompetence({ competence_id: competence.id, niveau: selectedNiveau });
       setFormData(prev => ({
         ...prev,
-        competences: [...prev.competences, {
-          id: competence.id,
-          nom: competence.nom,
-          niveau: selectedNiveau
-        }]
+        competences: [...prev.competences, { id: competence.id, nom: competence.nom, niveau: selectedNiveau }]
       }));
-      toast.success('Competence ajoutee');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erreur');
+      toast.success('Compétence ajoutée');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erreur');
     } finally {
       setAddingCompetence(false);
       setCompetenceSearch('');
@@ -169,32 +159,21 @@ export default function ProfilePage() {
 
   const handleAddCustomCompetence = async () => {
     const nom = competenceSearch.trim();
-    if (!nom || nom.length < 2) {
-      toast.error('Veuillez entrer un nom de competence (minimum 2 caracteres)');
-      return;
-    }
+    if (!nom || nom.length < 2) { toast.error('Minimum 2 caractères'); return; }
     if (formData.competences.some((c: any) => c.nom?.toLowerCase() === nom.toLowerCase())) {
-      toast.error('Cette competence existe deja dans votre profil');
-      return;
+      toast.error('Compétence déjà présente'); return;
     }
     setAddingCompetence(true);
     try {
-      const response = await mentorAPI.addCompetence({
-        competence_nom: nom,
-        niveau: selectedNiveau
-      });
+      const response = await mentorAPI.addCompetence({ competence_nom: nom, niveau: selectedNiveau });
       setFormData(prev => ({
         ...prev,
-        competences: [...prev.competences, {
-          id: response.data.competence.id,
-          nom: response.data.competence.nom,
-          niveau: selectedNiveau
-        }]
+        competences: [...prev.competences, { id: response.data.competence.id, nom: response.data.competence.nom, niveau: selectedNiveau }]
       }));
-      toast.success('Competence ajoutee avec succes !');
+      toast.success('Compétence créée et ajoutée !');
       fetchAvailableCompetences();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erreur');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erreur');
     } finally {
       setAddingCompetence(false);
       setCompetenceSearch('');
@@ -207,13 +186,11 @@ export default function ProfilePage() {
       await mentorAPI.removeCompetence(competenceId);
       setFormData(prev => ({
         ...prev,
-        competences: prev.competences.filter((c: any) =>
-          c.id !== competenceId && c.competence_id !== competenceId
-        )
+        competences: prev.competences.filter((c: any) => c.id !== competenceId && c.competence_id !== competenceId)
       }));
-      toast.success('Competence supprimee');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erreur');
+      toast.success('Compétence supprimée');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erreur');
     }
   };
 
@@ -221,41 +198,35 @@ export default function ProfilePage() {
     setFormData(prev => ({
       ...prev,
       competences: prev.competences.map((c: any) =>
-        (c.id === competenceId || c.competence_id === competenceId)
-          ? { ...c, niveau: newNiveau }
-          : c
+        (c.id === competenceId || c.competence_id === competenceId) ? { ...c, niveau: newNiveau } : c
       )
     }));
     try {
       await mentorAPI.addCompetence({ competence_id: competenceId, niveau: newNiveau });
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erreur');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erreur');
     }
   };
 
   const addTag = () => {
     const tag = tagInput.trim().toLowerCase();
     if (!tag) return;
-    if (formData.objectifs_tags.includes(tag)) { toast.error('Ce tag existe deja'); return; }
+    if (formData.objectifs_tags.includes(tag)) { toast.error('Tag déjà présent'); return; }
     setFormData(prev => ({ ...prev, objectifs_tags: [...prev.objectifs_tags, tag] }));
     setTagInput('');
   };
 
-  const removeTag = (tag: string) => {
+  const removeTag = (tag: string) =>
     setFormData(prev => ({ ...prev, objectifs_tags: prev.objectifs_tags.filter(t => t !== tag) }));
-  };
 
   const handleTagKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') { e.preventDefault(); addTag(); }
-    if (e.key === ',') { e.preventDefault(); addTag(); }
+    if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(); }
   };
 
   const handleCompetenceKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (filteredCompetences.length === 0 && competenceSearch.trim().length >= 2) {
-        handleAddCustomCompetence();
-      }
+      if (filteredCompetences.length === 0 && competenceSearch.trim().length >= 2) handleAddCustomCompetence();
     }
   };
 
@@ -266,15 +237,12 @@ export default function ProfilePage() {
     if (!file.type.startsWith('image/')) { toast.error('Format non supporté'); return; }
     try {
       const res = await uploadAPI.photo(file);
-      if (user) {
-        const updatedUser = { ...user, photo_url: res.data.url } as any;
-        updateUser(updatedUser);
-      }
+      if (user) updateUser({ ...user, photo_url: res.data.url } as any);
       setPhotoUrl(res.data.url);
       toast.success(t('common.success'));
       fetchProfile();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || t('common.error'));
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || t('common.error'));
     }
   };
 
@@ -284,51 +252,29 @@ export default function ProfilePage() {
     if (file.size > 5 * 1024 * 1024) { toast.error('CV trop lourd (max 5 Mo)'); return; }
     try {
       await uploadAPI.cv(file);
-      toast.success('CV uploade avec succes');
+      toast.success('CV uploadé');
       fetchProfile();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || t('common.error'));
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || t('common.error'));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!formData.nom.trim() || !formData.prenom.trim()) {
-      toast.error('Le nom et le prénom sont requis.');
-      return;
-    }
-
+    if (!formData.nom.trim() || !formData.prenom.trim()) { toast.error('Nom et prénom requis'); return; }
     setSaving(true);
     try {
-      // Mise à jour nom / prénom (commun aux deux rôles)
-      const res = await authAPI.updateProfile({
-        nom: formData.nom.trim(),
-        prenom: formData.prenom.trim(),
-      });
-      if (user) {
-        updateUser({ ...user, nom: res.data.user.nom, prenom: res.data.user.prenom } as any);
-      }
-
+      const res = await authAPI.updateProfile({ nom: formData.nom.trim(), prenom: formData.prenom.trim() });
+      if (user) updateUser({ ...user, nom: res.data.user.nom, prenom: res.data.user.prenom } as any);
       if (user?.role === 'mentor') {
-        await mentorAPI.updateProfile({
-          bio: formData.bio,
-          domaine: formData.domaine,
-          annees_experience: formData.annees_experience,
-          disponible: formData.disponible,
-        });
+        await mentorAPI.updateProfile({ bio: formData.bio, domaine: formData.domaine, annees_experience: formData.annees_experience, disponible: formData.disponible });
       } else {
-        await mentoreAPI.updateProfile({
-          domaine: formData.domaine,
-          niveau_etude: formData.niveau_etude,
-          objectifs: formData.objectifs,
-          objectifs_tags: formData.objectifs_tags,
-        });
+        await mentoreAPI.updateProfile({ domaine: formData.domaine, niveau_etude: formData.niveau_etude, objectifs: formData.objectifs, objectifs_tags: formData.objectifs_tags });
       }
       toast.success(t('common.success'));
       fetchProfile();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || t('common.error'));
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || t('common.error'));
     } finally {
       setSaving(false);
     }
@@ -336,26 +282,19 @@ export default function ProfilePage() {
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!passwordData.nouveau_mot_de_passe || passwordData.nouveau_mot_de_passe.length < 8) {
-      toast.error('Le mot de passe doit contenir au moins 8 caractères.');
-      return;
+      toast.error('Minimum 8 caractères'); return;
     }
     if (passwordData.nouveau_mot_de_passe !== passwordData.confirmation) {
-      toast.error('Les mots de passe ne correspondent pas.');
-      return;
+      toast.error('Les mots de passe ne correspondent pas'); return;
     }
-
     setChangingPassword(true);
     try {
-      await authAPI.changePassword({
-        ancien_mot_de_passe: passwordData.ancien_mot_de_passe || undefined,
-        nouveau_mot_de_passe: passwordData.nouveau_mot_de_passe,
-      });
-      toast.success('Mot de passe mis à jour avec succès.');
+      await authAPI.changePassword({ ancien_mot_de_passe: passwordData.ancien_mot_de_passe || undefined, nouveau_mot_de_passe: passwordData.nouveau_mot_de_passe });
+      toast.success('Mot de passe mis à jour');
       setPasswordData({ ancien_mot_de_passe: '', nouveau_mot_de_passe: '', confirmation: '' });
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erreur lors du changement de mot de passe.');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erreur');
     } finally {
       setChangingPassword(false);
     }
@@ -370,348 +309,697 @@ export default function ProfilePage() {
   }
 
   const isMentor = user?.role === 'mentor';
-  const inputStyle = {
-    backgroundColor: 'var(--bg-secondary)',
-    borderColor: 'var(--border)',
-    color: 'var(--text-primary)',
+
+  // Complétude
+  const completionChecks = isMentor
+    ? [!!photoUrl, !!formData.bio.trim(), !!formData.domaine, formData.annees_experience > 0, formData.competences.length > 0]
+    : [!!photoUrl, !!formData.domaine, !!formData.niveau_etude.trim(), !!formData.objectifs.trim(), formData.objectifs_tags.length > 0];
+  const completionDone = completionChecks.filter(Boolean).length;
+  const completionPercent = Math.round((completionDone / completionChecks.length) * 100);
+
+  const inputCls = "w-full px-4 py-2.5 rounded-xl outline-none transition-all text-sm pf-input";
+  const inputStyle = { backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' };
+  const labelCls = "block text-xs font-semibold uppercase tracking-wide mb-1.5";
+
+  const tabs = [
+    { key: 'info' as const,     label: t('profile.info'),                      icon: User },
+    { key: 'profil' as const,   label: isMentor ? t('profile.experience') : 'Parcours', icon: isMentor ? Briefcase : BookOpen },
+    { key: 'securite' as const, label: 'Sécurité',                             icon: Shield },
+  ];
+
+  const niveauColors: Record<string, string> = {
+    debutant:      'var(--info-soft)',
+    intermediaire: 'var(--warm-soft)',
+    avance:        'var(--accent-soft)',
+    expert:        'var(--success-soft)',
+  };
+  const niveauTextColors: Record<string, string> = {
+    debutant:      'var(--info)',
+    intermediaire: 'var(--warm-text-on-soft)',
+    avance:        'var(--accent-text-on-soft)',
+    expert:        'var(--success)',
   };
 
   return (
-    <div className="min-h-screen profile-ambient" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      <div className="relative z-10 max-w-4xl mx-auto px-4 pt-10 pb-8">
-        <p className="font-mono-data text-xs uppercase tracking-wide mb-2 fade-in-up" style={{ color: 'var(--accent)' }}>
-          {t('profile.info')}
-        </p>
-        <h1 className="font-display text-3xl font-semibold fade-in-up hover-gradient-text" style={{ color: 'var(--text-primary)', animationDelay: '0.05s' }}>
-          {t('profile.title')}
-        </h1>
-      </div>
+    <div className="min-h-screen pf-page" style={{ backgroundColor: 'var(--bg-primary)' }}>
 
-      <div className="relative z-10 max-w-4xl mx-auto px-4 pb-8 space-y-6">
-        {/* Photo */}
-        <div className="card p-6 fade-in-up profile-card-hover" style={{ animationDelay: '0.08s' }}>
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <User className="w-5 h-5" style={{ color: 'var(--accent)' }} /> {t('profile.photo')}
-          </h2>
-          <div className="flex items-center gap-4">
-            <div className="profile-avatar-hover">
-              <Avatar photoUrl={photoUrl || user?.photo_url} prenom={user?.prenom} nom={user?.nom} size={80} />
+      {/* ══════════ HERO BANNER ══════════ */}
+      <div className="pf-hero relative overflow-hidden">
+        {/* Orbes de fond */}
+        <div className="pf-orb pf-orb-1" style={{ backgroundColor: 'var(--accent-soft)' }} />
+        <div className="pf-orb pf-orb-2" style={{ backgroundColor: 'var(--warm-soft)' }} />
+        <div className="pf-grid-bg" />
+
+        <div className="relative z-10 max-w-5xl mx-auto px-6 pt-10 pb-0">
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-1.5 text-xs mb-8 pf-breadcrumb">
+            <span style={{ color: 'var(--text-tertiary)' }}>{t('nav.dashboard')}</span>
+            <ChevronRight className="w-3 h-3" style={{ color: 'var(--text-tertiary)' }} />
+            <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{t('profile.title')}</span>
+          </div>
+
+          {/* Carte hero identité */}
+          <div className="pf-hero-card">
+            {/* Avatar + upload */}
+            <div className="pf-avatar-wrapper">
+              <div className="pf-avatar-ring">
+                <Avatar photoUrl={photoUrl || user?.photo_url} prenom={user?.prenom} nom={user?.nom} size={88} />
+                {/* Cercle de progression */}
+                <svg className="pf-ring-svg" viewBox="0 0 104 104">
+                  <circle cx="52" cy="52" r="48" fill="none" stroke="var(--border)" strokeWidth="3" />
+                  <circle cx="52" cy="52" r="48" fill="none" stroke="var(--accent)" strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeDasharray={`${2 * Math.PI * 48}`}
+                    strokeDashoffset={`${2 * Math.PI * 48 * (1 - completionPercent / 100)}`}
+                    className="pf-ring-progress"
+                  />
+                </svg>
+              </div>
+              <label className="pf-avatar-upload-btn" title={t('profile.photo')}>
+                <Upload className="w-3.5 h-3.5" />
+                <input type="file" accept="image/jpeg,image/png,image/jpg" className="hidden" onChange={handlePhotoUpload} />
+              </label>
             </div>
-            <label className="flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-all text-sm w-fit hover-upload-btn" style={{ border: '2px dashed var(--accent)', color: 'var(--accent)' }}>
-              <Upload className="w-4 h-4" />
-              {t('profile.photo')}
-              <input type="file" accept="image/jpeg,image/png,image/jpg" className="hidden" onChange={handlePhotoUpload} />
-            </label>
+
+            {/* Infos */}
+            <div className="pf-hero-info">
+              <div className="flex items-start gap-3 flex-wrap">
+                <div>
+                  <h1 className="pf-hero-name">
+                    {formData.prenom || user?.prenom} {formData.nom || user?.nom}
+                  </h1>
+                  <p className="pf-hero-email">{user?.email}</p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap ml-auto">
+                  <span className="pf-role-badge">
+                    {isMentor ? <Briefcase className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
+                    {isMentor ? 'Mentor' : 'Mentoré(e)'}
+                  </span>
+                  {isMentor && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, disponible: !prev.disponible }))}
+                      className="pf-disponible-toggle"
+                      style={{ backgroundColor: formData.disponible ? 'var(--success-soft)' : 'var(--bg-tertiary)' }}
+                    >
+                      <span className="pf-disponible-dot" style={{ backgroundColor: formData.disponible ? 'var(--success)' : 'var(--text-tertiary)' }} />
+                      <span style={{ color: formData.disponible ? 'var(--success)' : 'var(--text-secondary)', fontSize: '12px', fontWeight: 600 }}>
+                        {formData.disponible ? t('profile.disponible') : t('profile.indisponible')}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Barre de complétion */}
+              <div className="pf-completion">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>Profil complété</span>
+                  <span className="text-xs font-bold font-mono-data" style={{ color: completionPercent === 100 ? 'var(--success)' : 'var(--accent)' }}>
+                    {completionPercent}%
+                  </span>
+                </div>
+                <div className="pf-progress-track">
+                  <div className="pf-progress-fill" style={{ width: `${completionPercent}%`, backgroundColor: completionPercent === 100 ? 'var(--success)' : 'var(--accent)' }} />
+                </div>
+              </div>
+
+              {/* Mini stats */}
+              <div className="pf-stats">
+                {isMentor ? (
+                  <>
+                    <div className="pf-stat-item">
+                      <span className="pf-stat-value">{formData.annees_experience}</span>
+                      <span className="pf-stat-label">ans exp.</span>
+                    </div>
+                    <div className="pf-stat-divider" />
+                    <div className="pf-stat-item">
+                      <span className="pf-stat-value">{formData.competences.length}</span>
+                      <span className="pf-stat-label">compétences</span>
+                    </div>
+                    <div className="pf-stat-divider" />
+                    <div className="pf-stat-item">
+                      <span className="pf-stat-value">{profile?.nb_sessions || 0}</span>
+                      <span className="pf-stat-label">sessions</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="pf-stat-item">
+                      <span className="pf-stat-value">{formData.objectifs_tags.length}</span>
+                      <span className="pf-stat-label">objectifs</span>
+                    </div>
+                    <div className="pf-stat-divider" />
+                    <div className="pf-stat-item">
+                      <span className="pf-stat-value">{formData.niveau_etude || '—'}</span>
+                      <span className="pf-stat-label">niveau</span>
+                    </div>
+                    <div className="pf-stat-divider" />
+                    <div className="pf-stat-item">
+                      <span className="pf-stat-value">{profile?.progression || 0}%</span>
+                      <span className="pf-stat-label">progression</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Onglets (collés en bas du hero) ── */}
+          <div className="pf-tabs-bar">
+            {tabs.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`pf-tab ${activeTab === tab.key ? 'pf-tab-active' : ''}`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            ))}
           </div>
         </div>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Infos personnelles */}
-          <div className="card p-6 fade-in-up profile-card-hover" style={{ animationDelay: '0.12s' }}>
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <User className="w-5 h-5" style={{ color: 'var(--accent)' }} /> {t('profile.info')}
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Prénom</label>
-                <input
-                  value={formData.prenom}
-                  onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
-                  className="w-full px-4 py-2 border rounded-lg outline-none transition-all profile-input-hover"
-                  style={inputStyle}
-                />
+      {/* ══════════ CONTENU DES ONGLETS ══════════ */}
+      <div className="max-w-5xl mx-auto px-6 py-8">
+
+        {/* ── Onglet : Infos personnelles ── */}
+        {activeTab === 'info' && (
+          <form onSubmit={handleSubmit} className="pf-tab-content">
+            <div className="pf-section">
+              <div className="pf-section-header">
+                <User className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+                <div>
+                  <h2 className="pf-section-title">{t('profile.info')}</h2>
+                  <p className="pf-section-desc">Votre identité sur la plateforme</p>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Nom</label>
-                <input
-                  value={formData.nom}
-                  onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
-                  className="w-full px-4 py-2 border rounded-lg outline-none transition-all profile-input-hover"
-                  style={inputStyle}
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Email</label>
-                <input disabled value={user?.email || ''} className="w-full px-4 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }} />
-                <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                  L'email ne peut pas être modifié depuis cette page.
-                </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Prénom</label>
+                  <input value={formData.prenom} onChange={e => setFormData({ ...formData, prenom: e.target.value })}
+                    className={inputCls} style={inputStyle} placeholder="Votre prénom" />
+                </div>
+                <div>
+                  <label className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Nom</label>
+                  <input value={formData.nom} onChange={e => setFormData({ ...formData, nom: e.target.value })}
+                    className={inputCls} style={inputStyle} placeholder="Votre nom" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Email</label>
+                  <div className="relative">
+                    <input disabled value={user?.email || ''} className={inputCls}
+                      style={{ ...inputStyle, backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)', cursor: 'not-allowed' }} />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-tertiary)', fontSize: '10px' }}>
+                      non modifiable
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Profil spécifique */}
-          <div className="card p-6 fade-in-up profile-card-hover" style={{ animationDelay: '0.16s' }}>
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              {isMentor ? <Briefcase className="w-5 h-5" style={{ color: 'var(--accent)' }} /> : <BookOpen className="w-5 h-5" style={{ color: 'var(--accent)' }} />}
-              {isMentor ? t('profile.experience') : 'Profil academique'}
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.domaine')}</label>
-                <select className="w-full px-4 py-2 border rounded-lg outline-none transition-all profile-input-hover" style={inputStyle} value={formData.domaine} onChange={(e) => setFormData({ ...formData, domaine: e.target.value })}>
-                  <option value="">Selectionner un domaine...</option>
-                  {DOMAINES.map(d => (<option key={d} value={d}>{d}</option>))}
-                </select>
+            <div className="pf-save-row">
+              <button type="submit" disabled={saving} className="pf-save-btn">
+                <Save className="w-4 h-4" />
+                {saving ? t('common.saving') : t('profile.save')}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* ── Onglet : Profil / Expérience ── */}
+        {activeTab === 'profil' && (
+          <form onSubmit={handleSubmit} className="pf-tab-content">
+            <div className="pf-section">
+              <div className="pf-section-header">
+                {isMentor ? <Briefcase className="w-5 h-5" style={{ color: 'var(--accent)' }} /> : <BookOpen className="w-5 h-5" style={{ color: 'var(--accent)' }} />}
+                <div>
+                  <h2 className="pf-section-title">{isMentor ? t('profile.experience') : 'Parcours académique'}</h2>
+                  <p className="pf-section-desc">{isMentor ? 'Votre expertise et vos compétences' : 'Votre niveau et vos objectifs'}</p>
+                </div>
               </div>
 
-              {isMentor ? (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.bio')}</label>
-                    <textarea rows={4} placeholder={t('profile.bio_placeholder')} className="w-full px-4 py-2 border rounded-lg outline-none transition-all resize-none profile-input-hover" style={inputStyle} value={formData.bio} onChange={(e) => setFormData({ ...formData, bio: e.target.value })} />
-                  </div>
+              <div className="space-y-5">
+                {/* Domaine */}
+                <div>
+                  <label className={labelCls} style={{ color: 'var(--text-tertiary)' }}>{t('profile.domaine')}</label>
+                  <select value={formData.domaine} onChange={e => setFormData({ ...formData, domaine: e.target.value })}
+                    className={inputCls} style={inputStyle}>
+                    <option value="">Sélectionner un domaine…</option>
+                    {DOMAINES.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {isMentor ? (
+                  <>
+                    {/* Bio */}
                     <div>
-                      <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.annees_experience')}</label>
-                      <input type="number" min={0} max={50} className="w-full px-4 py-2 border rounded-lg outline-none transition-all profile-input-hover" style={inputStyle} value={formData.annees_experience} onChange={(e) => setFormData({ ...formData, annees_experience: parseInt(e.target.value) || 0 })} />
+                      <label className={labelCls} style={{ color: 'var(--text-tertiary)' }}>{t('profile.bio')}</label>
+                      <textarea rows={4} placeholder={t('profile.bio_placeholder')} value={formData.bio}
+                        onChange={e => setFormData({ ...formData, bio: e.target.value })}
+                        className={`${inputCls} resize-none`} style={inputStyle} />
+                      <p className="text-xs mt-1 text-right" style={{ color: 'var(--text-tertiary)' }}>{formData.bio.length} / 600</p>
                     </div>
-                    <div className="flex items-center">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <div className="relative w-11 h-6 rounded-full transition-all duration-300 toggle-switch" style={{ backgroundColor: formData.disponible ? 'var(--accent)' : 'var(--bg-tertiary)' }} onClick={() => setFormData(prev => ({ ...prev, disponible: !prev.disponible }))}>
-                          <div className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-300" style={{ transform: formData.disponible ? 'translateX(20px)' : 'translateX(0)' }} />
-                        </div>
-                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{formData.disponible ? t('profile.disponible') : t('profile.indisponible')}</span>
+
+                    {/* Expérience */}
+                    <div>
+                      <label className={labelCls} style={{ color: 'var(--text-tertiary)' }}>{t('profile.annees_experience')}</label>
+                      <div className="flex items-center gap-4">
+                        <input type="number" min={0} max={50} value={formData.annees_experience}
+                          onChange={e => setFormData({ ...formData, annees_experience: parseInt(e.target.value) || 0 })}
+                          className={`${inputCls} w-28 text-center font-mono-data text-lg font-bold`}
+                          style={inputStyle} />
+                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>année(s)</span>
+                      </div>
+                    </div>
+
+                    {/* Compétences */}
+                    <div>
+                      <label className={labelCls} style={{ color: 'var(--text-tertiary)' }}>
+                        <span className="flex items-center gap-1.5"><Tag className="w-3.5 h-3.5" />Compétences techniques</span>
                       </label>
-                    </div>
-                  </div>
 
-                  {/* Compétences */}
-                  <div>
-                    <label className="block text-sm font-medium mb-1 flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
-                      <Tag className="w-4 h-4" /> Competences techniques
-                    </label>
-                    <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>
-                      Ajoutez vos competences techniques.
-                    </p>
-
-                    {formData.competences.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {formData.competences.map((comp: any) => (
-                          <div key={comp.id || comp.competence_id} className="relative group">
-                            <span className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm profile-tag-hover" style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)' }}>
-                              <span className="font-medium">{comp.nom}</span>
-                              <select
-                                value={comp.niveau || 'intermediaire'}
-                                onChange={(e) => handleUpdateNiveau(comp.id || comp.competence_id, e.target.value)}
-                                className="text-xs bg-transparent border-none outline-none cursor-pointer"
-                                style={{ color: 'inherit' }}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {NIVEAUX.map(n => (<option key={n.value} value={n.value} style={{ color: '#000' }}>{n.label}</option>))}
+                      {/* Chips existantes */}
+                      {formData.competences.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {formData.competences.map((comp: any) => (
+                            <div key={comp.id || comp.competence_id}
+                              className="pf-comp-chip"
+                              style={{ backgroundColor: niveauColors[comp.niveau || 'intermediaire'] || 'var(--accent-soft)' }}>
+                              <span className="font-medium text-xs" style={{ color: niveauTextColors[comp.niveau || 'intermediaire'] || 'var(--accent-text-on-soft)' }}>
+                                {comp.nom}
+                              </span>
+                              <select value={comp.niveau || 'intermediaire'}
+                                onChange={e => handleUpdateNiveau(comp.id || comp.competence_id, e.target.value)}
+                                className="text-xs bg-transparent border-none outline-none cursor-pointer ml-1"
+                                style={{ color: niveauTextColors[comp.niveau || 'intermediaire'] || 'var(--accent-text-on-soft)' }}
+                                onClick={e => e.stopPropagation()}>
+                                {NIVEAUX.map(n => <option key={n.value} value={n.value} style={{ color: '#000' }}>{n.label}</option>)}
                               </select>
-                              <button type="button" onClick={() => handleRemoveCompetence(comp.id || comp.competence_id)} className="hover:opacity-70 ml-1">
+                              <button type="button" onClick={() => handleRemoveCompetence(comp.id || comp.competence_id)}
+                                className="ml-1 opacity-60 hover:opacity-100 transition-opacity">
+                                <X className="w-3 h-3" style={{ color: niveauTextColors[comp.niveau || 'intermediaire'] }} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Recherche / ajout */}
+                      <div className="relative" ref={dropdownRef}>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+                            <input type="text" placeholder="Rechercher ou créer une compétence…"
+                              className={`${inputCls} pl-10`} style={inputStyle}
+                              value={competenceSearch}
+                              onChange={e => { setCompetenceSearch(e.target.value); setShowCompetenceDropdown(true); }}
+                              onFocus={() => setShowCompetenceDropdown(true)}
+                              onKeyDown={handleCompetenceKeyDown} />
+                          </div>
+                          <select value={selectedNiveau} onChange={e => setSelectedNiveau(e.target.value)}
+                            className={`${inputCls} w-36`} style={inputStyle}>
+                            {NIVEAUX.map(n => <option key={n.value} value={n.value}>{n.label}</option>)}
+                          </select>
+                        </div>
+
+                        {/* Bouton "Créer" */}
+                        {competenceSearch.trim().length >= 2 && (
+                          <button type="button" onClick={handleAddCustomCompetence} disabled={addingCompetence}
+                            className="pf-create-comp-btn mt-2">
+                            {addingCompetence
+                              ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              : <Plus className="w-4 h-4" />}
+                            Créer &ldquo;{competenceSearch.trim()}&rdquo;
+                          </button>
+                        )}
+
+                        {/* Dropdown suggestions */}
+                        {showCompetenceDropdown && filteredCompetences.length > 0 && (
+                          <div className="pf-comp-dropdown">
+                            <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+                              Suggestions
+                            </div>
+                            {filteredCompetences.slice(0, 8).map((comp: any) => (
+                              <button key={comp.id} type="button" className="pf-comp-dropdown-item" onClick={() => handleAddExistingCompetence(comp)}>
+                                <span>{comp.nom}</span>
+                                <Plus className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* CV */}
+                    <div>
+                      <label className={labelCls} style={{ color: 'var(--text-tertiary)' }}>{t('profile.cv')}</label>
+                      <div className="flex flex-wrap items-center gap-3">
+                        {profile?.cv_url && (
+                          <a href={`${BACKEND_URL}${profile.cv_url}`} target="_blank" rel="noopener noreferrer"
+                            className="text-sm font-medium hover:underline" style={{ color: 'var(--accent)' }}>
+                            {t('profile.view_cv')} →
+                          </a>
+                        )}
+                        <label className="pf-upload-label">
+                          <Upload className="w-3.5 h-3.5" />
+                          {profile?.cv_url ? t('profile.replace_cv') : t('profile.upload_cv')}
+                          <input type="file" accept="application/pdf" className="hidden" onChange={handleCVUpload} />
+                        </label>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Mentoré */}
+                    <div>
+                      <label className={labelCls} style={{ color: 'var(--text-tertiary)' }}>{t('profile.niveau_etude')}</label>
+                      <input type="text" placeholder={t('profile.niveau_etude_placeholder')} value={formData.niveau_etude}
+                        onChange={e => setFormData({ ...formData, niveau_etude: e.target.value })}
+                        className={inputCls} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label className={labelCls} style={{ color: 'var(--text-tertiary)' }}>{t('profile.objectifs')}</label>
+                      <textarea rows={3} placeholder={t('profile.objectifs_placeholder')} value={formData.objectifs}
+                        onChange={e => setFormData({ ...formData, objectifs: e.target.value })}
+                        className={`${inputCls} resize-none`} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label className={labelCls} style={{ color: 'var(--text-tertiary)' }}>
+                        <span className="flex items-center gap-1.5"><Tag className="w-3.5 h-3.5" />{t('profile.tags')}</span>
+                      </label>
+                      <p className="text-xs mb-2" style={{ color: 'var(--text-tertiary)' }}>{t('profile.tags_desc')}</p>
+                      {formData.objectifs_tags.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {formData.objectifs_tags.map(tag => (
+                            <span key={tag} className="pf-tag-chip">
+                              {tag}
+                              <button type="button" onClick={() => removeTag(tag)} className="ml-1 opacity-60 hover:opacity-100">
                                 <X className="w-3 h-3" />
                               </button>
                             </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <input type="text" placeholder={t('profile.tags_placeholder')} value={tagInput}
+                          onChange={e => setTagInput(e.target.value)} onKeyDown={handleTagKeyDown}
+                          className={`${inputCls} flex-1`} style={inputStyle} />
+                        <button type="button" onClick={addTag} className="pf-add-tag-btn">
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>{t('profile.tags_hint')}</p>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="pf-save-row">
+              <button type="submit" disabled={saving} className="pf-save-btn">
+                <Save className="w-4 h-4" />
+                {saving ? t('common.saving') : t('profile.save')}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* ── Onglet : Sécurité ── */}
+        {activeTab === 'securite' && (
+          <form onSubmit={handleChangePassword} className="pf-tab-content">
+            <div className="pf-section">
+              <div className="pf-section-header">
+                <Shield className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+                <div>
+                  <h2 className="pf-section-title">Sécurité</h2>
+                  <p className="pf-section-desc">Gérez l'accès à votre compte</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Mot de passe actuel</label>
+                  <input type="password" placeholder="Laissez vide si connecté via Google"
+                    value={passwordData.ancien_mot_de_passe}
+                    onChange={e => setPasswordData({ ...passwordData, ancien_mot_de_passe: e.target.value })}
+                    className={inputCls} style={inputStyle} />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Nouveau mot de passe</label>
+                    <input type="password" value={passwordData.nouveau_mot_de_passe}
+                      onChange={e => setPasswordData({ ...passwordData, nouveau_mot_de_passe: e.target.value })}
+                      className={inputCls} style={inputStyle} />
+                    {passwordData.nouveau_mot_de_passe && (
+                      <div className="mt-2 space-y-1">
+                        {[
+                          { ok: passwordData.nouveau_mot_de_passe.length >= 8, label: '8 caractères minimum' },
+                          { ok: /[A-Z]/.test(passwordData.nouveau_mot_de_passe), label: '1 majuscule' },
+                          { ok: /[0-9]/.test(passwordData.nouveau_mot_de_passe), label: '1 chiffre' },
+                        ].map(({ ok, label }) => (
+                          <div key={label} className="flex items-center gap-1.5 text-xs">
+                            {ok
+                              ? <CheckCircle className="w-3.5 h-3.5" style={{ color: 'var(--success)' }} />
+                              : <AlertCircle className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />}
+                            <span style={{ color: ok ? 'var(--success)' : 'var(--text-tertiary)' }}>{label}</span>
                           </div>
                         ))}
                       </div>
                     )}
-
-                    <div className="relative" ref={dropdownRef}>
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
-                          <input
-                            type="text"
-                            placeholder="Rechercher ou taper une nouvelle competence..."
-                            className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none transition-all text-sm profile-input-hover"
-                            style={inputStyle}
-                            value={competenceSearch}
-                            onChange={(e) => { setCompetenceSearch(e.target.value); setShowCompetenceDropdown(true); }}
-                            onFocus={() => setShowCompetenceDropdown(true)}
-                            onKeyDown={handleCompetenceKeyDown}
-                          />
-                        </div>
-                        <select value={selectedNiveau} onChange={(e) => setSelectedNiveau(e.target.value)} className="px-3 py-2 border rounded-lg outline-none text-sm" style={inputStyle}>
-                          {NIVEAUX.map(n => (<option key={n.value} value={n.value}>{n.label}</option>))}
-                        </select>
-                      </div>
-
-                      {competenceSearch.trim().length >= 2 && (
-                        <div className="mt-2">
-                          <button
-                            type="button"
-                            onClick={handleAddCustomCompetence}
-                            disabled={addingCompetence}
-                            className="w-full px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 hover-add-custom-btn"
-                            style={{ backgroundColor: 'var(--success-soft)', color: 'var(--success)', border: '1px dashed var(--success)' }}
-                          >
-                            {addingCompetence ? (
-                              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <Plus className="w-4 h-4" />
-                            )}
-                            Ajouter &quot;{competenceSearch.trim()}&quot;
-                          </button>
-                        </div>
-                      )}
-
-                      {showCompetenceDropdown && filteredCompetences.length > 0 && (
-                        <div className="absolute z-50 w-full mt-1 rounded-lg shadow-lg max-h-48 overflow-y-auto" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
-                          <div className="px-3 py-2 text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>Competences existantes</div>
-                          {filteredCompetences.slice(0, 8).map((comp: any) => (
-                            <button key={comp.id} type="button" className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-between" style={{ color: 'var(--text-primary)' }} onClick={() => handleAddExistingCompetence(comp)}>
-                              <span>{comp.nom}</span>
-                              <Plus className="w-3 h-3" style={{ color: 'var(--accent)' }} />
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* CV */}
-                  <div>
-                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.cv')}</label>
-                    <div className="flex flex-wrap items-center gap-3">
-                      {profile?.cv_url && (
-                        <a href={`${BACKEND_URL}${profile.cv_url}`} target="_blank" rel="noopener noreferrer" className="text-sm hover:underline hover-cv-link" style={{ color: 'var(--accent)' }}>
-                          {t('profile.view_cv')}
-                        </a>
-                      )}
-                      <label className="flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-all text-sm hover-upload-btn" style={{ border: '2px dashed var(--accent)', color: 'var(--accent)' }}>
-                        <Upload className="w-4 h-4" />
-                        {profile?.cv_url ? t('profile.replace_cv') : t('profile.upload_cv')}
-                        <input type="file" accept="application/pdf" className="hidden" onChange={handleCVUpload} />
-                      </label>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.niveau_etude')}</label>
-                    <input type="text" placeholder={t('profile.niveau_etude_placeholder')} className="w-full px-4 py-2 border rounded-lg outline-none transition-all profile-input-hover" style={inputStyle} value={formData.niveau_etude} onChange={(e) => setFormData({ ...formData, niveau_etude: e.target.value })} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.objectifs')}</label>
-                    <textarea rows={3} placeholder={t('profile.objectifs_placeholder')} className="w-full px-4 py-2 border rounded-lg outline-none transition-all resize-none profile-input-hover" style={inputStyle} value={formData.objectifs} onChange={(e) => setFormData({ ...formData, objectifs: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1 flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
-                      <Tag className="w-4 h-4" /> {t('profile.tags')}
-                    </label>
-                    <p className="text-xs mb-2" style={{ color: 'var(--text-tertiary)' }}>{t('profile.tags_desc')}</p>
-                    {formData.objectifs_tags.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-2">
-                        {formData.objectifs_tags.map((tag) => (
-                          <span key={tag} className="flex items-center gap-1 px-3 py-1 rounded-full text-sm profile-tag-hover" style={{ backgroundColor: hoveredTag === tag ? 'var(--accent)' : 'var(--accent-soft)', color: hoveredTag === tag ? '#FFFFFF' : 'var(--accent-text-on-soft)' }} onMouseEnter={() => setHoveredTag(tag)} onMouseLeave={() => setHoveredTag(null)}>
-                            {tag}
-                            <button type="button" onClick={() => removeTag(tag)} className="hover:opacity-70"><X className="w-3 h-3" /></button>
-                          </span>
-                        ))}
-                      </div>
+                    <label className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Confirmer</label>
+                    <input type="password" value={passwordData.confirmation}
+                      onChange={e => setPasswordData({ ...passwordData, confirmation: e.target.value })}
+                      className={inputCls} style={inputStyle} />
+                    {passwordData.confirmation && (
+                      <p className="text-xs mt-1" style={{ color: passwordData.confirmation === passwordData.nouveau_mot_de_passe ? 'var(--success)' : 'var(--danger)' }}>
+                        {passwordData.confirmation === passwordData.nouveau_mot_de_passe ? '✓ Correspond' : '✗ Ne correspond pas'}
+                      </p>
                     )}
-                    <div className="flex gap-2">
-                      <input type="text" placeholder={t('profile.tags_placeholder')} className="flex-1 px-4 py-2 border rounded-lg outline-none transition-all text-sm profile-input-hover" style={inputStyle} value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={handleTagKeyDown} />
-                      <button type="button" onClick={addTag} className="px-3 py-2 rounded-lg transition-all hover-add-tag" style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)' }}>
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>{t('profile.tags_hint')}</p>
                   </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="flex justify-end fade-in-up" style={{ animationDelay: '0.2s' }}>
-            <button type="submit" disabled={saving} className="flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all disabled:opacity-50 hover-save-btn" style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}>
-              <Save className="w-4 h-4" />
-              {saving ? t('common.saving') : t('profile.save')}
-            </button>
-          </div>
-        </form>
-
-        {/* ═══════════ SÉCURITÉ / MOT DE PASSE ═══════════ */}
-        <div className="card p-6 fade-in-up profile-card-hover" style={{ animationDelay: '0.22s' }}>
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <Lock className="w-5 h-5" style={{ color: 'var(--accent)' }} /> Sécurité
-          </h2>
-          <form onSubmit={handleChangePassword} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
-                Mot de passe actuel
-              </label>
-              <input
-                type="password"
-                placeholder="Laissez vide si vous êtes connecté via Google"
-                className="w-full px-4 py-2 border rounded-lg outline-none transition-all profile-input-hover"
-                style={inputStyle}
-                value={passwordData.ancien_mot_de_passe}
-                onChange={(e) => setPasswordData({ ...passwordData, ancien_mot_de_passe: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
-                  Nouveau mot de passe
-                </label>
-                <input
-                  type="password"
-                  className="w-full px-4 py-2 border rounded-lg outline-none transition-all profile-input-hover"
-                  style={inputStyle}
-                  value={passwordData.nouveau_mot_de_passe}
-                  onChange={(e) => setPasswordData({ ...passwordData, nouveau_mot_de_passe: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
-                  Confirmer le mot de passe
-                </label>
-                <input
-                  type="password"
-                  className="w-full px-4 py-2 border rounded-lg outline-none transition-all profile-input-hover"
-                  style={inputStyle}
-                  value={passwordData.confirmation}
-                  onChange={(e) => setPasswordData({ ...passwordData, confirmation: e.target.value })}
-                />
+                </div>
               </div>
             </div>
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={changingPassword || !passwordData.nouveau_mot_de_passe}
-                className="flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all disabled:opacity-50 hover-save-btn"
-                style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}
-              >
-                <Save className="w-4 h-4" />
-                {changingPassword ? 'Modification...' : 'Modifier le mot de passe'}
+
+            <div className="pf-save-row">
+              <button type="submit" disabled={changingPassword || !passwordData.nouveau_mot_de_passe} className="pf-save-btn">
+                <Lock className="w-4 h-4" />
+                {changingPassword ? 'Modification…' : 'Modifier le mot de passe'}
               </button>
             </div>
           </form>
-        </div>
+        )}
       </div>
 
+      {/* ══════════ STYLES ══════════ */}
       <style jsx global>{`
-        .fade-in-up { opacity: 0; transform: translateY(12px); animation: profileFadeUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
-        @keyframes profileFadeUp { to { opacity: 1; transform: translateY(0); } }
-        .hover-gradient-text { transition: all 0.4s ease; cursor: default; display: inline-block; }
-        .hover-gradient-text:hover { background: linear-gradient(135deg,#3B82F6,#8B5CF6,#EC4899); -webkit-background-clip:text; background-clip:text; color:transparent; }
-        .profile-card-hover { transition: all 0.35s ease; }
-        .profile-card-hover:hover { transform: translateY(-4px); box-shadow: 0 16px 32px rgba(0,0,0,0.1); border-color: var(--accent) !important; }
-        .profile-avatar-hover { transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1); }
-        .profile-avatar-hover:hover { transform: scale(1.08); }
-        .hover-upload-btn { transition: all 0.3s ease; }
-        .hover-upload-btn:hover { transform: translateY(-2px); background-color: var(--accent-soft); border-color: var(--accent) !important; box-shadow: 0 4px 12px var(--accent-soft); }
-        .profile-input-hover { transition: all 0.3s ease; }
-        .profile-input-hover:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-soft); }
-        .toggle-switch { transition: all 0.3s ease; cursor: pointer; }
-        .toggle-switch:hover { filter: brightness(1.1); transform: scale(1.05); }
-        .profile-tag-hover { transition: all 0.3s ease; cursor: pointer; }
-        .profile-tag-hover:hover { transform: translateY(-3px) scale(1.08); box-shadow: 0 6px 16px rgba(0,0,0,0.12); }
-        .hover-cv-link { transition: all 0.3s ease; }
-        .hover-cv-link:hover { opacity: 0.8; transform: translateX(2px); }
-        .hover-add-tag { transition: all 0.3s ease; }
-        .hover-add-tag:hover { transform: scale(1.1); background-color: var(--accent) !important; color: #FFFFFF !important; }
-        .hover-add-custom-btn { transition: all 0.3s ease; }
-        .hover-add-custom-btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.05); }
-        .hover-save-btn { transition: all 0.3s ease; }
-        .hover-save-btn:hover:not(:disabled) { transform: translateY(-3px); filter: brightness(1.1); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
-        @media (prefers-reduced-motion:reduce) { .fade-in-up,.profile-card-hover,.profile-avatar-hover{animation:none!important;transition:none!important;opacity:1!important;transform:none!important} }
+        /* ── Page ── */
+        .pf-page { overflow-x: hidden; }
+
+        /* ── Hero ── */
+        .pf-hero {
+          background: var(--bg-secondary);
+          border-bottom: 1px solid var(--border);
+        }
+        .pf-orb {
+          position: absolute; border-radius: 9999px;
+          filter: blur(72px); opacity: 0.5; will-change: transform;
+        }
+        .pf-orb-1 { width: 400px; height: 400px; top: -180px; right: -60px; animation: pfOrb1 22s ease-in-out infinite; }
+        .pf-orb-2 { width: 300px; height: 300px; bottom: -100px; left: -60px; animation: pfOrb2 28s ease-in-out infinite; }
+        @keyframes pfOrb1 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-20px,20px) scale(1.06)} }
+        @keyframes pfOrb2 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(20px,-15px) scale(1.05)} }
+
+        .pf-grid-bg {
+          position: absolute; inset: 0; pointer-events: none;
+          background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
+          background-size: 40px 40px; opacity: 0.2;
+          mask-image: radial-gradient(ellipse 70% 80% at 50% 0%, black 40%, transparent 100%);
+        }
+
+        /* ── Hero card ── */
+        .pf-hero-card {
+          display: flex; align-items: flex-start; gap: 24px; flex-wrap: wrap;
+          padding-bottom: 0;
+        }
+
+        /* ── Avatar ── */
+        .pf-avatar-wrapper { position: relative; flex-shrink: 0; }
+        .pf-avatar-ring {
+          position: relative; width: 100px; height: 100px;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .pf-ring-svg {
+          position: absolute; inset: -6px;
+          width: calc(100% + 12px); height: calc(100% + 12px);
+          transform: rotate(-90deg);
+        }
+        .pf-ring-progress {
+          transition: stroke-dashoffset 0.9s cubic-bezier(0.16,1,0.3,1);
+        }
+        .pf-avatar-upload-btn {
+          position: absolute; bottom: -4px; right: -4px;
+          width: 28px; height: 28px; border-radius: 50%;
+          background-color: var(--accent); color: #06231D;
+          display: flex; align-items: center; justify-content: center;
+          cursor: pointer; border: 2px solid var(--card-bg);
+          transition: transform 0.2s ease, filter 0.2s ease;
+        }
+        .pf-avatar-upload-btn:hover { transform: scale(1.12); filter: brightness(1.05); }
+
+        /* ── Hero info ── */
+        .pf-hero-info { flex: 1; min-width: 0; padding-bottom: 0; }
+        .pf-hero-name {
+          font-size: 26px; font-weight: 700; letter-spacing: -0.02em;
+          color: var(--text-primary); margin: 0 0 4px;
+          font-family: var(--font-display);
+        }
+        .pf-hero-email { font-size: 13px; color: var(--text-tertiary); margin: 0; }
+
+        /* ── Badges ── */
+        .pf-role-badge {
+          display: inline-flex; align-items: center; gap: 5px;
+          padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600;
+          background-color: var(--accent-soft); color: var(--accent-text-on-soft);
+        }
+        .pf-disponible-toggle {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 4px 12px; border-radius: 9999px; font-size: 12px;
+          border: none; cursor: pointer; transition: filter 0.2s ease;
+        }
+        .pf-disponible-toggle:hover { filter: brightness(1.05); }
+        .pf-disponible-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+        /* ── Completion bar ── */
+        .pf-completion { margin-top: 16px; }
+        .pf-progress-track { height: 4px; border-radius: 9999px; background-color: var(--bg-tertiary); overflow: hidden; }
+        .pf-progress-fill { height: 100%; border-radius: 9999px; transition: width 0.8s cubic-bezier(0.16,1,0.3,1); }
+
+        /* ── Stats ── */
+        .pf-stats { display: flex; align-items: center; gap: 16px; margin-top: 14px; flex-wrap: wrap; }
+        .pf-stat-item { display: flex; flex-direction: column; }
+        .pf-stat-value { font-size: 16px; font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); line-height: 1; }
+        .pf-stat-label { font-size: 10px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+        .pf-stat-divider { width: 1px; height: 28px; background-color: var(--border); }
+
+        /* ── Tabs ── */
+        .pf-tabs-bar {
+          display: flex; gap: 0; margin-top: 20px;
+          border-bottom: none;
+        }
+        .pf-tab {
+          display: flex; align-items: center; gap: 7px;
+          padding: 10px 18px; font-size: 13px; font-weight: 500;
+          color: var(--text-secondary); background: transparent; border: none; cursor: pointer;
+          border-bottom: 2px solid transparent; transition: all 0.2s ease;
+          margin-bottom: -1px;
+        }
+        .pf-tab:hover { color: var(--text-primary); background-color: var(--bg-primary); }
+        .pf-tab-active {
+          color: var(--accent); font-weight: 600;
+          border-bottom-color: var(--accent);
+          background-color: var(--bg-primary);
+        }
+
+        /* ── Tab content ── */
+        .pf-tab-content { display: flex; flex-direction: column; gap: 20px; animation: pfFadeUp 0.35s cubic-bezier(0.16,1,0.3,1); }
+        @keyframes pfFadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+
+        /* ── Sections ── */
+        .pf-section {
+          background-color: var(--card-bg); border: 1px solid var(--border);
+          border-radius: 16px; padding: 24px;
+          box-shadow: var(--shadow-card);
+        }
+        .pf-section-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+        .pf-section-title { font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 0 0 2px; font-family: var(--font-display); }
+        .pf-section-desc { font-size: 13px; color: var(--text-tertiary); margin: 0; }
+
+        /* ── Input ── */
+        .pf-input { border-radius: 10px; }
+        .pf-input:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-soft); }
+        .pf-input:disabled { cursor: not-allowed; }
+
+        /* ── Save row ── */
+        .pf-save-row { display: flex; justify-content: flex-end; }
+        .pf-save-btn {
+          display: flex; align-items: center; gap: 8px;
+          padding: 10px 24px; border-radius: 12px; border: none;
+          background-color: var(--accent); color: #06231D;
+          font-size: 14px; font-weight: 700; cursor: pointer;
+          transition: transform 0.2s ease, filter 0.2s ease;
+        }
+        .pf-save-btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.05); }
+        .pf-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ── Compétences ── */
+        .pf-comp-chip {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 5px 10px 5px 12px; border-radius: 9999px; font-size: 12px;
+          transition: transform 0.15s ease;
+        }
+        .pf-comp-chip:hover { transform: translateY(-1px); }
+
+        .pf-create-comp-btn {
+          width: 100%; padding: 9px; border-radius: 10px; font-size: 13px; font-weight: 600;
+          display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;
+          background-color: var(--success-soft); color: var(--success);
+          border: 1px dashed var(--success); transition: filter 0.15s ease, transform 0.15s ease;
+        }
+        .pf-create-comp-btn:hover:not(:disabled) { filter: brightness(1.05); transform: translateY(-1px); }
+        .pf-create-comp-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .pf-comp-dropdown {
+          position: absolute; z-index: 50; width: 100%; margin-top: 4px;
+          border-radius: 12px; overflow: hidden; max-height: 200px; overflow-y: auto;
+          background-color: var(--card-bg); border: 1px solid var(--border);
+          box-shadow: var(--shadow-card-hover);
+        }
+        .pf-comp-dropdown-item {
+          width: 100%; padding: 9px 16px; text-align: left; font-size: 13px;
+          display: flex; align-items: center; justify-content: space-between;
+          color: var(--text-primary); background: transparent; border: none; cursor: pointer;
+          transition: background-color 0.1s;
+        }
+        .pf-comp-dropdown-item:hover { background-color: var(--bg-secondary); }
+
+        /* ── Tags ── */
+        .pf-tag-chip {
+          display: inline-flex; align-items: center;
+          padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 500;
+          background-color: var(--accent-soft); color: var(--accent-text-on-soft);
+          transition: transform 0.15s ease;
+        }
+        .pf-tag-chip:hover { transform: translateY(-1px); }
+        .pf-add-tag-btn {
+          padding: 0 14px; border-radius: 10px; border: none;
+          background-color: var(--accent-soft); color: var(--accent-text-on-soft); cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          transition: background-color 0.15s, transform 0.15s;
+        }
+        .pf-add-tag-btn:hover { background-color: var(--accent); color: #06231D; transform: scale(1.06); }
+
+        /* ── Upload ── */
+        .pf-upload-label {
+          display: inline-flex; align-items: center; gap: 7px;
+          padding: 7px 14px; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 500;
+          border: 1.5px dashed var(--accent); color: var(--accent);
+          transition: background-color 0.15s, transform 0.15s;
+        }
+        .pf-upload-label:hover { background-color: var(--accent-soft); transform: translateY(-1px); }
+
+        /* ── Breadcrumb ── */
+        .pf-breadcrumb { animation: pfFadeUp 0.4s cubic-bezier(0.16,1,0.3,1); }
+
+        @media (prefers-reduced-motion: reduce) {
+          .pf-orb, .pf-ring-progress, .pf-tab-content, .pf-breadcrumb, .pf-progress-fill {
+            animation: none !important; transition: none !important;
+          }
+        }
       `}</style>
     </div>
   );

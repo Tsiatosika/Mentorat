@@ -378,7 +378,7 @@ export default function SessionsPage() {
                         )}
 
                         {/* Chat */}
-                        <Link href={`/chat/${s.id}`}
+                        <Link href={`/chat`}
                           className="session-action-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold"
                           style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)', border: '1px solid var(--border)' }}>
                           <MessageCircle className="w-3.5 h-3.5" /> {t('sessions.chat')}

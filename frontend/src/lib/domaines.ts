@@ -1,4 +1,4 @@
-import { Code2, Megaphone, Palette, Calculator, Briefcase, Stethoscope, Globe2, BookOpen, LucideIcon } from 'lucide-react';
+import { Code2, Briefcase, MessageCircle, Scale, Globe2, Stethoscope, LucideIcon } from 'lucide-react';
 
 export interface DomaineConfig {
   key: string;
@@ -17,53 +17,39 @@ export const DOMAINES: DomaineConfig[] = [
     keywords: ['informatique', 'dev', 'développeur', 'programmation', 'web', 'logiciel', 'data', 'ia', 'intelligence artificielle'],
   },
   {
-    key: 'marketing',
-    label: 'Marketing',
-    icon: Megaphone,
-    accent: 'warm',
-    keywords: ['marketing', 'communication', 'vente', 'commercial', 'publicité'],
-  },
-  {
-    key: 'design',
-    label: 'Design',
-    icon: Palette,
-    accent: 'info',
-    keywords: ['design', 'graphisme', 'ux', 'ui', 'créatif', 'illustration'],
-  },
-  {
     key: 'gestion',
-    label: 'Gestion & Finance',
-    icon: Calculator,
-    accent: 'success',
-    keywords: ['gestion', 'finance', 'comptabilité', 'économie', 'audit'],
-  },
-  {
-    key: 'business',
-    label: 'Business & Entrepreneuriat',
+    label: 'Gestion',
     icon: Briefcase,
-    accent: 'accent',
-    keywords: ['business', 'entrepreneuriat', 'management', 'stratégie', 'rh', 'ressources humaines'],
+    accent: 'warm',
+    keywords: ['gestion', 'management', 'finance', 'comptabilité', 'économie', 'business', 'entrepreneuriat', 'stratégie', 'rh', 'ressources humaines', 'audit'],
   },
   {
-    key: 'sante',
-    label: 'Santé',
+    key: 'communication',
+    label: 'Communication',
+    icon: MessageCircle,
+    accent: 'info',
+    keywords: ['communication', 'médias', 'journalisme', 'relations publiques', 'publicité', 'marketing', 'vente', 'commercial'],
+  },
+  {
+    key: 'droit',
+    label: 'Droit',
+    icon: Scale,
+    accent: 'success',
+    keywords: ['droit', 'juridique', 'loi', 'avocat', 'notaire', 'justice'],
+  },
+  {
+    key: 'langue',
+    label: 'Langue Anglophone',
+    icon: Globe2,
+    accent: 'accent',
+    keywords: ['langue', 'anglais', 'français', 'traduction', 'linguistique', 'anglophone'],
+  },
+  {
+    key: 'medecine',
+    label: 'Médecine',
     icon: Stethoscope,
     accent: 'warm',
-    keywords: ['santé', 'médecine', 'infirmier', 'pharmacie', 'paramédical'],
-  },
-  {
-    key: 'langues',
-    label: 'Langues',
-    icon: Globe2,
-    accent: 'info',
-    keywords: ['langue', 'anglais', 'français', 'traduction', 'linguistique'],
-  },
-  {
-    key: 'autre',
-    label: 'Autres domaines',
-    icon: BookOpen,
-    accent: 'success',
-    keywords: [],
+    keywords: ['santé', 'médecine', 'infirmier', 'pharmacie', 'paramédical', 'médical'],
   },
 ];
 
@@ -74,17 +60,13 @@ export const ACCENT_COLORS: Record<string, { bg: string; fg: string }> = {
   success: { bg: 'var(--success-soft)', fg: 'var(--success)' },
 };
 
-/**
- * Détermine à quelle catégorie visuelle appartient un domaine texte libre.
- * Retourne toujours une catégorie (fallback "autre" si rien ne matche).
- */
 export function matchDomaine(domaineTexte: string | null | undefined): DomaineConfig {
-  if (!domaineTexte) return DOMAINES[DOMAINES.length - 1];
+  if (!domaineTexte) return DOMAINES[0];
   const normalized = domaineTexte.toLowerCase();
   for (const d of DOMAINES) {
     if (d.keywords.some((kw) => normalized.includes(kw))) {
       return d;
     }
   }
-  return DOMAINES[DOMAINES.length - 1];
+  return DOMAINES[0];
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Clock, Users, Star, CheckCircle, XCircle, Mail, MessageSquareQuote } from 'lucide-react';
+import { ArrowLeft, Clock, Users, Star, CheckCircle, XCircle, Mail, MessageSquareQuote, Quote } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { publicAPI, avisAPI, BACKEND_URL } from '@/services/api';
@@ -158,180 +158,188 @@ export default function MentorDetailPage() {
 
   // ═══ CORRECTION : Photo URL sécurisée ═══
   const photoUrl = getPhotoUrl(mentor.photo_url);
+  const overallAvg = avis.length > 0 ? avgCriteria('note_globale') : 0;
 
   return (
     <div className="min-h-screen mentor-detail-page" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         <button onClick={() => router.back()} className="back-btn inline-flex items-center gap-2 mb-6" style={{ color: 'var(--text-secondary)' }}>
           <ArrowLeft className="w-4 h-4" />
           {t('common.back')}
         </button>
 
-        <div className="card overflow-hidden fade-in-up">
-          {/* Header profil */}
-          <div className="px-8 py-8 relative overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
-            <div className="detail-glow" style={{ backgroundColor: 'var(--accent-soft)' }} />
-            <div className="flex flex-col md:flex-row items-center md:items-start gap-6 relative z-10">
-              <div className="avatar-pop">
-                <div className="w-32 h-32 rounded-full overflow-hidden flex items-center justify-center" style={{ backgroundColor: 'var(--accent-soft)', border: '3px solid var(--accent-soft)' }}>
-                  {photoUrl ? (
-                    <img 
-                      src={photoUrl} 
-                      alt={`${mentor.prenom} ${mentor.nom}`} 
-                      className="w-full h-full object-cover" 
-                    />
-                  ) : (
-                    <span className="text-3xl font-bold" style={{ color: 'var(--accent-text-on-soft)' }}>
-                      {mentor.prenom?.[0]}{mentor.nom?.[0]}
+        {/* ═══════════ HERO BANNER ═══════════ */}
+        <div className="hero-banner fade-in-up relative rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+          <div className="hero-band" style={{ background: 'linear-gradient(135deg, var(--accent-soft), transparent 70%)' }} />
+          <div className="hero-band hero-band-2" style={{ background: 'linear-gradient(315deg, var(--accent-soft), transparent 60%)' }} />
+
+          <div className="relative z-10 pt-10 pb-6 px-8 flex flex-col items-center text-center">
+            <div className="hero-avatar-ring avatar-pop">
+              <div className="w-28 h-28 rounded-full overflow-hidden flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
+                {photoUrl ? (
+                  <img src={photoUrl} alt={`${mentor.prenom} ${mentor.nom}`} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-3xl font-bold" style={{ color: 'var(--accent-text-on-soft)' }}>
+                    {mentor.prenom?.[0]}{mentor.nom?.[0]}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <h1 className="font-display text-3xl font-semibold mt-4" style={{ color: 'var(--text-primary)' }}>
+              {mentor.prenom} {mentor.nom}
+            </h1>
+            <p className="text-lg mt-0.5" style={{ color: 'var(--accent)' }}>{mentor.domaine || t('mentors.expert')}</p>
+
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-5">
+              <span className="hero-pill" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border)' }}>
+                <Star className="w-4 h-4" style={{ color: 'var(--warm)', fill: 'var(--warm)' }} />
+                <span className="font-mono-data font-semibold" style={{ color: 'var(--text-primary)' }}>{getNoteDisplay(mentor.note_moyenne)}/5</span>
+                {avis.length > 0 && <span style={{ color: 'var(--text-tertiary)' }}>· {avis.length} avis</span>}
+              </span>
+              <span className="hero-pill" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border)' }}>
+                <Users className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+                {mentor.nb_sessions || 0} {t('mentors.sessions')}
+              </span>
+              <span className="hero-pill" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border)' }}>
+                <Clock className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+                {mentor.annees_experience || 0} {t('mentors.years')}
+              </span>
+              <span className="hero-pill" style={{ backgroundColor: mentor.disponible ? 'var(--success-soft)' : 'var(--bg-primary)', border: `1px solid ${mentor.disponible ? 'var(--success)' : 'var(--border)'}`, color: mentor.disponible ? 'var(--success)' : 'var(--text-secondary)' }}>
+                {mentor.disponible ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                {mentor.disponible ? t('mentors.is_available') : t('mentors.unavailable')}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* ═══════════ CONTENU ═══════════ */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 mt-8 items-start">
+          <div className="space-y-8 min-w-0">
+            {/* Bio */}
+            <div className="reveal-block" style={{ animationDelay: '0.05s' }}>
+              <h2 className="font-display text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>{t('mentors.about')}</h2>
+              <p style={{ color: 'var(--text-secondary)' }} className="leading-relaxed">{mentor.bio || t('mentors.no_bio')}</p>
+            </div>
+
+            {/* Compétences */}
+            {competences.length > 0 && (
+              <div className="reveal-block" style={{ animationDelay: '0.1s' }}>
+                <h2 className="font-display text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>{t('matching.competences')}</h2>
+                <div className="flex flex-wrap gap-2">
+                  {competences.map((comp: string, index: number) => (
+                    <span
+                      key={index}
+                      className="competence-chip px-3 py-1 rounded-full text-sm"
+                      style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)', animationDelay: `${0.12 + index * 0.03}s` }}
+                    >
+                      {comp}
                     </span>
-                  )}
+                  ))}
                 </div>
               </div>
-              <div className="flex-1 text-center md:text-left">
-                <h1 className="font-display text-3xl font-semibold" style={{ color: 'var(--text-primary)' }}>
-                  {mentor.prenom} {mentor.nom}
-                </h1>
-                <p className="text-lg" style={{ color: 'var(--accent)' }}>{mentor.domaine || t('mentors.expert')}</p>
-                <div className="flex flex-wrap items-center gap-4 mt-3 justify-center md:justify-start">
-                  <div className="flex items-center gap-1">
-                    <Star className="w-5 h-5" style={{ color: 'var(--warm)', fill: 'var(--warm)' }} />
-                    <span className="font-mono-data font-semibold" style={{ color: 'var(--text-primary)' }}>{getNoteDisplay(mentor.note_moyenne)}/5</span>
-                    {avis.length > 0 && <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>({avis.length} avis)</span>}
+            )}
+
+            {/* Avis */}
+            <div className="reveal-block" style={{ animationDelay: '0.15s' }}>
+              <h2 className="font-display text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                <MessageSquareQuote className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+                {t('mentors.reviews')} ({avis.length})
+              </h2>
+
+              {avis.length === 0 ? (
+                <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>{t('mentors.no_reviews')}</p>
+              ) : (
+                <>
+                  {/* Barres de notation — élément signature */}
+                  <div className="rating-panel rounded-xl p-5 mb-6" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                    <div className="flex items-baseline gap-2 mb-4">
+                      <span className="font-display text-3xl font-semibold" style={{ color: 'var(--text-primary)' }}>{overallAvg.toFixed(1)}</span>
+                      <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>/ 5 · moyenne globale</span>
+                    </div>
+                    <div className="space-y-3">
+                      {criteriaLabels.map((c, ci) => {
+                        const value = avgCriteria(c.key);
+                        const widthPct = Math.min(100, (value / 5) * 100);
+                        return (
+                          <div key={c.key} className="rating-row" style={{ animationDelay: `${0.05 + ci * 0.06}s` }}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{c.label}</span>
+                              <span className="font-mono-data text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{value.toFixed(1)}</span>
+                            </div>
+                            <div className="rating-track rounded-full" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                              <div className="rating-fill rounded-full" style={{ width: `${widthPct}%`, backgroundColor: 'var(--accent)' }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
-                    <Users className="w-5 h-5" />
-                    <span>{mentor.nb_sessions || 0} {t('mentors.sessions')}</span>
+
+                  <div className="space-y-4">
+                    {avis.map((a, ai) => {
+                      const isAvisHovered = hoveredAvis === a.id;
+                      return (
+                        <div
+                          key={a.id}
+                          className="avis-block relative pl-5"
+                          style={{ animationDelay: `${0.2 + ai * 0.05}s`, borderLeft: `2px solid ${isAvisHovered ? 'var(--accent)' : 'var(--border)'}` }}
+                          onMouseEnter={() => setHoveredAvis(a.id)}
+                          onMouseLeave={() => setHoveredAvis(null)}
+                        >
+                          <Quote className="quote-mark w-4 h-4 absolute -left-[9px] top-0" style={{ color: isAvisHovered ? 'var(--accent)' : 'var(--text-tertiary)', backgroundColor: 'var(--bg-primary)' }} />
+                          <div className="flex justify-between items-start mb-1.5">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
+                                {a.prenom?.[0]}{a.nom?.[0]}
+                              </div>
+                              <span className="text-sm font-medium" style={{ color: isAvisHovered ? 'var(--accent)' : 'var(--text-primary)' }}>
+                                {a.prenom} {a.nom?.[0]}.
+                              </span>
+                              <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>· {formatDate(a.created_at)}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Star className="w-3.5 h-3.5" style={{ color: 'var(--warm)', fill: 'var(--warm)' }} />
+                              <span className="font-mono-data text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{Number(a.note_globale).toFixed(1)}</span>
+                            </div>
+                          </div>
+                          {a.commentaire && (
+                            <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{a.commentaire}</p>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
-                    <Clock className="w-5 h-5" />
-                    <span>{mentor.annees_experience || 0} {t('mentors.years')}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {mentor.disponible ? (
-                      <><CheckCircle className="w-5 h-5" style={{ color: 'var(--success)' }} /><span style={{ color: 'var(--text-secondary)' }}>{t('mentors.is_available')}</span></>
-                    ) : (
-                      <><XCircle className="w-5 h-5" style={{ color: 'var(--danger)' }} /><span style={{ color: 'var(--text-secondary)' }}>{t('mentors.unavailable')}</span></>
-                    )}
-                  </div>
-                </div>
-              </div>
+                </>
+              )}
             </div>
           </div>
 
-          <div className="p-8">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 space-y-6">
-                {/* Bio */}
-                <div className="reveal-block" style={{ animationDelay: '0.05s' }}>
-                  <h2 className="font-display text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>{t('mentors.about')}</h2>
-                  <p style={{ color: 'var(--text-secondary)' }} className="leading-relaxed">{mentor.bio || t('mentors.no_bio')}</p>
-                </div>
+          {/* ═══════════ SIDEBAR DROITE ═══════════ */}
+          <div className="space-y-5 lg:sticky lg:top-8 reveal-block" style={{ animationDelay: '0.1s' }}>
+            <div className="rounded-xl p-6 sidebar-card" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+              <h2 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>📅 {t('mentors.book_session')}</h2>
+              {user ? (
+                user.role === 'mentore' ? (
+                  <QuickBooking mentorId={mentor.id} mentorName={`${mentor.prenom} ${mentor.nom}`} />
+                ) : (
+                  <p className="text-sm text-center" style={{ color: 'var(--text-secondary)' }}>{t('mentors.mentee_only')}</p>
+                )
+              ) : (
+                <Link href={`/login?redirect=/mentors/${mentor.id}`} className="sidebar-cta block w-full text-center px-4 py-3 rounded-lg font-medium" style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}>
+                  {t('common.login')}
+                </Link>
+              )}
+            </div>
 
-                {/* Compétences */}
-                {competences.length > 0 && (
-                  <div className="reveal-block" style={{ animationDelay: '0.1s' }}>
-                    <h2 className="font-display text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>{t('matching.competences')}</h2>
-                    <div className="flex flex-wrap gap-2">
-                      {competences.map((comp: string, index: number) => (
-                        <span
-                          key={index}
-                          className="competence-chip px-3 py-1 rounded-full text-sm"
-                          style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)', animationDelay: `${0.12 + index * 0.03}s` }}
-                        >
-                          {comp}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Avis */}
-                <div className="reveal-block" style={{ animationDelay: '0.15s' }}>
-                  <h2 className="font-display text-xl font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                    <MessageSquareQuote className="w-5 h-5" style={{ color: 'var(--accent)' }} />
-                    {t('mentors.reviews')} ({avis.length})
-                  </h2>
-
-                  {avis.length === 0 ? (
-                    <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>{t('mentors.no_reviews')}</p>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-3 gap-3 mb-5">
-                        {criteriaLabels.map((c, ci) => (
-                          <div key={c.key} className="criterion-chip rounded-lg p-3 text-center" style={{ backgroundColor: 'var(--bg-secondary)', animationDelay: `${0.18 + ci * 0.05}s` }}>
-                            <div className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>{c.label}</div>
-                            <div className="font-mono-data font-semibold flex items-center justify-center gap-1" style={{ color: 'var(--text-primary)' }}>
-                              <Star className="w-3.5 h-3.5" style={{ color: 'var(--warm)', fill: 'var(--warm)' }} />
-                              {avgCriteria(c.key).toFixed(1)}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="space-y-4">
-                        {avis.map((a, ai) => {
-                          const isAvisHovered = hoveredAvis === a.id;
-                          return (
-                            <div
-                              key={a.id}
-                              className="card p-4 avis-card"
-                              style={{ animationDelay: `${0.2 + ai * 0.05}s`, borderLeft: isAvisHovered ? '3px solid var(--accent)' : '3px solid transparent' }}
-                              onMouseEnter={() => setHoveredAvis(a.id)}
-                              onMouseLeave={() => setHoveredAvis(null)}
-                            >
-                              <div className="flex justify-between items-start mb-2">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold avis-avatar" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
-                                    {a.prenom?.[0]}{a.nom?.[0]}
-                                  </div>
-                                  <span className="text-sm font-medium" style={{ color: isAvisHovered ? 'var(--accent)' : 'var(--text-primary)' }}>
-                                    {a.prenom} {a.nom?.[0]}.
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-1 avis-rating">
-                                  <Star className="w-4 h-4" style={{ color: 'var(--warm)', fill: 'var(--warm)' }} />
-                                  <span className="font-mono-data text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{Number(a.note_globale).toFixed(1)}</span>
-                                </div>
-                              </div>
-                              {a.commentaire && (
-                                <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--text-secondary)' }}>{a.commentaire}</p>
-                              )}
-                              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{formatDate(a.created_at)}</p>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-6 reveal-block" style={{ animationDelay: '0.1s' }}>
-                <div className="rounded-xl p-6 sidebar-card" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                  <h2 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>📅 {t('mentors.book_session')}</h2>
-                  {user ? (
-                    user.role === 'mentore' ? (
-                      <QuickBooking mentorId={mentor.id} mentorName={`${mentor.prenom} ${mentor.nom}`} />
-                    ) : (
-                      <p className="text-sm text-center" style={{ color: 'var(--text-secondary)' }}>{t('mentors.mentee_only')}</p>
-                    )
-                  ) : (
-                    <Link href={`/login?redirect=/mentors/${mentor.id}`} className="sidebar-cta block w-full text-center px-4 py-3 rounded-lg font-medium" style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}>
-                      {t('common.login')}
-                    </Link>
-                  )}
-                </div>
-
-                <div className="rounded-xl p-6 sidebar-card" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                  <h2 className="font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                    <Mail className="w-5 h-5" style={{ color: 'var(--accent)' }} />
-                    {t('mentors.contact')}
-                  </h2>
-                  <div className="flex items-center gap-2 text-sm hover-email" style={{ color: 'var(--text-secondary)' }}>
-                    <Mail className="w-4 h-4" />
-                    <a href={`mailto:${mentor.email}`} className="hover:underline" style={{ color: 'inherit' }}>{mentor.email}</a>
-                  </div>
-                </div>
+            <div className="rounded-xl p-6 sidebar-card" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+              <h2 className="font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                <Mail className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+                {t('mentors.contact')}
+              </h2>
+              <div className="flex items-center gap-2 text-sm hover-email" style={{ color: 'var(--text-secondary)' }}>
+                <Mail className="w-4 h-4" />
+                <a href={`mailto:${mentor.email}`} className="hover:underline" style={{ color: 'inherit' }}>{mentor.email}</a>
               </div>
             </div>
           </div>
@@ -342,67 +350,57 @@ export default function MentorDetailPage() {
         .back-btn { transition: transform 0.15s ease, color 0.15s ease; }
         .back-btn:hover { transform: translateX(-3px); color: var(--accent); }
 
-        .fade-in-up {
-          opacity: 0;
-          transform: translateY(14px);
-          animation: detailFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
+        .fade-in-up { opacity: 0; transform: translateY(14px); animation: detailFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes detailFadeUp { to { opacity: 1; transform: translateY(0); } }
 
-        .detail-glow {
+        .hero-banner { position: relative; }
+        .hero-band {
           position: absolute;
-          top: -40%;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 480px;
-          height: 280px;
-          border-radius: 9999px;
-          filter: blur(70px);
-          opacity: 0.5;
+          inset: 0;
+          filter: blur(50px);
+          opacity: 0.6;
           pointer-events: none;
-          animation: detailGlowPulse 6s ease-in-out infinite;
         }
-        @keyframes detailGlowPulse { 0%,100%{opacity:0.35} 50%{opacity:0.55} }
+        .hero-band-2 { animation: heroBandDrift 8s ease-in-out infinite alternate; }
+        @keyframes heroBandDrift { from { transform: translateX(0); } to { transform: translateX(-24px); } }
 
-        .avatar-pop {
-          opacity: 0;
-          transform: scale(0.85);
-          animation: avatarPop 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.05s forwards;
+        .hero-avatar-ring {
+          padding: 4px;
+          border-radius: 9999px;
+          background: linear-gradient(135deg, var(--accent), var(--accent-soft));
         }
+        .avatar-pop { opacity: 0; transform: scale(0.85); animation: avatarPop 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.05s forwards; }
         @keyframes avatarPop { to { opacity: 1; transform: scale(1); } }
 
-        .reveal-block {
-          opacity: 0;
-          transform: translateY(12px);
-          animation: detailFadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        .hero-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.4rem 0.9rem;
+          border-radius: 9999px;
+          font-size: 0.85rem;
+          transition: transform 0.25s ease, box-shadow 0.25s ease;
         }
+        .hero-pill:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.08); }
+
+        .reveal-block { opacity: 0; transform: translateY(12px); animation: detailFadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
         .competence-chip {
-          opacity: 0;
-          transform: scale(0.9);
+          opacity: 0; transform: scale(0.9);
           animation: chipPop 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards;
-          transition: all 0.3s ease;
-          cursor: default;
+          transition: all 0.3s ease; cursor: default;
         }
         @keyframes chipPop { to { opacity: 1; transform: scale(1); } }
-        .competence-chip:hover {
-          transform: translateY(-4px) scale(1.1) !important;
-          box-shadow: 0 6px 16px rgba(0,0,0,0.12);
-          filter: brightness(1.1);
-        }
+        .competence-chip:hover { transform: translateY(-4px) scale(1.1) !important; box-shadow: 0 6px 16px rgba(0,0,0,0.12); filter: brightness(1.1); }
 
-        .criterion-chip, .avis-card {
-          opacity: 0;
-          transform: translateY(10px);
-          animation: detailFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-          transition: all 0.35s ease;
-        }
-        .criterion-chip:hover { transform: translateY(-6px) !important; box-shadow: 0 10px 24px rgba(0,0,0,0.1); background-color: var(--accent-soft) !important; }
-        .avis-card:hover { transform: translateX(6px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
-        .avis-avatar { transition: all 0.3s ease; }
-        .avis-card:hover .avis-avatar { transform: scale(1.1); }
-        .avis-rating { transition: transform 0.3s ease; }
-        .avis-card:hover .avis-rating { transform: scale(1.1); }
+        .rating-panel { opacity: 0; transform: translateY(10px); animation: detailFadeUp 0.4s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .rating-row { opacity: 0; transform: translateX(-8px); animation: ratingRowIn 0.4s ease forwards; }
+        @keyframes ratingRowIn { to { opacity: 1; transform: translateX(0); } }
+        .rating-track { height: 8px; overflow: hidden; }
+        .rating-fill { height: 100%; transition: width 0.8s cubic-bezier(0.16,1,0.3,1); }
+
+        .avis-block { opacity: 0; transform: translateY(10px); animation: detailFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; transition: border-color 0.3s ease; }
+        .quote-mark { transition: color 0.3s ease; padding: 1px; border-radius: 9999px; }
 
         .sidebar-card { transition: all 0.3s ease; }
         .sidebar-card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,0.1); }
@@ -414,9 +412,9 @@ export default function MentorDetailPage() {
         .hover-btn:hover { transform: translateY(-3px); filter: brightness(1.1); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
 
         @media (prefers-reduced-motion: reduce) {
-          .fade-in-up, .detail-glow, .avatar-pop, .reveal-block,
-          .competence-chip, .criterion-chip, .avis-card,
-          .hover-btn, .hover-email { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
+          .fade-in-up, .hero-band-2, .avatar-pop, .reveal-block,
+          .competence-chip, .rating-panel, .rating-row, .rating-fill,
+          .avis-block, .hover-btn, .hover-email { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
         }
       `}</style>
     </div>

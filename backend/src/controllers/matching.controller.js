@@ -280,5 +280,5 @@ module.exports = {
   getTopMentors,
   recalculateAll,
   getMentorScores,
-  getHealth
+  getHealth 
 };

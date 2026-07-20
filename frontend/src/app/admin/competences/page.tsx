@@ -2,28 +2,25 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, Trash2, Wrench, Code, Palette, TrendingUp, DollarSign, Users, MessageCircle, Scale, Heart, BookOpen, Cog, BarChart3, Shield, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Plus, Trash2, Wrench, Palette, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/services/api';
 import toast from 'react-hot-toast';
+import { Code, Briefcase, MessageCircle, Scale, Globe, Stethoscope } from 'lucide-react';
+
 
 const ACCENT = '#14B8A6';
 
 const CATEGORIES_CONFIG = [
   { nom: 'Informatique', icon: Code, color: '#3B82F6', bg: 'rgba(59,130,246,0.1)' },
-  { nom: 'Data Science', icon: BarChart3, color: '#14B8A6', bg: 'rgba(20,184,166,0.1)' },
-  { nom: 'Design', icon: Palette, color: '#EC4899', bg: 'rgba(236,72,153,0.1)' },
-  { nom: 'Marketing', icon: TrendingUp, color: '#F59E0B', bg: 'rgba(245,158,11,0.1)' },
-  { nom: 'Finance', icon: DollarSign, color: '#10B981', bg: 'rgba(16,185,129,0.1)' },
-  { nom: 'Management', icon: Users, color: '#8B5CF6', bg: 'rgba(139,92,246,0.1)' },
+  { nom: 'Gestion', icon: Briefcase, color: '#F59E0B', bg: 'rgba(245,158,11,0.1)' },
   { nom: 'Communication', icon: MessageCircle, color: '#06B6D4', bg: 'rgba(6,182,212,0.1)' },
   { nom: 'Droit', icon: Scale, color: '#6366F1', bg: 'rgba(99,102,241,0.1)' },
-  { nom: 'Santé', icon: Heart, color: '#EF4444', bg: 'rgba(239,68,68,0.1)' },
-  { nom: 'Éducation', icon: BookOpen, color: '#F97316', bg: 'rgba(249,115,22,0.1)' },
-  { nom: 'Ingénierie', icon: Cog, color: '#64748B', bg: 'rgba(100,116,139,0.1)' },
-  { nom: 'Cybersécurité', icon: Shield, color: '#1E40AF', bg: 'rgba(30,64,175,0.1)' },
+  { nom: 'Langue Anglophone', icon: Globe, color: '#10B981', bg: 'rgba(16,185,129,0.1)' },
+  { nom: 'Médecine', icon: Stethoscope, color: '#EF4444', bg: 'rgba(239,68,68,0.1)' },
   { nom: 'Autre', icon: Wrench, color: '#6B7280', bg: 'rgba(107,114,128,0.1)' },
 ];
+
 
 export default function AdminCompetencesPage() {
   const { user } = useAuth();
