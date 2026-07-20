@@ -9,6 +9,7 @@ import { LanguageProvider } from '@/contexts/LanguageContext';
 import { Toaster } from 'react-hot-toast';
 import Sidebar from '@/components/layout/Sidebar';
 import { TopNavbar } from '@/components/layout/TopNavbar';
+import { ChatBot } from '@/components/chat/ChatBot';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
@@ -36,7 +37,6 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   const authPages = ['/login', '/register', '/complete-profile'];
   const isAuthPage = authPages.includes(pathname);
 
-  // ⚠️ REDIRECTION APRÈS CONNEXION (prioritaire)
   useEffect(() => {
     if (user && user.role && pathname === '/login') {
       const savedRedirect = sessionStorage.getItem('redirectAfterLogin');
@@ -52,7 +52,6 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     }
   }, [user, pathname]);
 
-  // Redirection si non connecté
   useEffect(() => {
     if (!loading && !isCheckingAuth && !user && !isPublicPage) {
       sessionStorage.setItem('redirectAfterLogin', pathname);
@@ -60,7 +59,6 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, isCheckingAuth, isPublicPage, pathname]);
 
-  // Redirection vers complete-profile si pas de rôle
   useEffect(() => {
     if (user && !user.role && pathname !== '/complete-profile') {
       router.push('/complete-profile');
@@ -95,11 +93,6 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      {/* TopNavbar renders its own sticky <nav> directly here — no wrapper div.
-          A div that contains only the navbar has a height equal to the navbar's
-          own height, which leaves position:sticky zero room to "stick" as the
-          page scrolls (it needs to stay attached to a container taller than
-          itself). marginLeft is now passed straight into the component instead. */}
       <TopNavbar style={{ marginLeft: showSidebar ? sidebarWidth : '0' }} />
       <div className="flex">
         {showSidebar && <Sidebar onCollapseChange={setSidebarCollapsed} />}
@@ -107,6 +100,8 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
           <div className="p-4 sm:p-6 lg:p-8">{children}</div>
         </main>
       </div>
+      {/* ChatBot - visible uniquement si connecté */}
+      {user && <ChatBot />}
     </div>
   );
 }

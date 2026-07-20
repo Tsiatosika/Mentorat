@@ -74,6 +74,7 @@ services:
       MAIL_PASS: ${MAIL_PASS:-}
       IA_SERVICE_URL: http://ia_service:8001
       TZ: Indian/Antananarivo
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     volumes:
       - uploads_data:/app/uploads
     ports:
