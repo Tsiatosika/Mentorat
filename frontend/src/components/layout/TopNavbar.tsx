@@ -10,14 +10,17 @@ import { useState } from 'react';
 import { Logo } from '@/components/ui/Logo';
 import { Avatar } from '@/components/ui/Avatar';
 
-export function TopNavbar() {
+export function TopNavbar({ style }: { style?: React.CSSProperties }) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
   const [showLangDropdown, setShowLangDropdown] = useState(false);
 
   return (
-    <nav className="sticky top-0 z-50" style={{ backgroundColor: 'var(--card-bg)', borderBottom: '1px solid var(--border)' }}>
+    <nav
+      className="sticky top-0 z-50 transition-all duration-300"
+      style={{ backgroundColor: 'var(--card-bg)', borderBottom: '1px solid var(--border)', ...style }}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <Link href="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">

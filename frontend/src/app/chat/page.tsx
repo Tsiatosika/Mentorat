@@ -459,7 +459,7 @@ export default function ChatPage() {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <div className="h-[calc(100vh-4rem)] flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
           <p style={{ color: 'var(--text-secondary)' }}>Chargement...</p>
@@ -469,7 +469,11 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="h-screen flex" style={{ backgroundColor: 'var(--bg-primary)' }}>
+    // Fixed to the space left below the sticky navbar (h-16 = 4rem) rather
+    // than the full 100vh — with 100vh here, the page's overall height (navbar
+    // + this block) exceeds one viewport, so the whole page scrolls and takes
+    // this header/input bar out of view instead of only the message list.
+    <div className="h-[calc(100vh-4rem)] flex" style={{ backgroundColor: 'var(--bg-primary)' }}>
       {/* COLONNE GAUCHE - LISTE CONVERSATIONS */}
       <div className={`${isMobile && selectedSessionId ? 'hidden' : 'w-full md:w-[380px]'} flex-shrink-0 flex flex-col border-r`} style={{ borderColor: 'var(--border)' }}>
         <div className="px-5 pt-6 pb-4 flex-shrink-0">
@@ -482,13 +486,13 @@ export default function ChatPage() {
           <div className="relative mb-3">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
             <input type="text" placeholder={t('chat.search_placeholder')} value={search} onChange={e => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none"
-              style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+              className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none transition-all focus:ring-2"
+              style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--accent)' }} />
           </div>
           <div className="flex gap-2">
             {(['all', 'active', 'completed'] as const).map(f => (
               <button key={f} onClick={() => setFilter(f)}
-                className="px-4 py-1.5 rounded-full text-sm font-medium transition-all"
+                className="px-4 py-1.5 rounded-full text-sm font-medium transition-all hover:scale-105 active:scale-95"
                 style={{ backgroundColor: filter === f ? 'var(--accent)' : 'var(--bg-secondary)', color: filter === f ? '#06231D' : 'var(--text-secondary)' }}>
                 {f === 'all' ? 'Tous' : f === 'active' ? 'Actifs' : 'Terminés'}
               </button>
@@ -499,11 +503,13 @@ export default function ChatPage() {
         <div className="flex-1 overflow-y-auto px-3 py-2">
           {filteredSessions.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center px-6">
-              <MessageCircle className="w-12 h-12 mb-4" style={{ color: 'var(--text-tertiary)' }} />
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                <MessageCircle className="w-8 h-8" style={{ color: 'var(--text-tertiary)' }} />
+              </div>
               <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{search ? 'Aucun résultat' : t('chat.no_conversation')}</p>
               <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{search ? 'Modifiez votre recherche' : t('chat.no_conversations_desc_alt')}</p>
               {user?.role === 'mentore' && !search && (
-                <Link href="/mentors" className="mt-5 px-6 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}>Trouver un mentor</Link>
+                <Link href="/mentors" className="mt-5 px-6 py-3 rounded-xl text-sm font-semibold transition-transform hover:scale-105" style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}>Trouver un mentor</Link>
               )}
             </div>
           ) : (
@@ -515,7 +521,7 @@ export default function ChatPage() {
               return (
                 <motion.div key={s.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.03 }}>
                   <div onClick={() => setSelectedSessionId(s.id)}
-                    className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all cursor-pointer"
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all cursor-pointer hover:bg-[var(--bg-secondary)]"
                     style={{ backgroundColor: isSelected ? 'var(--accent-soft)' : 'transparent', border: isSelected ? '1px solid var(--accent)' : '1px solid transparent' }}>
                     <div className="relative flex-shrink-0">
                       <Avatar name={other || '?'} photoUrl={otherPhoto} size={48} />
@@ -550,14 +556,22 @@ export default function ChatPage() {
                   <ArrowLeft className="w-5 h-5" />
                 </button>
               )}
-              <Avatar name={otherUserName} photoUrl={otherUserPhoto} size={40} />
+              <div className="relative">
+                <Avatar name={otherUserName} photoUrl={otherUserPhoto} size={40} />
+                <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 ${otherOnline ? 'animate-pulse' : ''}`} style={{ backgroundColor: otherOnline ? '#10B981' : '#9CA3AF', borderColor: 'var(--card-bg)' }} />
+              </div>
               <div className="flex-1 min-w-0">
                 <h2 className="font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{otherUserName || 'Utilisateur'}</h2>
                 <p className="text-xs" style={{ color: otherOnline ? '#10B981' : 'var(--text-tertiary)' }}>{otherOnline ? 'En ligne' : 'Hors ligne'}</p>
               </div>
               <div className="flex items-center gap-1">
-                {isCallActive && <span className="text-xs px-2 py-1 rounded-lg bg-green-500/10 text-green-600">{formatDuration(callDuration)}</span>}
-                <button onClick={startCall} disabled={isCallActive} className="p-2 rounded-lg hover:bg-[var(--bg-secondary)]" style={{ color: 'var(--accent)' }}><Video className="w-5 h-5" /></button>
+                {isCallActive && (
+                  <span className="text-xs px-2 py-1 rounded-lg bg-green-500/10 text-green-600 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                    {formatDuration(callDuration)}
+                  </span>
+                )}
+                <button onClick={startCall} disabled={isCallActive} className="p-2 rounded-lg hover:bg-[var(--bg-secondary)] hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100" style={{ color: 'var(--accent)' }}><Video className="w-5 h-5" /></button>
               </div>
             </div>
 
@@ -569,7 +583,9 @@ export default function ChatPage() {
                 </div>
               ) : rows.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center gap-3">
-                  <MessageCircle className="w-12 h-12" style={{ color: 'var(--text-tertiary)' }} />
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                    <MessageCircle className="w-8 h-8" style={{ color: 'var(--text-tertiary)' }} />
+                  </div>
                   <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Aucun message</p>
                   <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Dites bonjour !</p>
                 </div>
@@ -602,7 +618,7 @@ export default function ChatPage() {
                             <Avatar name={otherUserName} photoUrl={otherUserPhoto} size={28} />
                           </div>
                         )}
-                        <div className="relative px-4 py-2.5" style={{
+                        <div className="relative px-4 py-2.5 transition-shadow hover:shadow-md" style={{
                           background: isOwn ? 'var(--accent)' : 'var(--card-bg)',
                           color: isOwn ? '#06231D' : 'var(--text-primary)',
                           border: isOwn ? 'none' : '1px solid var(--border)',
@@ -683,7 +699,7 @@ export default function ChatPage() {
 
             {/* Scroll to bottom button */}
             {!isAtBottom && (
-              <button onClick={() => scrollToBottom(true)} className="absolute bottom-20 right-4 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg z-10"
+              <button onClick={() => scrollToBottom(true)} className="absolute bottom-20 right-4 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg z-10 transition-transform hover:scale-105 active:scale-95"
                 style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)' }}>
                 <ChevronDown className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
               </button>
@@ -708,11 +724,11 @@ export default function ChatPage() {
                 </div>
               )}
               <div className="flex items-end gap-2">
-                <button onClick={() => fileInputRef.current?.click()} className="p-2 rounded-lg hover:bg-[var(--bg-secondary)]" style={{ color: 'var(--text-secondary)' }} title="Joindre un fichier">
+                <button onClick={() => fileInputRef.current?.click()} className="p-2 rounded-lg hover:bg-[var(--bg-secondary)] hover:scale-105 active:scale-95 transition-all" style={{ color: 'var(--text-secondary)' }} title="Joindre un fichier">
                   <Paperclip className="w-5 h-5" />
                 </button>
                 <div className="relative" ref={emojiRef}>
-                  <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 rounded-lg hover:bg-[var(--bg-secondary)]" style={{ color: 'var(--text-secondary)' }} title="Emojis">
+                  <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 rounded-lg hover:bg-[var(--bg-secondary)] hover:scale-105 active:scale-95 transition-all" style={{ color: 'var(--text-secondary)' }} title="Emojis">
                     <Smile className="w-5 h-5" />
                   </button>
                   {showEmojiPicker && (
@@ -730,8 +746,8 @@ export default function ChatPage() {
                   onKeyUp={handleTyping}
                   placeholder="Écrivez votre message..."
                   rows={1}
-                  className="flex-1 resize-none border rounded-xl px-4 py-2.5 outline-none"
-                  style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--text-primary)', minHeight: '44px', maxHeight: '120px' }}
+                  className="flex-1 resize-none border rounded-2xl px-4 py-2.5 outline-none transition-all focus:ring-2"
+                  style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--text-primary)', minHeight: '44px', maxHeight: '120px', ['--tw-ring-color' as any]: 'var(--accent)' }}
                 />
                 <button onClick={sendAll} disabled={!hasContent}
                   className="w-11 h-11 rounded-xl flex items-center justify-center transition-all disabled:opacity-40 hover:scale-105 active:scale-95"
@@ -748,7 +764,9 @@ export default function ChatPage() {
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <MessageCircle className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }} />
+              <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                <MessageCircle className="w-10 h-10" style={{ color: 'var(--text-tertiary)' }} />
+              </div>
               <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>{t('chat.title')}</h2>
               <p style={{ color: 'var(--text-secondary)' }}>Sélectionnez une conversation à gauche</p>
             </div>

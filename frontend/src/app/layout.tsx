@@ -95,9 +95,12 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      <div className="transition-all duration-300" style={{ marginLeft: showSidebar ? sidebarWidth : '0' }}>
-        <TopNavbar />
-      </div>
+      {/* TopNavbar renders its own sticky <nav> directly here — no wrapper div.
+          A div that contains only the navbar has a height equal to the navbar's
+          own height, which leaves position:sticky zero room to "stick" as the
+          page scrolls (it needs to stay attached to a container taller than
+          itself). marginLeft is now passed straight into the component instead. */}
+      <TopNavbar style={{ marginLeft: showSidebar ? sidebarWidth : '0' }} />
       <div className="flex">
         {showSidebar && <Sidebar onCollapseChange={setSidebarCollapsed} />}
         <main className="flex-1 transition-all duration-300 min-h-[calc(100vh-64px)]" style={{ marginLeft: showSidebar ? sidebarWidth : '0' }}>

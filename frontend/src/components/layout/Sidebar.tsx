@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useState, useEffect } from 'react';
 import {
-  LayoutDashboard, Users, Calendar, MessageCircle, FileText,
+  Home, LayoutDashboard, Users, Calendar, MessageCircle, FileText,
   Brain, UserCircle, Clock, LogOut, ChevronLeft, ChevronRight,
   Menu, X, BarChart3, Wrench, ScrollText
 } from 'lucide-react';
@@ -77,6 +77,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
 
   // ═══ MENUS NORMAUX ═══
   let menuItems = [
+    { label: t('nav.home'), href: '/', icon: Home },
     { label: t('nav.dashboard'), href: '/dashboard', icon: LayoutDashboard },
   ];
 
@@ -139,7 +140,6 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
 
   return (
     <>
-      {/* Burger menu mobile */}
       <button
         aria-label={mobileOpen ? 'Fermer' : 'Ouvrir'} aria-expanded={mobileOpen}
         onClick={() => setMobileOpen((v) => !v)}
@@ -154,7 +154,6 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
         {mobileOpen ? <X size={20} /> : <Menu size={20} />}
       </button>
 
-      {/* Overlay mobile */}
       <div
         onClick={() => setMobileOpen(false)} aria-hidden="true"
         style={{
@@ -165,7 +164,6 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
         className="sidebar-overlay"
       />
 
-      {/* Sidebar */}
       <aside
         style={{
           width: sidebarWidth, minHeight: '100vh', backgroundColor: 'var(--card-bg)',
@@ -174,7 +172,6 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
           transition: 'width 0.3s cubic-bezier(0.4,0,0.2,1)', overflow: 'hidden',
         }}
       >
-        {/* Header avec logo */}
         <div style={{
           padding: collapsed ? '16px 10px' : '16px 16px', display: 'flex',
           alignItems: 'center', justifyContent: 'space-between',
@@ -204,9 +201,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
           </button>
         </div>
 
-        {/* Contenu scrollable */}
         <div style={{ flex: 1, overflowY: 'auto', padding: collapsed ? '8px 6px' : '12px 12px' }}>
-          {/* SECTION ADMIN */}
           {isAdmin && (
             <>
               {!collapsed && (
@@ -218,7 +213,6 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
             </>
           )}
 
-          {/* SECTION NORMALE (non-admin) */}
           {!isAdmin && (
             <>
               {!collapsed && (
@@ -240,7 +234,6 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
           )}
         </div>
 
-        {/* Profil utilisateur */}
         <div style={{ padding: collapsed ? '12px 10px' : '16px 16px', borderTop: '1px solid var(--border)' }}>
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between',

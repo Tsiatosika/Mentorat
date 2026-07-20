@@ -55,11 +55,7 @@ export default function AdminCompetencesPage() {
     if (!newComp.trim()) return;
     setAdding(true);
     try {
-      // Envoyer nom + categorie au backend
-      await api.post('/admin/competences', { 
-        nom: newComp.trim(), 
-        categorie: newCompCategorie 
-      });
+      await api.post('/admin/competences', { nom: newComp.trim(), categorie: newCompCategorie });
       toast.success('Compétence ajoutée');
       setNewComp('');
       fetchCompetences();
@@ -90,33 +86,28 @@ export default function AdminCompetencesPage() {
     });
   };
 
-  // Grouper les compétences par catégorie
   const competencesByCategorie = useMemo(() => {
     const grouped: Record<string, any[]> = {};
-    const filtered = competences.filter((c: any) => 
-      c.nom?.toLowerCase().includes(search.toLowerCase())
-    );
-    
+    const filtered = competences.filter((c: any) => c.nom?.toLowerCase().includes(search.toLowerCase()));
+
     filtered.forEach((c: any) => {
       const cat = c.categorie || 'Autre';
       if (!grouped[cat]) grouped[cat] = [];
       grouped[cat].push(c);
     });
-    
-    // Trier selon l'ordre des CATEGORIES_CONFIG
+
     const sorted: Record<string, any[]> = {};
     CATEGORIES_CONFIG.forEach(config => {
       if (grouped[config.nom]) sorted[config.nom] = grouped[config.nom];
     });
-    // Ajouter les catégories non listées
     Object.keys(grouped).forEach(key => {
       if (!sorted[key]) sorted[key] = grouped[key];
     });
-    
+
     return sorted;
   }, [competences, search]);
 
-  const displayedCategories = selectedCategorie 
+  const displayedCategories = selectedCategorie
     ? { [selectedCategorie]: competencesByCategorie[selectedCategorie] || [] }
     : competencesByCategorie;
 
@@ -135,6 +126,16 @@ export default function AdminCompetencesPage() {
         .comp-chip { transition: all 0.25s ease; opacity: 0; transform: translateY(10px) scale(.9); animation: chipIn .45s cubic-bezier(.34,1.56,.64,1) forwards; }
         @keyframes chipIn { to { opacity: 1; transform: translateY(0) scale(1); } }
         .comp-chip:hover { transform: translateY(-3px) scale(1.05) !important; box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
+        
+        /* ═══ ADMIN HEADER COMPATIBLE CLAIR/SOMBRE ═══ */
+        .admin-header {
+          background: linear-gradient(135deg, #3B82F6, #60A5FA);
+          padding: 28px 24px;
+        }
+        .dark .admin-header {
+          background: linear-gradient(135deg, #1E3A5F, #0F172A);
+        }
+        
         @media (prefers-reduced-motion: reduce) { .cz-orb1,.cz-orb2,.comp-chip { animation: none !important; } }
       `}</style>
 
@@ -143,18 +144,18 @@ export default function AdminCompetencesPage() {
 
       <div style={{ position: 'relative', zIndex: 1 }}>
         {/* Header */}
-        <div className="admin-header" style={{ background: 'linear-gradient(135deg, #0F766E, #14B8A6)' }}>
+        <div className="admin-header">
           <div className="max-w-6xl mx-auto">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <Wrench size={16} style={{ color: '#99F6E4' }} />
-                  <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#99F6E4' }}>Administration</span>
+                  <Wrench size={16} style={{ color: '#A78BFA' }} />
+                  <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#A78BFA' }}>Administration</span>
                 </div>
-                <h1 className="text-3xl font-bold text-white">Compétences</h1>
-                <p className="text-teal-200 mt-1">Gérer le référentiel de compétences par catégorie</p>
+                <h1 className="text-3xl font-bold" style={{ color: 'var(--text-primary)', textShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>Compétences</h1>
+                <p style={{ color: 'var(--text-secondary)' }}>Gérer le référentiel de compétences par catégorie</p>
               </div>
-              <span className="text-xs px-3 py-1.5 rounded-lg flex items-center gap-1" style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}>
+              <span className="text-xs px-3 py-1.5 rounded-lg flex items-center gap-1" style={{ background: 'rgba(255,255,255,0.15)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.2)' }}>
                 <Wrench size={12} /> {competences.length} compétences
               </span>
             </div>
@@ -201,49 +202,27 @@ export default function AdminCompetencesPage() {
 
           {/* Ajout + Recherche */}
           <div className="card p-4 mb-6 flex flex-wrap items-center gap-3" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: '20px' }}>
-            {/* Barre de recherche */}
             <div className="relative flex-1 min-w-[180px]">
               <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
               <input
-                type="text" 
-                placeholder="Rechercher une compétence..." 
-                value={search} 
-                onChange={e => setSearch(e.target.value)}
+                type="text" placeholder="Rechercher une compétence..." value={search} onChange={e => setSearch(e.target.value)}
                 style={{ width: '100%', padding: '10px 12px 10px 36px', borderRadius: '10px', border: '1px solid var(--border)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}
               />
             </div>
 
-            {/* Sélection de la catégorie */}
-            <select 
-              value={newCompCategorie} 
-              onChange={e => setNewCompCategorie(e.target.value)}
-              style={{ padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', fontSize: '0.85rem', minWidth: '140px' }}
-            >
-              {CATEGORIES_CONFIG.map(cat => (
-                <option key={cat.nom} value={cat.nom}>{cat.nom}</option>
-              ))}
+            <select value={newCompCategorie} onChange={e => setNewCompCategorie(e.target.value)}
+              style={{ padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', fontSize: '0.85rem', minWidth: '140px' }}>
+              {CATEGORIES_CONFIG.map(cat => (<option key={cat.nom} value={cat.nom}>{cat.nom}</option>))}
             </select>
 
-            {/* Champ nouvelle compétence + bouton Ajouter */}
             <div className="flex gap-2 flex-1 min-w-[200px]">
               <input
-                type="text" 
-                placeholder="Nouvelle compétence..." 
-                value={newComp} 
-                onChange={e => setNewComp(e.target.value)} 
-                onKeyDown={e => e.key === 'Enter' && addCompetence()}
+                type="text" placeholder="Nouvelle compétence..." value={newComp} onChange={e => setNewComp(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCompetence()}
                 style={{ flex: 1, padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}
               />
-              <button 
-                onClick={addCompetence} 
-                disabled={adding || !newComp.trim()}
-                style={{ padding: '10px 16px', borderRadius: '10px', border: 'none', cursor: 'pointer', background: `linear-gradient(135deg, ${ACCENT}, #34D399)`, color: '#fff', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', opacity: adding || !newComp.trim() ? 0.55 : 1, whiteSpace: 'nowrap' }}
-              >
-                {adding ? (
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Plus size={16} />
-                )}
+              <button onClick={addCompetence} disabled={adding || !newComp.trim()}
+                style={{ padding: '10px 16px', borderRadius: '10px', border: 'none', cursor: 'pointer', background: `linear-gradient(135deg, ${ACCENT}, #34D399)`, color: '#fff', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', opacity: adding || !newComp.trim() ? 0.55 : 1, whiteSpace: 'nowrap' }}>
+                {adding ? (<span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />) : (<Plus size={16} />)}
                 Ajouter
               </button>
             </div>
@@ -280,41 +259,25 @@ export default function AdminCompetencesPage() {
 
                 return (
                   <div key={categorie} className="card" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: '20px', overflow: 'hidden' }}>
-                    {/* En-tête de catégorie cliquable */}
-                    <div
-                      className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                      onClick={() => toggleCategorie(categorie)}
-                    >
+                    <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors" onClick={() => toggleCategorie(categorie)}>
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: bg }}>
-                          <Icon size={20} style={{ color }} />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>{categorie}</h3>
-                          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{comps.length} compétence{comps.length > 1 ? 's' : ''}</p>
-                        </div>
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: bg }}><Icon size={20} style={{ color }} /></div>
+                        <div><h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>{categorie}</h3><p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{comps.length} compétence{comps.length > 1 ? 's' : ''}</p></div>
                       </div>
                       <button className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                         {isCollapsed ? <ChevronDown size={18} style={{ color: 'var(--text-tertiary)' }} /> : <ChevronUp size={18} style={{ color: 'var(--text-tertiary)' }} />}
                       </button>
                     </div>
-                    
-                    {/* Liste des compétences */}
+
                     {!isCollapsed && (
                       <div className="px-4 pb-4 flex flex-wrap gap-2" style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
                         {comps.map((c: any, i: number) => (
-                          <span
-                            key={c.id}
-                            className="comp-chip flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium group"
-                            style={{ backgroundColor: bg, color: color, animationDelay: `${i * 30}ms` }}
-                          >
+                          <span key={c.id} className="comp-chip flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium group"
+                            style={{ backgroundColor: bg, color: color, animationDelay: `${i * 30}ms` }}>
                             {c.nom}
-                            <button
-                              onClick={(e) => { e.stopPropagation(); deleteCompetence(c.id); }}
+                            <button onClick={(e) => { e.stopPropagation(); deleteCompetence(c.id); }}
                               className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30"
-                              style={{ color: 'var(--danger)' }}
-                              title="Supprimer"
-                            >
+                              style={{ color: 'var(--danger)' }} title="Supprimer">
                               <Trash2 size={12} />
                             </button>
                           </span>
@@ -330,4 +293,4 @@ export default function AdminCompetencesPage() {
       </div>
     </div>
   );
-} 
+}
