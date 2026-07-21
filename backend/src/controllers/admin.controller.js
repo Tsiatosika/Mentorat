@@ -1,5 +1,6 @@
 const { query, pool } = require('../config/db');
 
+// ═══ STATISTIQUES DU TABLEAU DE BORD ═══
 const getDashboardStats = async (req, res) => {
   try {
     const totalMentors = await query("SELECT COUNT(*) as total FROM utilisateurs WHERE role = 'mentor' AND actif = true");
@@ -44,6 +45,7 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
+// ═══ LISTE UTILISATEURS AVEC PAGINATION + FILTRES COMBINÉS ═══
 const getUsers = async (req, res) => {
   try {
     const {
@@ -103,7 +105,6 @@ const getUserDetail = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // ── Infos de base ──
     const userResult = await query(
       `SELECT id, nom, prenom, email, role, actif, photo_url, created_at, derniere_connexion
        FROM utilisateurs WHERE id = $1`,
@@ -114,7 +115,6 @@ const getUserDetail = async (req, res) => {
     }
     const targetUser = userResult.rows[0];
 
-    // ── Sessions (mentor OU mentoré) ──
     const sessionsResult = await query(
       `SELECT s.id, s.sujet, s.statut, s.date_debut,
               um.prenom  AS mentor_prenom,  um.nom  AS mentor_nom,
@@ -130,8 +130,6 @@ const getUserDetail = async (req, res) => {
       [id]
     );
 
-    // ── Avis reçus (si mentor) ──
-    // CORRECTION : utiliser note_globale (et non "note") + vérifier la colonne mentore_id dans avis
     let avisRecus = [];
     if (targetUser.role === 'mentor') {
       const avisResult = await query(
@@ -147,8 +145,6 @@ const getUserDetail = async (req, res) => {
       avisRecus = avisResult.rows;
     }
 
-    // ── Avis donnés (si mentoré) ──
-    // CORRECTION : utiliser note_globale + la bonne colonne de jointure
     let avisDonnes = [];
     if (targetUser.role === 'mentore') {
       const avisResult = await query(
@@ -231,16 +227,111 @@ const deleteUser = async (req, res) => {
   }
 };
 
-// ═══ GESTION DES COMPÉTENCES ═══
-const addCompetence = async (req, res) => {
+// ═══ GESTION DES COMPÉTENCES (basique : ajout / suppression uniquement) ═══
+//
+// Volontairement pas d'édition/renommage : une compétence mal catégorisée
+// devrait être supprimée puis recréée, ce qui casserait le lien avec les
+// profils mentors qui l'utilisent déjà (mentor_competences.competence_id).
+//
+// Volontairement pas de fusion de doublons ("React" / "ReactJS") : on se
+// contente ici de bloquer la création d'un doublon exact (insensible à la
+// casse) plutôt que de le fusionner silencieusement.
+
+// Vérifie combien de mentors utilisent une compétence, SANS rien supprimer.
+// Sert à afficher un avertissement précis avant confirmation côté frontend.
+const getCompetenceUsage = async (req, res) => {
   try {
+    const result = await query(
+      `SELECT c.id, c.nom, c.categorie, COUNT(mc.mentor_id) as nb_mentors
+       FROM competences c
+       LEFT JOIN mentor_competences mc ON mc.competence_id = c.id
+       WHERE c.id = $1
+       GROUP BY c.id, c.nom, c.categorie`,
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Compétence non trouvée' });
+    }
+
+    const row = result.rows[0];
+    res.json({
+      success: true,
+      competence: { id: row.id, nom: row.nom, categorie: row.categorie },
+      nbMentors: parseInt(row.nb_mentors, 10),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ═══ ÉDITION D'UNE COMPÉTENCE (renommage / recatégorisation) ═══
+// L'id ne change pas lors d'un UPDATE : le lien mentor_competences.competence_id
+// reste donc intact automatiquement, contrairement à un supprimer+recréer.
+const editCompetence = async (req, res) => {
+  try {
+    const { id } = req.params;
     const { nom, categorie } = req.body;
+
     if (!nom || !nom.trim()) {
       return res.status(400).json({ success: false, message: 'Le nom est requis' });
     }
+    const trimmedNom = nom.trim();
+
+    const current = await query('SELECT id, nom, categorie FROM competences WHERE id = $1', [id]);
+    if (current.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Compétence non trouvée' });
+    }
+
+    // Bloque le renommage vers un nom déjà utilisé par une AUTRE compétence
+    // (pas de fusion silencieuse de doublons, même via l'édition)
+    const duplicate = await query(
+      'SELECT id, nom, categorie FROM competences WHERE nom ILIKE $1 AND id != $2',
+      [trimmedNom, id]
+    );
+    if (duplicate.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: `Une autre compétence porte déjà ce nom ("${duplicate.rows[0].nom}", catégorie : ${duplicate.rows[0].categorie})`,
+        competence: duplicate.rows[0],
+      });
+    }
+
     const result = await query(
-      'INSERT INTO competences (nom, categorie) VALUES ($1, $2) ON CONFLICT (nom) DO UPDATE SET categorie = EXCLUDED.categorie RETURNING *',
-      [nom.trim(), categorie || 'Autre']
+      'UPDATE competences SET nom = $1, categorie = $2 WHERE id = $3 RETURNING *',
+      [trimmedNom, categorie || 'Autre', id]
+    );
+    res.json({ success: true, competence: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const addCompetence = async (req, res) => {
+  try {
+    const { nom, categorie } = req.body;
+
+    if (!nom || !nom.trim()) {
+      return res.status(400).json({ success: false, message: 'Le nom est requis' });
+    }
+    const trimmedNom = nom.trim();
+
+    // Vérifie les doublons (insensible à la casse) — pas de merge, pas d'update silencieux
+    const existing = await query(
+      'SELECT id, nom, categorie FROM competences WHERE nom ILIKE $1',
+      [trimmedNom]
+    );
+    if (existing.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: `Cette compétence existe déjà ("${existing.rows[0].nom}", catégorie : ${existing.rows[0].categorie})`,
+        competence: existing.rows[0],
+      });
+    }
+
+    const result = await query(
+      'INSERT INTO competences (nom, categorie) VALUES ($1, $2) RETURNING *',
+      [trimmedNom, categorie || 'Autre']
     );
     res.status(201).json({ success: true, competence: result.rows[0] });
   } catch (error) {
@@ -250,12 +341,19 @@ const addCompetence = async (req, res) => {
 
 const deleteCompetence = async (req, res) => {
   try {
-    await query('DELETE FROM mentor_competences WHERE competence_id = $1', [req.params.id]);
+    const removed = await query(
+      'DELETE FROM mentor_competences WHERE competence_id = $1 RETURNING mentor_id',
+      [req.params.id]
+    );
     const result = await query('DELETE FROM competences WHERE id = $1 RETURNING id', [req.params.id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Compétence non trouvée' });
     }
-    res.json({ success: true, message: 'Compétence supprimée' });
+    res.json({
+      success: true,
+      message: 'Compétence supprimée',
+      mentorsAffectes: removed.rows.length,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -279,7 +377,9 @@ module.exports = {
   getUserDetail,
   toggleUser,
   deleteUser,
+  getCompetenceUsage,
   addCompetence,
+  editCompetence,
   deleteCompetence,
   getAllReports,
 };

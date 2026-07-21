@@ -24,8 +24,10 @@ router.get('/users/:id', adminController.getUserDetail);
 router.put('/users/:id/toggle', adminController.toggleUser);
 router.delete('/users/:id', adminController.deleteUser);
 
-// ── Compétences ──
+// ── Compétences (ajout / édition / suppression) ──
 router.post('/competences', adminController.addCompetence);
+router.get('/competences/:id/usage', adminController.getCompetenceUsage);
+router.put('/competences/:id', adminController.editCompetence);
 router.delete('/competences/:id', adminController.deleteCompetence);
 
 // ── Rapports ──

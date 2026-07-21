@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, Trash2, Wrench, Palette, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Plus, Trash2, Pencil, Wrench, Palette, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/services/api';
 import toast from 'react-hot-toast';
@@ -34,6 +34,12 @@ export default function AdminCompetencesPage() {
   const [newCompCategorie, setNewCompCategorie] = useState('Informatique');
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
+  // ── Édition (renommage / recatégorisation) ──
+  const [editingComp, setEditingComp] = useState<any | null>(null);
+  const [editNom, setEditNom] = useState('');
+  const [editCategorie, setEditCategorie] = useState('Autre');
+  const [saving, setSaving] = useState(false);
+
   useEffect(() => {
     if (!user || user.role !== 'admin') { router.push('/login'); return; }
     fetchCompetences();
@@ -57,20 +63,94 @@ export default function AdminCompetencesPage() {
       setNewComp('');
       fetchCompetences();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erreur');
+      // 409 = doublon détecté côté backend (pas de fusion silencieuse).
+      // On affiche le message renvoyé, qui précise la catégorie existante,
+      // pour que l'admin sache pourquoi rien n'a été créé/modifié.
+      if (error.response?.status === 409) {
+        const existante = error.response?.data?.competence;
+        toast.error(
+          existante
+            ? `Déjà existante : "${existante.nom}" (${existante.categorie})`
+            : error.response?.data?.message || 'Cette compétence existe déjà'
+        );
+      } else {
+        toast.error(error.response?.data?.message || 'Erreur lors de l\'ajout');
+      }
     } finally {
       setAdding(false);
     }
   };
 
-  const deleteCompetence = async (id: string) => {
-    if (!confirm('Supprimer cette compétence ?')) return;
+  const startEdit = (c: any) => {
+    setEditingComp(c);
+    setEditNom(c.nom);
+    setEditCategorie(c.categorie || 'Autre');
+  };
+
+  const cancelEdit = () => {
+    setEditingComp(null);
+    setEditNom('');
+    setEditCategorie('Autre');
+  };
+
+  const saveEdit = async () => {
+    if (!editingComp || !editNom.trim()) return;
+    setSaving(true);
     try {
-      await api.delete(`/admin/competences/${id}`);
-      toast.success('Supprimée');
+      await api.put(`/admin/competences/${editingComp.id}`, {
+        nom: editNom.trim(),
+        categorie: editCategorie,
+      });
+      toast.success('Compétence mise à jour');
+      cancelEdit();
       fetchCompetences();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erreur');
+      // 409 = ce nom est déjà pris par une AUTRE compétence — on ne fusionne pas,
+      // on informe simplement et on laisse l'admin corriger.
+      if (error.response?.status === 409) {
+        const conflit = error.response?.data?.competence;
+        toast.error(
+          conflit
+            ? `Déjà pris par "${conflit.nom}" (${conflit.categorie})`
+            : error.response?.data?.message || 'Ce nom est déjà utilisé'
+        );
+      } else {
+        toast.error(error.response?.data?.message || 'Erreur lors de la mise à jour');
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteCompetence = async (id: string, nom: string) => {
+    // 1) On vérifie d'abord l'usage (lecture seule, ne supprime rien) pour
+    //    pouvoir prévenir précisément l'admin avant de demander confirmation.
+    let nbMentors = 0;
+    try {
+      const usageRes = await api.get(`/admin/competences/${id}/usage`);
+      nbMentors = usageRes.data?.nbMentors ?? 0;
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Impossible de vérifier l\'usage de cette compétence');
+      return;
+    }
+
+    const message = nbMentors > 0
+      ? `"${nom}" est utilisée par ${nbMentors} mentor${nbMentors > 1 ? 's' : ''}. La supprimer la retirera de ${nbMentors > 1 ? 'leurs profils' : 'son profil'}. Continuer ?`
+      : `Supprimer la compétence "${nom}" ? Cette action est irréversible.`;
+
+    if (!confirm(message)) return;
+
+    // 2) Suppression effective, seulement après confirmation éclairée.
+    try {
+      await api.delete(`/admin/competences/${id}`);
+      toast.success(
+        nbMentors > 0
+          ? `Supprimée — retirée de ${nbMentors} mentor${nbMentors > 1 ? 's' : ''}`
+          : 'Supprimée'
+      );
+      fetchCompetences();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erreur lors de la suppression');
     }
   };
 
@@ -123,7 +203,7 @@ export default function AdminCompetencesPage() {
         .comp-chip { transition: all 0.25s ease; opacity: 0; transform: translateY(10px) scale(.9); animation: chipIn .45s cubic-bezier(.34,1.56,.64,1) forwards; }
         @keyframes chipIn { to { opacity: 1; transform: translateY(0) scale(1); } }
         .comp-chip:hover { transform: translateY(-3px) scale(1.05) !important; box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
-        
+
         /* ═══ ADMIN HEADER COMPATIBLE CLAIR/SOMBRE ═══ */
         .admin-header {
           background: linear-gradient(135deg, #3B82F6, #60A5FA);
@@ -132,7 +212,18 @@ export default function AdminCompetencesPage() {
         .dark .admin-header {
           background: linear-gradient(135deg, #1E3A5F, #0F172A);
         }
-        
+
+        /* ═══ MODAL D'ÉDITION ═══ */
+        .edit-modal-overlay {
+          position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+          display: flex; align-items: center; justify-content: center;
+          z-index: 50; padding: 16px;
+        }
+        .edit-modal {
+          background: var(--card-bg); border: 1px solid var(--border);
+          border-radius: 16px; padding: 24px; width: 100%; max-width: 420px;
+        }
+
         @media (prefers-reduced-motion: reduce) { .cz-orb1,.cz-orb2,.comp-chip { animation: none !important; } }
       `}</style>
 
@@ -269,10 +360,15 @@ export default function AdminCompetencesPage() {
                     {!isCollapsed && (
                       <div className="px-4 pb-4 flex flex-wrap gap-2" style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
                         {comps.map((c: any, i: number) => (
-                          <span key={c.id} className="comp-chip flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium group"
+                          <span key={c.id} className="comp-chip flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium group"
                             style={{ backgroundColor: bg, color: color, animationDelay: `${i * 30}ms` }}>
                             {c.nom}
-                            <button onClick={(e) => { e.stopPropagation(); deleteCompetence(c.id); }}
+                            <button onClick={(e) => { e.stopPropagation(); startEdit(c); }}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10"
+                              style={{ color }} title="Modifier">
+                              <Pencil size={12} />
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); deleteCompetence(c.id, c.nom); }}
                               className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30"
                               style={{ color: 'var(--danger)' }} title="Supprimer">
                               <Trash2 size={12} />
@@ -288,6 +384,50 @@ export default function AdminCompetencesPage() {
           )}
         </div>
       </div>
+
+      {/* Modal d'édition */}
+      {editingComp && (
+        <div className="edit-modal-overlay" onClick={cancelEdit}>
+          <div className="edit-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Modifier la compétence</h3>
+              <button onClick={cancelEdit} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                <X size={18} style={{ color: 'var(--text-tertiary)' }} />
+              </button>
+            </div>
+
+            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--text-secondary)' }}>Nom</label>
+            <input
+              type="text"
+              value={editNom}
+              onChange={e => setEditNom(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && saveEdit()}
+              autoFocus
+              style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', marginBottom: '14px' }}
+            />
+
+            <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--text-secondary)' }}>Catégorie</label>
+            <select
+              value={editCategorie}
+              onChange={e => setEditCategorie(e.target.value)}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', marginBottom: '20px' }}
+            >
+              {CATEGORIES_CONFIG.map(cat => (<option key={cat.nom} value={cat.nom}>{cat.nom}</option>))}
+            </select>
+
+            <div className="flex gap-2 justify-end">
+              <button onClick={cancelEdit}
+                style={{ padding: '10px 16px', borderRadius: '10px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-primary)', fontWeight: 500, cursor: 'pointer' }}>
+                Annuler
+              </button>
+              <button onClick={saveEdit} disabled={saving || !editNom.trim()}
+                style={{ padding: '10px 16px', borderRadius: '10px', border: 'none', cursor: 'pointer', background: `linear-gradient(135deg, ${ACCENT}, #34D399)`, color: '#fff', fontWeight: 600, opacity: saving || !editNom.trim() ? 0.55 : 1 }}>
+                {saving ? 'Enregistrement...' : 'Enregistrer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
