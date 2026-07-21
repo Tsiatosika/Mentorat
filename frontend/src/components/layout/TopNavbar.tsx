@@ -110,18 +110,6 @@ export function TopNavbar({ style }: { style?: React.CSSProperties }) {
                 </Link>
               </div>
             )}
-
-            {user && (
-              <div className="flex items-center gap-2 ml-2 pl-2 nav-user-block">
-                <Avatar photoUrl={user.photo_url} prenom={user.prenom} nom={user.nom} size={32} />
-                <span className="text-sm hidden sm:inline font-medium" style={{ color: 'var(--text-primary)' }}>
-                  {user.prenom}
-                </span>
-                <button onClick={logout} className="p-2 rounded-lg nav-logout-btn" title="Déconnexion" aria-label="Déconnexion">
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </div>
