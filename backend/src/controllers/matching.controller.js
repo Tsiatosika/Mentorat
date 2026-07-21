@@ -22,6 +22,32 @@ async function callIA(method, path, data = null) {
   }
 }
 
+// Récupère, pour une liste de mentor_id (profils_mentor.id), leurs noms de compétences
+// groupés par mentor_id. Une seule requête, réutilisée par les deux chemins (IA / fallback).
+async function getCompetencesParMentor(mentorIds) {
+  if (!mentorIds.length) return {};
+  const result = await query(
+    `SELECT mc.mentor_id, c.nom
+     FROM mentor_competences mc
+     JOIN competences c ON c.id = mc.competence_id
+     WHERE mc.mentor_id = ANY($1::uuid[])`,
+    [mentorIds]
+  );
+  return result.rows.reduce((acc, row) => {
+    if (!acc[row.mentor_id]) acc[row.mentor_id] = [];
+    acc[row.mentor_id].push(row.nom);
+    return acc;
+  }, {});
+}
+
+// Intersection insensible à la casse entre les tags objectifs du mentoré
+// et les compétences du mentor — sert à afficher "3 points communs : X, Y, Z"
+function trouverCompetencesCommunes(objectifsTags, competencesMentor) {
+  const mentoreSet = new Set((objectifsTags || []).map(t => t.toLowerCase().trim()));
+  const communes = (competencesMentor || []).filter(c => mentoreSet.has(c.toLowerCase().trim()));
+  return communes;
+}
+
 // ============================================
 // RECOMMANDATIONS
 // ============================================
@@ -40,6 +66,8 @@ const getRecommendations = async (req, res, next) => {
     }
 
     const mentoreId = mentoreResult.rows[0].id;
+    const mentoreTags = mentoreResult.rows[0].objectifs_tags || [];
+    const mentoreDomaine = mentoreResult.rows[0].domaine || '';
     const forceRecalcul = req.query.force_recalc === 'true';
 
     console.log(`📊 Matching IA pour mentoré: ${mentoreId}`);
@@ -54,10 +82,10 @@ const getRecommendations = async (req, res, next) => {
       });
 
       if (iaResponse.recommandations && Array.isArray(iaResponse.recommandations) && iaResponse.recommandations.length > 0) {
-        // Récupérer tous les user_id en UNE seule requête (au lieu d'une boucle)
         const mentorIds = iaResponse.recommandations.map(r => r.mentor_id);
+
         const usersResult = await query(
-          `SELECT pm.id AS profil_id, u.id AS user_id
+          `SELECT pm.id AS profil_id, u.id AS user_id, u.photo_url
            FROM utilisateurs u
            JOIN profils_mentor pm ON pm.utilisateur_id = u.id
            WHERE pm.id = ANY($1::uuid[])`,
@@ -66,9 +94,15 @@ const getRecommendations = async (req, res, next) => {
         const userIdMap = Object.fromEntries(
           usersResult.rows.map(r => [r.profil_id, r.user_id])
         );
+        const photoMap = Object.fromEntries(
+          usersResult.rows.map(r => [r.profil_id, r.photo_url])
+        );
+
+        const competencesParMentor = await getCompetencesParMentor(mentorIds);
 
         for (const rec of iaResponse.recommandations) {
           const userId = userIdMap[rec.mentor_id] || rec.mentor_id;
+          const competencesMentor = competencesParMentor[rec.mentor_id] || rec.competences || [];
 
           recommendations.push({
             mentor_id: rec.mentor_id,
@@ -76,11 +110,15 @@ const getRecommendations = async (req, res, next) => {
             mentor_nom: rec.prenom ? `${rec.prenom} ${rec.nom}`.trim() : `Mentor ${rec.mentor_id.substring(0, 8)}`,
             mentor_domaine: rec.domaine || 'Non spécifié',
             mentor_note: rec.note_moyenne || 0,
+            mentor_photo_url: photoMap[rec.mentor_id] || rec.photo_url || null,
             score: rec.score,
+            // 4 vraies composantes, alignées sur scorer.py (40 / 25 / 20 / 15)
             score_competences: rec.score_competences,
-            score_domaine: rec.score_objectifs || 0,
+            score_dispo: rec.score_dispo,
+            score_objectifs: rec.score_objectifs,
             score_reputation: rec.score_reputation,
-            score_experience: 0
+            competences_communes: trouverCompetencesCommunes(mentoreTags, competencesMentor),
+            meme_domaine: !!(mentoreDomaine && rec.domaine && mentoreDomaine.toLowerCase() === rec.domaine.toLowerCase()),
           });
         }
         source = 'python-ia';
@@ -89,78 +127,90 @@ const getRecommendations = async (req, res, next) => {
     } catch (iaError) {
       console.warn(`⚠️ Service IA indisponible: ${iaError.message}`);
 
-      // Fallback: calcul JavaScript
+      // Fallback JavaScript — mêmes poids et mêmes composantes que scorer.py (40/25/20/15)
       const mentorsResult = await query(
-        `SELECT pm.id, pm.domaine, pm.note_moyenne, pm.nb_sessions, 
-                pm.annees_experience, pm.disponible,
+        `SELECT pm.id, pm.domaine, pm.note_moyenne, pm.nb_sessions,
                 u.id as user_id, u.nom, u.prenom, u.photo_url
          FROM profils_mentor pm
          JOIN utilisateurs u ON u.id = pm.utilisateur_id
          WHERE u.actif = true AND pm.disponible = true`
       );
 
-      const mentoreTags = mentoreResult.rows[0]?.objectifs_tags || [];
-      const mentoreSet = new Set(mentoreTags.map(t => t.toLowerCase()));
-      const mentoreDomaine = mentoreResult.rows[0]?.domaine || '';
-
-      // Récupérer les compétences de TOUS les mentors en UNE seule requête (au lieu d'une boucle)
+      const mentoreSet = new Set(mentoreTags.map(t => t.toLowerCase().trim()));
       const mentorIdsAll = mentorsResult.rows.map(m => m.id);
-      let competencesParMentor = {};
+
+      const competencesParMentor = await getCompetencesParMentor(mentorIdsAll);
+
+      // Disponibilités par mentor (jours distincts), même logique que calculer_score_disponibilite
+      // côté Python quand le mentoré n'a pas renseigné de préférence de créneaux.
+      let joursParMentor = {};
       if (mentorIdsAll.length > 0) {
-        const allCompetencesResult = await query(
-          `SELECT mc.mentor_id, c.nom
-           FROM mentor_competences mc
-           JOIN competences c ON c.id = mc.competence_id
-           WHERE mc.mentor_id = ANY($1::uuid[])`,
+        const dispoResult = await query(
+          `SELECT mentor_id, jour_semaine FROM disponibilites WHERE mentor_id = ANY($1::uuid[])`,
           [mentorIdsAll]
         );
-        competencesParMentor = allCompetencesResult.rows.reduce((acc, row) => {
-          if (!acc[row.mentor_id]) acc[row.mentor_id] = [];
-          acc[row.mentor_id].push(row.nom);
+        joursParMentor = dispoResult.rows.reduce((acc, row) => {
+          if (!acc[row.mentor_id]) acc[row.mentor_id] = new Set();
+          acc[row.mentor_id].add((row.jour_semaine || '').toLowerCase().trim());
           return acc;
         }, {});
       }
 
       for (const mentor of mentorsResult.rows) {
-        const mentorCompetences = competencesParMentor[mentor.id] || [];
-        const mentorSet = new Set(mentorCompetences.map(c => c.toLowerCase()));
+        const competencesMentor = competencesParMentor[mentor.id] || [];
+        const mentorSet = new Set(competencesMentor.map(c => c.toLowerCase().trim()));
 
-        let scoreCompetences = 0.5;
+        // Compétences (40%) — similarité simple (intersection / nb tags mentoré)
+        let scoreCompetences = 0.0;
         if (mentoreSet.size > 0 && mentorSet.size > 0) {
           let matchCount = 0;
-          for (const tag of mentoreSet) {
-            if (mentorSet.has(tag)) matchCount++;
-          }
+          for (const tag of mentoreSet) if (mentorSet.has(tag)) matchCount++;
           scoreCompetences = matchCount / mentoreSet.size;
         }
 
-        let scoreDomaine = 0.3;
+        // Disponibilité (25%) — nb de jours distincts / 5, plafonné à 1
+        const joursMentor = joursParMentor[mentor.id] || new Set();
+        const scoreDispo = joursMentor.size > 0 ? Math.min(joursMentor.size / 5.0, 1.0) : 0.0;
+
+        // Objectifs / domaine (20%) — identique = 1.0, sinon neutre à 0.3
+        let scoreObjectifs = 0.3;
         if (mentor.domaine && mentoreDomaine) {
-          scoreDomaine = mentor.domaine.toLowerCase() === mentoreDomaine.toLowerCase() ? 1.0 : 0.3;
+          scoreObjectifs = mentor.domaine.toLowerCase() === mentoreDomaine.toLowerCase() ? 1.0 : 0.0;
         }
 
-        const note = mentor.note_moyenne || 0;
-        const sessions = mentor.nb_sessions || 0;
-        const scoreReputation = Math.min((note / 5) + Math.min(sessions / 50, 0.2), 1.0);
-        const exp = mentor.annees_experience || 0;
-        const scoreExperience = Math.min(exp / 10, 1.0);
-        const scoreGlobal = (scoreCompetences * 0.35) + (scoreDomaine * 0.20) +
-                            (scoreReputation * 0.25) + (scoreExperience * 0.20);
+        // Réputation (15%) — note normalisée × facteur de confiance (nb sessions / 10)
+        // note_moyenne est un DECIMAL PostgreSQL → renvoyé comme string par node-postgres
+        const note = Number(mentor.note_moyenne) || 0;
+        const sessions = Number(mentor.nb_sessions) || 0;
+        const scoreReputation = note > 0 && sessions > 0
+          ? (note / 5.0) * Math.min(sessions / 10.0, 1.0)
+          : 0.0;
 
-        if (scoreGlobal >= 0.1) {
-          recommendations.push({
-            mentor_id: mentor.id,
-            mentor_user_id: mentor.user_id,
-            mentor_nom: `${mentor.prenom} ${mentor.nom}`,
-            mentor_domaine: mentor.domaine || 'Non spécifié',
-            mentor_note: parseFloat((note || 0).toFixed(1)),
-            score: parseFloat(scoreGlobal.toFixed(4)),
-            score_competences: parseFloat(scoreCompetences.toFixed(4)),
-            score_domaine: parseFloat(scoreDomaine.toFixed(4)),
-            score_reputation: parseFloat(scoreReputation.toFixed(4)),
-            score_experience: parseFloat(scoreExperience.toFixed(4))
-          });
-        }
+        const scoreGlobal =
+          (scoreCompetences * 0.40) +
+          (scoreDispo * 0.25) +
+          (scoreObjectifs * 0.20) +
+          (scoreReputation * 0.15);
+
+        // Pas de filtre par seuil ici : contrairement au moteur Python (cache dédié,
+        // données de prod potentiellement riches), le fallback doit rester utilisable
+        // même avec des données de démo éparses. On trie par score et on montre le classement,
+        // plutôt que de risquer une liste vide qui casse la démo.
+        recommendations.push({
+          mentor_id: mentor.id,
+          mentor_user_id: mentor.user_id,
+          mentor_nom: `${mentor.prenom} ${mentor.nom}`,
+          mentor_domaine: mentor.domaine || 'Non spécifié',
+          mentor_note: parseFloat((note || 0).toFixed(1)),
+          mentor_photo_url: mentor.photo_url || null,
+          score: parseFloat(scoreGlobal.toFixed(4)),
+          score_competences: parseFloat(scoreCompetences.toFixed(4)),
+          score_dispo: parseFloat(scoreDispo.toFixed(4)),
+          score_objectifs: parseFloat(scoreObjectifs.toFixed(4)),
+          score_reputation: parseFloat(scoreReputation.toFixed(4)),
+          competences_communes: trouverCompetencesCommunes(mentoreTags, competencesMentor),
+          meme_domaine: !!(mentoreDomaine && mentor.domaine && mentoreDomaine.toLowerCase() === mentor.domaine.toLowerCase()),
+        });
       }
       source = 'javascript-fallback';
     }
@@ -214,13 +264,8 @@ const getTopMentors = async (req, res, next) => {
 // ============================================
 // RECALCUL GLOBAL — PROTÉGÉ
 // ============================================
-// Double protection :
-//   1) Le rôle 'mentor' uniquement (empêche un mentoré lambda de déclencher un recalcul global)
-//   2) Une clé interne optionnelle (INTERNAL_API_KEY) pour un usage machine-à-machine (cron, admin panel)
-//      Si INTERNAL_API_KEY est définie dans l'environnement, elle devient obligatoire via le header X-Internal-Key.
 const recalculateAll = async (req, res, next) => {
   try {
-    // Protection 1 : rôle
     if (req.user.role !== 'mentor') {
       return res.status(403).json({
         success: false,
@@ -228,7 +273,6 @@ const recalculateAll = async (req, res, next) => {
       });
     }
 
-    // Protection 2 : clé interne (si configurée dans l'environnement)
     if (INTERNAL_API_KEY) {
       const providedKey = req.headers['x-internal-key'];
       if (providedKey !== INTERNAL_API_KEY) {
@@ -280,5 +324,5 @@ module.exports = {
   getTopMentors,
   recalculateAll,
   getMentorScores,
-  getHealth 
+  getHealth
 };

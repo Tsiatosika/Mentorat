@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Star, Award, Sparkles, RefreshCw } from 'lucide-react';
+import { Star, Award, Sparkles, RefreshCw, Brain, AlertTriangle, Check } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { matchingAPI } from '@/services/api';
+import { matchingAPI, BACKEND_URL } from '@/services/api';
 import toast from 'react-hot-toast';
 
 interface Recommendation {
@@ -15,11 +15,14 @@ interface Recommendation {
   mentor_nom: string;
   mentor_domaine: string;
   mentor_note: number;
+  mentor_photo_url?: string | null;
   score: number;
   score_competences: number;
-  score_domaine: number;
+  score_dispo: number;
+  score_objectifs: number;
   score_reputation: number;
-  score_experience: number;
+  competences_communes: string[];
+  meme_domaine: boolean;
 }
 
 export default function MatchingPage() {
@@ -85,6 +88,20 @@ export default function MatchingPage() {
     return t('matching.potential');
   };
 
+  const isIaLive = source === 'python-ia';
+
+  const getPhotoUrl = (url: string | null | undefined): string | undefined => {
+    if (!url) return undefined;
+    if (url.startsWith('http')) return url;
+    const baseUrl = BACKEND_URL.replace(/\/api\/?$/, '');
+    return `${baseUrl}${url}`;
+  };
+
+  const getInitials = (nomComplet: string) => {
+    const parts = nomComplet.trim().split(' ');
+    return `${parts[0]?.[0] || ''}${parts[1]?.[0] || ''}`.toUpperCase();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
@@ -114,15 +131,27 @@ export default function MatchingPage() {
               {t('matching.title')}
             </h1>
           </div>
-          <button
-            onClick={handleRecalculate}
-            disabled={recalculating}
-            className="px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 transition-all hover-lift fade-in-up"
-            style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', animationDelay: '0.08s' }}
-          >
-            <RefreshCw className={`w-4 h-4 ${recalculating ? 'animate-spin' : ''}`} style={{ color: 'var(--accent)' }} />
-            {recalculating ? t('common.loading') : t('matching.refresh')}
-          </button>
+          <div className="flex items-center gap-3 fade-in-up" style={{ animationDelay: '0.06s' }}>
+            {source && recommendations.length > 0 && (
+              <span
+                className="source-badge"
+                data-live={isIaLive}
+                title={isIaLive ? 'Scores calculés par le moteur IA Python' : 'Service IA indisponible — calcul de secours côté serveur'}
+              >
+                {isIaLive ? <Brain className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                {isIaLive ? 'Moteur IA' : 'Mode dégradé'}
+              </span>
+            )}
+            <button
+              onClick={handleRecalculate}
+              disabled={recalculating}
+              className="px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 transition-all hover-lift"
+              style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            >
+              <RefreshCw className={`w-4 h-4 ${recalculating ? 'animate-spin' : ''}`} style={{ color: 'var(--accent)' }} />
+              {recalculating ? t('common.loading') : t('matching.refresh')}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -156,11 +185,23 @@ export default function MatchingPage() {
                   <div className="flex flex-wrap justify-between items-start gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <div
-                          className="w-10 h-10 rounded-full flex items-center justify-center font-mono-data font-bold matching-avatar transition-all duration-400 ease-bounce"
-                          style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)' }}
-                        >
-                          #{index + 1}
+                        <div className="relative matching-avatar transition-all duration-400 ease-bounce">
+                          <div
+                            className="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center font-mono-data font-bold"
+                            style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)' }}
+                          >
+                            {getPhotoUrl(rec.mentor_photo_url) ? (
+                              <img
+                                src={getPhotoUrl(rec.mentor_photo_url)}
+                                alt={rec.mentor_nom}
+                                className="w-full h-full object-cover"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                              />
+                            ) : (
+                              <span>{getInitials(rec.mentor_nom)}</span>
+                            )}
+                          </div>
+                          <span className="matching-rank-badge">#{index + 1}</span>
                         </div>
                         <h3 className="text-lg font-semibold matching-name" style={{ color: isHovered ? 'var(--accent)' : 'var(--text-primary)' }}>
                           {rec.mentor_nom}
@@ -188,12 +229,13 @@ export default function MatchingPage() {
                         <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>{getScoreLabel(rec.score)}</p>
                       </div>
 
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                      {/* 4 vraies composantes — 40% compétences / 25% disponibilité / 20% objectifs / 15% réputation */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs mb-3">
                         {[
-                          { label: t('matching.competences'), value: rec.score_competences },
-                          { label: t('matching.domain'), value: rec.score_domaine },
-                          { label: t('matching.reputation'), value: rec.score_reputation },
-                          { label: t('matching.experience'), value: rec.score_experience },
+                          { label: 'Compétences · 40%', value: rec.score_competences },
+                          { label: 'Disponibilité · 25%', value: rec.score_dispo },
+                          { label: 'Objectifs · 20%', value: rec.score_objectifs },
+                          { label: 'Réputation · 15%', value: rec.score_reputation },
                         ].map((item, i) => (
                           <div key={i} className="rounded-lg p-2 text-center score-detail-chip transition-all duration-300" style={{ backgroundColor: 'var(--bg-secondary)' }}>
                             <div style={{ color: 'var(--text-tertiary)' }}>{item.label}</div>
@@ -203,6 +245,25 @@ export default function MatchingPage() {
                           </div>
                         ))}
                       </div>
+
+                      {/* Pourquoi ce mentor ? — explication concrète, pas juste des pourcentages */}
+                      {(rec.competences_communes?.length > 0 || rec.meme_domaine) && (
+                        <div className="why-box">
+                          <span className="why-title">Pourquoi ce mentor ?</span>
+                          <div className="why-tags">
+                            {rec.meme_domaine && (
+                              <span className="why-tag">
+                                <Check className="w-3 h-3" /> Même domaine d'études
+                              </span>
+                            )}
+                            {rec.competences_communes?.slice(0, 5).map((c, i) => (
+                              <span key={i} className="why-tag">
+                                <Check className="w-3 h-3" /> {c}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex gap-2">
@@ -222,6 +283,31 @@ export default function MatchingPage() {
       </div>
 
       <style jsx global>{`
+        .matching-rank-badge {
+          position: absolute; bottom: -3px; right: -5px;
+          background: var(--card-bg); color: var(--text-secondary);
+          border: 1.5px solid var(--border);
+          font-size: 9px; font-weight: 700; line-height: 1;
+          padding: 2px 4px; border-radius: 999px;
+          min-width: 16px; text-align: center;
+        }
+
+        .source-badge {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 6px 12px; border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .source-badge[data-live="true"] { background: var(--success-soft, rgba(16,185,129,0.12)); color: var(--success); }
+        .source-badge[data-live="false"] { background: var(--warm-soft); color: var(--warm); }
+
+        .why-box { border-top: 1px dashed var(--border); padding-top: 10px; margin-top: 4px; }
+        .why-title { font-size: 0.72rem; font-weight: 700; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; }
+        .why-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+        .why-tag {
+          display: inline-flex; align-items: center; gap: 4px;
+          font-size: 0.72rem; font-weight: 500; padding: 3px 9px; border-radius: 999px;
+          background: var(--accent-soft); color: var(--accent-text-on-soft);
+        }
+
         .matching-orb {
           position: absolute;
           border-radius: 9999px;
@@ -250,113 +336,53 @@ export default function MatchingPage() {
           to { opacity: 1; transform: translateY(0); }
         }
 
-        /* ─── ANIMATIONS DE SURVOL ─── */
-        .sparkle-icon {
-          transition: transform 0.4s ease;
-        }
-        .sparkle-icon:hover {
-          transform: rotate(20deg) scale(1.2);
-        }
+        .sparkle-icon { transition: transform 0.4s ease; }
+        .sparkle-icon:hover { transform: rotate(20deg) scale(1.2); }
 
-        .hover-gradient-text {
-          transition: all 0.4s ease;
-          cursor: default;
-          display: inline-block;
-        }
+        .hover-gradient-text { transition: all 0.4s ease; cursor: default; display: inline-block; }
         .hover-gradient-text:hover {
           background: linear-gradient(135deg, #3B82F6, #8B5CF6, #EC4899);
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
+          -webkit-background-clip: text; background-clip: text; color: transparent;
         }
 
-        .hover-lift {
-          transition: transform 0.25s ease, box-shadow 0.25s ease;
-        }
-        .hover-lift:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 8px 20px rgba(0,0,0,0.12);
-        }
+        .hover-lift { transition: transform 0.25s ease, box-shadow 0.25s ease; }
+        .hover-lift:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.12); }
 
-        .hover-btn {
-          transition: transform 0.25s ease, filter 0.25s ease, box-shadow 0.25s ease;
-        }
-        .hover-btn:hover {
-          transform: translateY(-3px);
-          filter: brightness(1.1);
-          box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-        }
+        .hover-btn { transition: transform 0.25s ease, filter 0.25s ease, box-shadow 0.25s ease; }
+        .hover-btn:hover { transform: translateY(-3px); filter: brightness(1.1); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
 
-        /* Cartes matching */
-        .matching-card-hover {
-          transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+        .matching-card-hover { transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
         .matching-card-hover:hover {
           transform: translateY(-6px) scale(1.01);
           box-shadow: 0 20px 40px rgba(0,0,0,0.12);
           border-color: var(--accent) !important;
         }
 
-        .matching-avatar {
-          transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        .matching-card-hover:hover .matching-avatar {
-          transform: scale(1.15);
-          box-shadow: 0 6px 18px var(--accent-soft);
-        }
+        .matching-avatar { transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .matching-card-hover:hover .matching-avatar { transform: scale(1.15); box-shadow: 0 6px 18px var(--accent-soft); }
 
-        .matching-name {
-          transition: color 0.3s ease;
-        }
+        .matching-name { transition: color 0.3s ease; }
+        .matching-rating { transition: transform 0.3s ease; }
+        .matching-card-hover:hover .matching-rating { transform: scale(1.08); }
 
-        .matching-rating {
-          transition: transform 0.3s ease;
-        }
-        .matching-card-hover:hover .matching-rating {
-          transform: scale(1.08);
-        }
+        .score-value { transition: transform 0.3s ease; }
+        .matching-card-hover:hover .score-value { transform: scale(1.1); }
 
-        .score-value {
-          transition: transform 0.3s ease;
-        }
-        .matching-card-hover:hover .score-value {
-          transform: scale(1.1);
-        }
+        .score-bar { transition: filter 0.3s ease; }
+        .matching-card-hover:hover .score-bar { filter: brightness(1.3); }
 
-        .score-bar {
-          transition: filter 0.3s ease;
-        }
-        .matching-card-hover:hover .score-bar {
-          filter: brightness(1.3);
-        }
-
-        .score-detail-chip {
-          transition: all 0.3s ease;
-        }
+        .score-detail-chip { transition: all 0.3s ease; }
         .score-detail-chip:hover {
           transform: translateY(-3px);
           box-shadow: 0 4px 12px rgba(0,0,0,0.08);
           background-color: var(--accent-soft) !important;
         }
 
-        /* Boutons */
-        .hover-btn-primary {
-          transition: all 0.3s ease;
-        }
-        .hover-btn-primary:hover {
-          transform: translateY(-3px);
-          filter: brightness(1.1);
-          box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-        }
+        .hover-btn-primary { transition: all 0.3s ease; }
+        .hover-btn-primary:hover { transform: translateY(-3px); filter: brightness(1.1); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
 
-        .hover-btn-secondary {
-          transition: all 0.3s ease;
-        }
-        .hover-btn-secondary:hover {
-          background-color: var(--accent) !important;
-          color: #FFFFFF !important;
-          transform: translateY(-3px);
-        }
+        .hover-btn-secondary { transition: all 0.3s ease; }
+        .hover-btn-secondary:hover { background-color: var(--accent) !important; color: #FFFFFF !important; transform: translateY(-3px); }
 
         @media (prefers-reduced-motion: reduce) {
           .matching-orb, .fade-in-up,

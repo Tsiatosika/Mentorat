@@ -1,8 +1,5 @@
 const { query } = require('../config/db');
 
-// ============================================
-// RÉCUPÉRER LES NOTIFICATIONS
-// ============================================
 const getNotifications = async (req, res, next) => {
   try {
     const result = await query(
@@ -24,9 +21,6 @@ const getNotifications = async (req, res, next) => {
   }
 };
 
-// ============================================
-// MARQUER UNE NOTIFICATION COMME LUE
-// ============================================
 const markAsRead = async (req, res, next) => {
   const { id } = req.params;
 
@@ -45,9 +39,6 @@ const markAsRead = async (req, res, next) => {
   }
 };
 
-// ============================================
-// MARQUER TOUTES LES NOTIFICATIONS COMME LUES
-// ============================================
 const markAllAsRead = async (req, res, next) => {
   try {
     await query(
@@ -64,8 +55,24 @@ const markAllAsRead = async (req, res, next) => {
   }
 };
 
+// ═══ CRÉER UNE NOTIFICATION (utilisé par Socket.IO) ═══
+const createNotification = async (userId, type, titre, message, lien) => {
+  try {
+    await query(
+      `INSERT INTO notifications (utilisateur_id, type, titre, message, lien)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, type, titre, message, lien || null]
+    );
+    return true;
+  } catch (error) {
+    console.error('Erreur createNotification:', error);
+    return false;
+  }
+};
+
 module.exports = {
   getNotifications,
   markAsRead,
-  markAllAsRead
+  markAllAsRead,
+  createNotification
 };

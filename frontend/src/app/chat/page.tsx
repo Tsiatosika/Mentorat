@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   Search, MessageCircle, Clock, ChevronRight, Users, ArrowLeft,
   Download, File, X, Paperclip, Send, Smile, Video,
-  Trash2, MoreVertical, Check, CheckCheck, Calendar, ChevronDown
+  Trash2, MoreVertical, Check, CheckCheck, Calendar, ChevronDown, Info
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -131,6 +131,10 @@ export default function ChatPage() {
   const [sessionInfo, setSessionInfo] = useState<any>(null);
   const [chatLoading, setChatLoading] = useState(false);
 
+  // Panneau de détails (colonne droite)
+  const [showDetails, setShowDetails] = useState(true);
+  const [muted, setMuted] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -145,7 +149,11 @@ export default function ChatPage() {
 
   // ═══ MOBILE ═══
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
+    const check = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) setShowDetails(false);
+    };
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
@@ -175,6 +183,20 @@ export default function ChatPage() {
       setSelectedSessionId(sessions[0].id);
     }
   }, [sessionIdFromUrl, sessions]);
+
+  // ═══ CHARGER LA PRÉFÉRENCE "NOTIFICATIONS" LOCALE POUR CETTE CONVERSATION ═══
+  useEffect(() => {
+    if (!selectedSessionId) return;
+    const stored = localStorage.getItem(`mentoripath_mute_${selectedSessionId}`);
+    setMuted(stored === '1');
+  }, [selectedSessionId]);
+
+  const toggleMuted = () => {
+    if (!selectedSessionId) return;
+    const next = !muted;
+    setMuted(next);
+    localStorage.setItem(`mentoripath_mute_${selectedSessionId}`, next ? '1' : '0');
+  };
 
   // ═══ SOCKET ═══
   useEffect(() => {
@@ -301,6 +323,14 @@ export default function ChatPage() {
     return out;
   }, [messages]);
 
+  // Médias échangés dans la conversation (pour la colonne de droite)
+  const sharedMedia = useMemo(() => {
+    return messages
+      .filter(m => m.type_message === 'fichier' && m.fichier_url && isImageFile(getFullUrl(m.fichier_url)))
+      .map(m => getFullUrl(m.fichier_url))
+      .reverse();
+  }, [messages]);
+
   // ═══ SEND ═══
   const sendTextMessage = (text: string) => {
     if (!socket || sending || !text.trim()) return;
@@ -384,6 +414,7 @@ export default function ChatPage() {
   const hasContent = newMessage.trim() !== '' || selectedFiles.length > 0;
   const otherInitials = getInitials(otherUserName || '?');
   const otherAvatarColor = colorForName(otherUserName || 'x');
+  const otherRoleLabel = user?.role === 'mentor' ? 'Mentoré' : 'Mentor';
 
   const STATUS_LABEL: Record<string,{label:string;color:string;dot:string}> = {
     confirmee:{label:'Confirmée',color:'#10B981',dot:'bg-green-500'},
@@ -405,7 +436,7 @@ export default function ChatPage() {
   return (
     <div className="h-[calc(100vh-4rem)] flex" style={{ backgroundColor: 'var(--bg-primary)' }}>
       {/* COLONNE GAUCHE - LISTE */}
-      <div className={`${isMobile && selectedSessionId ? 'hidden' : 'w-full md:w-[380px]'} flex-shrink-0 flex flex-col border-r`} style={{ borderColor: 'var(--border)' }}>
+      <div className={`${isMobile && selectedSessionId ? 'hidden' : 'w-full md:w-[320px]'} flex-shrink-0 flex flex-col border-r`} style={{ borderColor: 'var(--border)' }}>
         <div className="px-5 pt-6 pb-4 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
             <div><h1 className="font-display text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{t('chat.title')}</h1><p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{sessions.length} conversation{sessions.length !== 1 ? 's' : ''}</p></div>
@@ -449,18 +480,20 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* COLONNE DROITE - CONVERSATION */}
-      <div className={`${isMobile && !selectedSessionId ? 'hidden' : 'flex-1'} flex flex-col min-w-0`}>
+      {/* COLONNE CENTRE - CONVERSATION */}
+      <div className={`${isMobile && !selectedSessionId ? 'hidden' : 'flex-1'} flex flex-col min-w-0 relative`}>
         {selectedSession ? (
           <>
             {/* Header */}
             <div className="flex-shrink-0 px-5 py-3 border-b flex items-center gap-3" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--card-bg)' }}>
               {isMobile && <button onClick={() => setSelectedSessionId(null)} className="p-2 rounded-lg hover:bg-[var(--bg-secondary)]" style={{ color: 'var(--text-secondary)' }}><ArrowLeft className="w-5 h-5" /></button>}
-              <Avatar name={otherUserName} photoUrl={otherUserPhoto} size={40} />
-              <div className="flex-1 min-w-0"><h2 className="font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{otherUserName || 'Utilisateur'}</h2><p className="text-xs" style={{ color: otherOnline ? '#10B981' : 'var(--text-tertiary)' }}>{otherOnline ? 'En ligne' : 'Hors ligne'}</p></div>
+              <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Avec :</span>
+              <h2 className="font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{otherUserName || 'Utilisateur'}</h2>
+              <div className="flex-1" />
               <div className="flex items-center gap-1">
                 {isCallActive && <span className="text-xs px-2 py-1 rounded-lg bg-green-500/10 text-green-600">{formatDuration(callDuration)}</span>}
                 <button onClick={startCall} disabled={isCallActive} className="p-2 rounded-lg hover:bg-[var(--bg-secondary)]" style={{ color: 'var(--accent)' }}><Video className="w-5 h-5" /></button>
+                <button onClick={() => setShowDetails(v => !v)} className="p-2 rounded-lg hover:bg-[var(--bg-secondary)]" style={{ color: showDetails ? 'var(--accent)' : 'var(--text-secondary)' }} title="Détails"><Info className="w-5 h-5" /></button>
               </div>
             </div>
 
@@ -537,6 +570,71 @@ export default function ChatPage() {
           <div className="flex-1 flex items-center justify-center"><div className="text-center"><MessageCircle className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }} /><h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>{t('chat.title')}</h2><p style={{ color: 'var(--text-secondary)' }}>Sélectionnez une conversation à gauche</p></div></div>
         )}
       </div>
+
+      {/* COLONNE DROITE - DÉTAILS */}
+      {showDetails && selectedSession && !isMobile && (
+        <div className="w-[300px] flex-shrink-0 border-l flex flex-col overflow-y-auto" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--card-bg)' }}>
+          <div className="flex items-center justify-between px-5 py-4">
+            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Détails</span>
+            <button onClick={() => setShowDetails(false)} className="p-1 rounded-lg hover:bg-[var(--bg-secondary)]" style={{ color: 'var(--text-secondary)' }}><X className="w-4 h-4" /></button>
+          </div>
+
+          <div className="px-5 pb-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)' }}>
+            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Notifications</span>
+            <button
+              onClick={toggleMuted}
+              className="relative w-10 h-6 rounded-full transition-colors"
+              style={{ backgroundColor: muted ? 'var(--bg-secondary)' : 'var(--accent)' }}
+              aria-pressed={!muted}
+            >
+              <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform" style={{ transform: muted ? 'translateX(2px)' : 'translateX(18px)' }} />
+            </button>
+          </div>
+
+          <div className="px-5 py-6 flex flex-col items-center text-center border-b" style={{ borderColor: 'var(--border)' }}>
+            <Avatar name={otherUserName} photoUrl={otherUserPhoto} size={80} />
+            <p className="font-semibold mt-3" style={{ color: 'var(--text-primary)' }}>{otherUserName || 'Utilisateur'}</p>
+            <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{otherRoleLabel}</p>
+            <p className="text-xs mt-2 flex items-center gap-1.5" style={{ color: otherOnline ? '#10B981' : 'var(--text-tertiary)' }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: otherOnline ? '#10B981' : 'var(--text-tertiary)' }} />
+              {otherOnline ? 'En ligne' : 'Hors ligne'}
+            </p>
+          </div>
+
+          <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
+            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>Session</p>
+            <div className="space-y-2">
+              <div className="flex items-start gap-2">
+                <MessageCircle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+                <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{selectedSession.sujet}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{new Date(selectedSession.date_debut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+                <span className="text-sm px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: `${(STATUS_LABEL[selectedSession.statut] || { color: '#9CA3AF' }).color}15`, color: (STATUS_LABEL[selectedSession.statut] || { color: '#9CA3AF' }).color }}>
+                  {(STATUS_LABEL[selectedSession.statut] || { label: selectedSession.statut }).label}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-5 py-4">
+            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>Médias partagés</p>
+            {sharedMedia.length === 0 ? (
+              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Aucun média échangé</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {sharedMedia.slice(0, 9).map((url, i) => (
+                  <img key={i} src={url} alt="" onClick={() => setSelectedImage(url)} className="w-full aspect-square object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity" />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Modal image */}
       <AnimatePresence>{selectedImage && <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{backgroundColor:'rgba(0,0,0,0.9)'}} onClick={()=>setSelectedImage(null)}><button onClick={()=>setSelectedImage(null)} className="absolute top-4 right-4 text-white"><X className="w-8 h-8" /></button><img src={selectedImage} alt="" className="max-w-full max-h-[90vh] object-contain rounded-xl" onClick={e=>e.stopPropagation()} /></motion.div>}</AnimatePresence>
