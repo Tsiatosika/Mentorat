@@ -156,6 +156,7 @@ export const domaineAPI = {
 export const adminAPI = {
   getDashboard: () => api.get('/admin/dashboard'),
   getUsers: (params?: any) => api.get('/admin/users', { params }),
+  getSessions: (params?: any) => api.get('/admin/sessions', { params }),
 };
 
 export default api;

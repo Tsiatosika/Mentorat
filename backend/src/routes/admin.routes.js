@@ -40,4 +40,10 @@ router.delete('/competences/:id', adminController.deleteCompetence);
 // ── Rapports ──
 router.get('/reports', adminController.getAllReports);
 
+// ── Sessions ──
+// IMPORTANT : la route de liste (/sessions) AVANT la route paramétrée (/sessions/:id)
+router.get('/sessions', adminController.getAllSessionsAdmin);
+router.get('/sessions/:id', adminController.getAdminSessionDetail);
+router.put('/sessions/:id/cancel', adminController.adminCancelSession);
+
 module.exports = router;

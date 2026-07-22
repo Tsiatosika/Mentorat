@@ -1,6 +1,6 @@
 const { query, pool } = require('../config/db');
+const { sendNotificationToUser, getIo } = require('../socket/index');
 
-// ═══ STATISTIQUES DU TABLEAU DE BORD ═══
 const getDashboardStats = async (req, res) => {
   try {
     const totalMentors = await query("SELECT COUNT(*) as total FROM utilisateurs WHERE role = 'mentor' AND actif = true");
@@ -45,7 +45,6 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
-// ═══ LISTE UTILISATEURS AVEC PAGINATION + FILTRES COMBINÉS ═══
 const getUsers = async (req, res) => {
   try {
     const {
@@ -100,7 +99,6 @@ const getUsers = async (req, res) => {
   }
 };
 
-// ═══ DÉTAIL D'UN UTILISATEUR ═══
 const getUserDetail = async (req, res) => {
   try {
     const { id } = req.params;
@@ -340,9 +338,6 @@ const editCategory = async (req, res) => {
     await client.query('COMMIT');
     res.json({ success: true, categorie: result.rows[0], competencesMisesAJour, profilsMisAJour });
   } catch (error) {
-    // ROLLBACK seulement pertinent si une transaction a été ouverte (après BEGIN) ;
-    // avant ça, la connexion n'a pas de transaction en cours, donc l'appeler
-    // ne fait rien de dangereux mais on le garde consistant.
     try { await client.query('ROLLBACK'); } catch (_) { /* pas de transaction ouverte */ }
     res.status(500).json({ success: false, message: error.message });
   } finally {
@@ -433,17 +428,6 @@ const deleteCategory = async (req, res) => {
 };
 
 // ═══ GESTION DES COMPÉTENCES (basique : ajout / suppression uniquement) ═══
-//
-// Volontairement pas d'édition/renommage : une compétence mal catégorisée
-// devrait être supprimée puis recréée, ce qui casserait le lien avec les
-// profils mentors qui l'utilisent déjà (mentor_competences.competence_id).
-//
-// Volontairement pas de fusion de doublons ("React" / "ReactJS") : on se
-// contente ici de bloquer la création d'un doublon exact (insensible à la
-// casse) plutôt que de le fusionner silencieusement.
-
-// Vérifie combien de mentors utilisent une compétence, SANS rien supprimer.
-// Sert à afficher un avertissement précis avant confirmation côté frontend.
 const getCompetenceUsage = async (req, res) => {
   try {
     const result = await query(
@@ -470,9 +454,6 @@ const getCompetenceUsage = async (req, res) => {
   }
 };
 
-// ═══ ÉDITION D'UNE COMPÉTENCE (renommage / recatégorisation) ═══
-// L'id ne change pas lors d'un UPDATE : le lien mentor_competences.competence_id
-// reste donc intact automatiquement, contrairement à un supprimer+recréer.
 const editCompetence = async (req, res) => {
   try {
     const { id } = req.params;
@@ -488,8 +469,6 @@ const editCompetence = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Compétence non trouvée' });
     }
 
-    // Bloque le renommage vers un nom déjà utilisé par une AUTRE compétence
-    // (pas de fusion silencieuse de doublons, même via l'édition)
     const duplicate = await query(
       'SELECT id, nom, categorie FROM competences WHERE nom ILIKE $1 AND id != $2',
       [trimmedNom, id]
@@ -521,7 +500,6 @@ const addCompetence = async (req, res) => {
     }
     const trimmedNom = nom.trim();
 
-    // Vérifie les doublons (insensible à la casse) — pas de merge, pas d'update silencieux
     const existing = await query(
       'SELECT id, nom, categorie FROM competences WHERE nom ILIKE $1',
       [trimmedNom]
@@ -576,6 +554,171 @@ const getAllReports = async (req, res) => {
   }
 };
 
+// ═══ LISTE DE TOUTES LES SESSIONS (vue admin, sans filtre par utilisateur) ═══
+const getAllSessionsAdmin = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 200,
+      statut = '',
+      search = '',
+    } = req.query;
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const conditions = [];
+    const params = [];
+    let idx = 1;
+
+    if (statut) {
+      conditions.push(`s.statut = $${idx++}`);
+      params.push(statut);
+    }
+    if (search) {
+      conditions.push(`s.sujet ILIKE $${idx}`);
+      params.push(`%${search}%`);
+      idx++;
+    }
+
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const countResult = await query(
+      `SELECT COUNT(*) FROM sessions s ${whereClause}`,
+      params
+    );
+    const total = parseInt(countResult.rows[0].count);
+
+    const result = await query(
+      `SELECT s.id, s.sujet, s.description, s.statut, s.date_debut, s.date_fin,
+              s.motif_annulation, s.created_at,
+              um.id  AS mentor_user_id,  um.nom  AS mentor_nom,  um.prenom  AS mentor_prenom,  um.email  AS mentor_email,
+              ume.id AS mentore_user_id, ume.nom AS mentore_nom, ume.prenom AS mentore_prenom, ume.email AS mentore_email
+       FROM sessions s
+       JOIN profils_mentor  pm  ON pm.id  = s.mentor_id
+       JOIN utilisateurs    um  ON um.id  = pm.utilisateur_id
+       JOIN profils_mentore pme ON pme.id = s.mentore_id
+       JOIN utilisateurs    ume ON ume.id = pme.utilisateur_id
+       ${whereClause}
+       ORDER BY s.date_debut DESC
+       LIMIT $${idx++} OFFSET $${idx++}`,
+      [...params, limit, offset]
+    );
+
+    res.json({
+      success: true,
+      sessions: result.rows,
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil(total / parseInt(limit)),
+    });
+  } catch (error) {
+    console.error('Erreur getAllSessionsAdmin:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const getAdminSessionDetail = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const sessionResult = await query(
+      `SELECT s.*,
+              um.id  AS mentor_user_id,  um.nom  AS mentor_nom,  um.prenom  AS mentor_prenom,  um.email  AS mentor_email,  um.photo_url  AS mentor_photo_url,
+              ume.id AS mentore_user_id, ume.nom AS mentore_nom, ume.prenom AS mentore_prenom, ume.email AS mentore_email, ume.photo_url AS mentore_photo_url
+       FROM sessions s
+       JOIN profils_mentor  pm  ON pm.id  = s.mentor_id
+       JOIN utilisateurs    um  ON um.id  = pm.utilisateur_id
+       JOIN profils_mentore pme ON pme.id = s.mentore_id
+       JOIN utilisateurs    ume ON ume.id = pme.utilisateur_id
+       WHERE s.id = $1`,
+      [id]
+    );
+
+    if (sessionResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Session non trouvée' });
+    }
+
+    const messagesResult = await query(
+      `SELECT m.id, m.expediteur_id, m.contenu, m.type_message, m.fichier_url,
+              m.created_at AS envoye_le, u.nom, u.prenom
+       FROM messages m
+       JOIN utilisateurs u ON u.id = m.expediteur_id
+       WHERE m.session_id = $1
+       ORDER BY m.created_at ASC`,
+      [id]
+    );
+
+    res.json({
+      success: true,
+      session: sessionResult.rows[0],
+      messages: messagesResult.rows,
+    });
+  } catch (error) {
+    console.error('Erreur getAdminSessionDetail:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ═══ ANNULATION D'UNE SESSION PAR UN ADMIN (avec motif) ═══
+const adminCancelSession = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { motif } = req.body;
+
+    const sessionResult = await query(
+      `SELECT s.*, pm.utilisateur_id AS mentor_user_id, pme.utilisateur_id AS mentore_user_id
+       FROM sessions s
+       JOIN profils_mentor  pm  ON pm.id  = s.mentor_id
+       JOIN profils_mentore pme ON pme.id = s.mentore_id
+       WHERE s.id = $1`,
+      [id]
+    );
+
+    if (sessionResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Session non trouvée' });
+    }
+
+    const session = sessionResult.rows[0];
+
+    if (['terminee', 'annulee'].includes(session.statut)) {
+      return res.status(400).json({
+        success: false,
+        message: `Impossible d'annuler une session déjà ${session.statut === 'terminee' ? 'terminée' : 'annulée'}`,
+      });
+    }
+
+    const result = await query(
+      `UPDATE sessions
+       SET statut = 'annulee', motif_annulation = $1, annulee_par = $2, updated_at = NOW()
+       WHERE id = $3
+       RETURNING *`,
+      [motif || null, req.user.id, id]
+    );
+
+    // Notifier les deux participants
+    const notifMessage = motif
+      ? `Un administrateur a annulé cette session. Motif : ${motif}`
+      : 'Un administrateur a annulé cette session.';
+
+    const io = getIo();
+    for (const userId of [session.mentor_user_id, session.mentore_user_id]) {
+      if (io) {
+        await sendNotificationToUser(io, userId, {
+          type: 'session_annulee',
+          titre: 'Session annulée par un administrateur',
+          message: notifMessage,
+          lien: '/sessions',
+        });
+      }
+    }
+
+    res.json({ success: true, message: 'Session annulée', session: result.rows[0] });
+  } catch (error) {
+    console.error('Erreur adminCancelSession:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getUsers,
@@ -592,4 +735,7 @@ module.exports = {
   editCompetence,
   deleteCompetence,
   getAllReports,
+  getAllSessionsAdmin,
+  getAdminSessionDetail,
+  adminCancelSession,
 };

@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const { query } = require('../config/db');
 
 const connectedUsers = new Map();
+let ioInstance = null; // ← ajouté : référence à l'instance io pour un usage hors socket.js
 
 const authenticateSocket = async (socket, next) => {
   try {
@@ -147,7 +148,11 @@ const initSocket = (server) => {
     socket.on('end_call', (data) => endCall(io, socket, data));
     socket.on('disconnect', () => disconnect(socket));
   });
+  ioInstance = io; // ← ajouté
   return io;
 };
 
-module.exports = { initSocket, connectedUsers };
+// ← ajouté : accès à l'instance io depuis d'autres contrôleurs (ex. admin)
+const getIo = () => ioInstance;
+
+module.exports = { initSocket, connectedUsers, sendNotificationToUser, getIo };
