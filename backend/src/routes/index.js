@@ -29,6 +29,7 @@ router.use('/notifications',  notificationRoutes);
 router.use('/avis', require('./avis.routes'));
 router.use('/admin', require('./admin.routes'));
 router.use('/chatbot', require('./chatbot.routes'));
+router.use('/categories', require('./categories.routes'));
 
 // Routes mentors protégées
 router.get('/mentors/profile/me',

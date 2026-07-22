@@ -47,6 +47,7 @@ export default function MentorDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hoveredAvis, setHoveredAvis] = useState<string | null>(null);
+  const [ratingsInView, setRatingsInView] = useState(false);
 
   const mentorId = params.id as string;
 
@@ -88,6 +89,8 @@ export default function MentorDetailPage() {
     try {
       const response = await avisAPI.getByMentor(mentorId);
       setAvis(response.data.avis || []);
+      // léger délai pour laisser les barres de notation s'animer après le rendu
+      setTimeout(() => setRatingsInView(true), 50);
     } catch (error) {
       console.error('Erreur chargement avis:', error);
     }
@@ -109,7 +112,6 @@ export default function MentorDetailPage() {
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  // ═══ CORRECTION : Accepter string | null | undefined ═══
   const getPhotoUrl = (url: string | null | undefined): string | undefined => {
     if (!url) return undefined;
     if (url.startsWith('http')) return url;
@@ -119,11 +121,23 @@ export default function MentorDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-4" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
-          <p style={{ color: 'var(--text-secondary)' }}>{t('common.loading')}</p>
+      <div className="min-h-screen p-6" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <div className="max-w-6xl mx-auto">
+          <div className="skeleton-block h-5 w-24 rounded-md mb-6" />
+          <div className="rounded-2xl p-10 flex flex-col items-center skeleton-hero" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+            <div className="skeleton-block w-28 h-28 rounded-full mb-4" />
+            <div className="skeleton-block h-7 w-56 rounded-md mb-2" />
+            <div className="skeleton-block h-4 w-32 rounded-md" />
+          </div>
         </div>
+        <style jsx global>{`
+          .skeleton-block {
+            background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border) 37%, var(--bg-tertiary) 63%);
+            background-size: 400% 100%;
+            animation: skeletonShimmer 1.6s ease-in-out infinite;
+          }
+          @keyframes skeletonShimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        `}</style>
       </div>
     );
   }
@@ -131,14 +145,26 @@ export default function MentorDetailPage() {
   if (error || !mentor) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div className="card p-8 max-w-md text-center">
-          <div className="text-5xl mb-4">⚠️</div>
+        <div className="card p-8 max-w-md text-center error-card-in">
+          <div className="text-5xl mb-4 error-icon-shake">⚠️</div>
           <h2 className="font-display text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>{t('mentors.not_found')}</h2>
           <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>{error || t('common.error')}</p>
           <button onClick={() => router.back()} className="inline-block px-4 py-2 rounded-lg font-medium hover-btn" style={{ backgroundColor: 'var(--accent)', color: '#06231D' }}>
             {t('common.back')}
           </button>
         </div>
+        <style jsx global>{`
+          .error-card-in { opacity: 0; transform: scale(0.94); animation: errorCardIn 0.4s cubic-bezier(0.16,1,0.3,1) forwards; }
+          @keyframes errorCardIn { to { opacity: 1; transform: scale(1); } }
+          .error-icon-shake { display: inline-block; animation: errorShake 0.6s ease 0.2s; }
+          @keyframes errorShake {
+            0%, 100% { transform: rotate(0deg); }
+            20% { transform: rotate(-8deg); }
+            40% { transform: rotate(8deg); }
+            60% { transform: rotate(-5deg); }
+            80% { transform: rotate(5deg); }
+          }
+        `}</style>
       </div>
     );
   }
@@ -156,7 +182,6 @@ export default function MentorDetailPage() {
     { key: 'note_disponibilite' as const, label: t('mentors.criteria_availability') },
   ];
 
-  // ═══ CORRECTION : Photo URL sécurisée ═══
   const photoUrl = getPhotoUrl(mentor.photo_url);
   const overallAvg = avis.length > 0 ? avgCriteria('note_globale') : 0;
 
@@ -172,6 +197,7 @@ export default function MentorDetailPage() {
         <div className="hero-banner fade-in-up relative rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
           <div className="hero-band" style={{ background: 'linear-gradient(135deg, var(--accent-soft), transparent 70%)' }} />
           <div className="hero-band hero-band-2" style={{ background: 'linear-gradient(315deg, var(--accent-soft), transparent 60%)' }} />
+          <div className="hero-shine" />
 
           <div className="relative z-10 pt-10 pb-6 px-8 flex flex-col items-center text-center">
             <div className="hero-avatar-ring avatar-pop">
@@ -184,31 +210,25 @@ export default function MentorDetailPage() {
                   </span>
                 )}
               </div>
+              {mentor.disponible && <span className="hero-availability-dot" />}
             </div>
 
-            <h1 className="font-display text-3xl font-semibold mt-4" style={{ color: 'var(--text-primary)' }}>
+            <h1 className="font-display text-3xl font-semibold mt-4 name-reveal" style={{ color: 'var(--text-primary)' }}>
               {mentor.prenom} {mentor.nom}
             </h1>
-            <p className="text-lg mt-0.5" style={{ color: 'var(--accent)' }}>{mentor.domaine || t('mentors.expert')}</p>
+            <p className="text-lg mt-0.5 name-reveal" style={{ color: 'var(--accent)', animationDelay: '0.08s' }}>{mentor.domaine || t('mentors.expert')}</p>
 
             <div className="flex flex-wrap items-center justify-center gap-2 mt-5">
-              <span className="hero-pill" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border)' }}>
-                <Star className="w-4 h-4" style={{ color: 'var(--warm)', fill: 'var(--warm)' }} />
-                <span className="font-mono-data font-semibold" style={{ color: 'var(--text-primary)' }}>{getNoteDisplay(mentor.note_moyenne)}/5</span>
-                {avis.length > 0 && <span style={{ color: 'var(--text-tertiary)' }}>· {avis.length} avis</span>}
-              </span>
-              <span className="hero-pill" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border)' }}>
-                <Users className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-                {mentor.nb_sessions || 0} {t('mentors.sessions')}
-              </span>
-              <span className="hero-pill" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border)' }}>
-                <Clock className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-                {mentor.annees_experience || 0} {t('mentors.years')}
-              </span>
-              <span className="hero-pill" style={{ backgroundColor: mentor.disponible ? 'var(--success-soft)' : 'var(--bg-primary)', border: `1px solid ${mentor.disponible ? 'var(--success)' : 'var(--border)'}`, color: mentor.disponible ? 'var(--success)' : 'var(--text-secondary)' }}>
-                {mentor.disponible ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                {mentor.disponible ? t('mentors.is_available') : t('mentors.unavailable')}
-              </span>
+              {[
+                { content: (<><Star className="w-4 h-4" style={{ color: 'var(--warm)', fill: 'var(--warm)' }} /><span className="font-mono-data font-semibold" style={{ color: 'var(--text-primary)' }}>{getNoteDisplay(mentor.note_moyenne)}/5</span>{avis.length > 0 && <span style={{ color: 'var(--text-tertiary)' }}>· {avis.length} avis</span>}</>), extraStyle: {} },
+                { content: (<><Users className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />{mentor.nb_sessions || 0} {t('mentors.sessions')}</>), extraStyle: {} },
+                { content: (<><Clock className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />{mentor.annees_experience || 0} {t('mentors.years')}</>), extraStyle: {} },
+                { content: (<>{mentor.disponible ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}{mentor.disponible ? t('mentors.is_available') : t('mentors.unavailable')}</>), extraStyle: { backgroundColor: mentor.disponible ? 'var(--success-soft)' : 'var(--bg-primary)', border: `1px solid ${mentor.disponible ? 'var(--success)' : 'var(--border)'}`, color: mentor.disponible ? 'var(--success)' : 'var(--text-secondary)' } },
+              ].map((pill, pi) => (
+                <span key={pi} className="hero-pill hero-pill-in" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border)', animationDelay: `${0.15 + pi * 0.06}s`, ...pill.extraStyle }}>
+                  {pill.content}
+                </span>
+              ))}
             </div>
           </div>
         </div>
@@ -268,7 +288,7 @@ export default function MentorDetailPage() {
                               <span className="font-mono-data text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{value.toFixed(1)}</span>
                             </div>
                             <div className="rating-track rounded-full" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-                              <div className="rating-fill rounded-full" style={{ width: `${widthPct}%`, backgroundColor: 'var(--accent)' }} />
+                              <div className="rating-fill rounded-full" style={{ width: ratingsInView ? `${widthPct}%` : '0%', backgroundColor: 'var(--accent)', transitionDelay: `${0.1 + ci * 0.1}s` }} />
                             </div>
                           </div>
                         );
@@ -364,13 +384,47 @@ export default function MentorDetailPage() {
         .hero-band-2 { animation: heroBandDrift 8s ease-in-out infinite alternate; }
         @keyframes heroBandDrift { from { transform: translateX(0); } to { transform: translateX(-24px); } }
 
+        .hero-shine {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.08) 50%, transparent 60%);
+          background-size: 250% 100%;
+          animation: heroShineSweep 6s ease-in-out 1s infinite;
+          pointer-events: none;
+        }
+        @keyframes heroShineSweep {
+          0% { background-position: 150% 0; }
+          50% { background-position: -50% 0; }
+          100% { background-position: -50% 0; }
+        }
+
         .hero-avatar-ring {
+          position: relative;
           padding: 4px;
           border-radius: 9999px;
           background: linear-gradient(135deg, var(--accent), var(--accent-soft));
         }
         .avatar-pop { opacity: 0; transform: scale(0.85); animation: avatarPop 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.05s forwards; }
         @keyframes avatarPop { to { opacity: 1; transform: scale(1); } }
+
+        .hero-availability-dot {
+          position: absolute;
+          bottom: 4px;
+          right: 4px;
+          width: 16px;
+          height: 16px;
+          border-radius: 9999px;
+          background: var(--success);
+          border: 3px solid var(--bg-secondary);
+          animation: availabilityDotPulse 2s ease-in-out infinite;
+        }
+        @keyframes availabilityDotPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+          50% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); }
+        }
+
+        .name-reveal { opacity: 0; transform: translateY(8px); animation: nameReveal 0.5s cubic-bezier(0.16,1,0.3,1) 0.2s forwards; }
+        @keyframes nameReveal { to { opacity: 1; transform: translateY(0); } }
 
         .hero-pill {
           display: inline-flex;
@@ -382,6 +436,8 @@ export default function MentorDetailPage() {
           transition: transform 0.25s ease, box-shadow 0.25s ease;
         }
         .hero-pill:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.08); }
+        .hero-pill-in { opacity: 0; transform: scale(0.9); animation: heroPillIn 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+        @keyframes heroPillIn { to { opacity: 1; transform: scale(1); } }
 
         .reveal-block { opacity: 0; transform: translateY(12px); animation: detailFadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
@@ -397,7 +453,7 @@ export default function MentorDetailPage() {
         .rating-row { opacity: 0; transform: translateX(-8px); animation: ratingRowIn 0.4s ease forwards; }
         @keyframes ratingRowIn { to { opacity: 1; transform: translateX(0); } }
         .rating-track { height: 8px; overflow: hidden; }
-        .rating-fill { height: 100%; transition: width 0.8s cubic-bezier(0.16,1,0.3,1); }
+        .rating-fill { height: 100%; transition: width 1s cubic-bezier(0.16,1,0.3,1); }
 
         .avis-block { opacity: 0; transform: translateY(10px); animation: detailFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; transition: border-color 0.3s ease; }
         .quote-mark { transition: color 0.3s ease; padding: 1px; border-radius: 9999px; }
@@ -412,9 +468,10 @@ export default function MentorDetailPage() {
         .hover-btn:hover { transform: translateY(-3px); filter: brightness(1.1); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
 
         @media (prefers-reduced-motion: reduce) {
-          .fade-in-up, .hero-band-2, .avatar-pop, .reveal-block,
+          .fade-in-up, .hero-band-2, .hero-shine, .avatar-pop, .reveal-block,
           .competence-chip, .rating-panel, .rating-row, .rating-fill,
-          .avis-block, .hover-btn, .hover-email { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
+          .avis-block, .hover-btn, .hover-email, .hero-pill-in, .name-reveal,
+          .hero-availability-dot { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
         }
       `}</style>
     </div>

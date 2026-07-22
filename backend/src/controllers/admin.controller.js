@@ -227,6 +227,211 @@ const deleteUser = async (req, res) => {
   }
 };
 
+// ═══ GESTION DES CATÉGORIES (référentiel : nom + icône + couleur) ═══
+//
+// competences.categorie reste un champ texte (pas de FK vers categories.id).
+// Renommer une catégorie répercute donc le nouveau nom sur toutes les
+// compétences qui l'utilisaient (UPDATE ciblé, dans une transaction).
+// Supprimer une catégorie réassigne ses compétences vers "Autre" plutôt
+// que de les laisser sans catégorie.
+
+const getAllCategoriesAdmin = async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT cat.id, cat.nom, cat.icone, cat.couleur,
+              COUNT(c.id) as nb_competences
+       FROM categories cat
+       LEFT JOIN competences c ON c.categorie = cat.nom
+       GROUP BY cat.id, cat.nom, cat.icone, cat.couleur
+       ORDER BY cat.nom`
+    );
+    res.json({
+      success: true,
+      categories: result.rows.map((r) => ({ ...r, nb_competences: parseInt(r.nb_competences, 10) })),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const addCategory = async (req, res) => {
+  try {
+    const { nom, icone, couleur } = req.body;
+    if (!nom || !nom.trim()) {
+      return res.status(400).json({ success: false, message: 'Le nom est requis' });
+    }
+    const trimmedNom = nom.trim();
+
+    const existing = await query('SELECT id, nom FROM categories WHERE nom ILIKE $1', [trimmedNom]);
+    if (existing.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: `Cette catégorie existe déjà ("${existing.rows[0].nom}")`,
+        categorie: existing.rows[0],
+      });
+    }
+
+    const result = await query(
+      'INSERT INTO categories (nom, icone, couleur) VALUES ($1, $2, $3) RETURNING *',
+      [trimmedNom, icone || 'Wrench', couleur || '#6B7280']
+    );
+    res.status(201).json({ success: true, categorie: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const editCategory = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+    const { nom, icone, couleur } = req.body;
+
+    if (!nom || !nom.trim()) {
+      return res.status(400).json({ success: false, message: 'Le nom est requis' });
+    }
+    const trimmedNom = nom.trim();
+
+    const current = await query('SELECT id, nom FROM categories WHERE id = $1', [id]);
+    if (current.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Catégorie non trouvée' });
+    }
+    const oldNom = current.rows[0].nom;
+
+    const duplicate = await query('SELECT id, nom FROM categories WHERE nom ILIKE $1 AND id != $2', [trimmedNom, id]);
+    if (duplicate.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: `Une autre catégorie porte déjà ce nom ("${duplicate.rows[0].nom}")`,
+        categorie: duplicate.rows[0],
+      });
+    }
+
+    await client.query('BEGIN');
+
+    const result = await client.query(
+      'UPDATE categories SET nom = $1, icone = $2, couleur = $3 WHERE id = $4 RETURNING *',
+      [trimmedNom, icone || 'Wrench', couleur || '#6B7280', id]
+    );
+
+    // Si le nom a changé, on répercute sur tout ce qui référence l'ancien nom :
+    // les compétences (categorie) ET les profils mentor/mentoré (domaine),
+    // puisque ProfilePage.tsx utilise désormais ce même référentiel.
+    let competencesMisesAJour = 0;
+    let profilsMisAJour = 0;
+    if (oldNom !== trimmedNom) {
+      const updatedCompetences = await client.query(
+        'UPDATE competences SET categorie = $1 WHERE categorie = $2 RETURNING id',
+        [trimmedNom, oldNom]
+      );
+      competencesMisesAJour = updatedCompetences.rows.length;
+
+      const updatedMentors = await client.query(
+        'UPDATE profils_mentor SET domaine = $1 WHERE domaine = $2 RETURNING id',
+        [trimmedNom, oldNom]
+      );
+      const updatedMentores = await client.query(
+        'UPDATE profils_mentore SET domaine = $1 WHERE domaine = $2 RETURNING id',
+        [trimmedNom, oldNom]
+      );
+      profilsMisAJour = updatedMentors.rows.length + updatedMentores.rows.length;
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, categorie: result.rows[0], competencesMisesAJour, profilsMisAJour });
+  } catch (error) {
+    // ROLLBACK seulement pertinent si une transaction a été ouverte (après BEGIN) ;
+    // avant ça, la connexion n'a pas de transaction en cours, donc l'appeler
+    // ne fait rien de dangereux mais on le garde consistant.
+    try { await client.query('ROLLBACK'); } catch (_) { /* pas de transaction ouverte */ }
+    res.status(500).json({ success: false, message: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+// Vérifie combien de compétences ET de profils (mentor/mentoré) utilisent
+// une catégorie, SANS rien supprimer.
+const getCategoryUsage = async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT cat.id, cat.nom,
+              (SELECT COUNT(*) FROM competences c WHERE c.categorie = cat.nom) as nb_competences,
+              (SELECT COUNT(*) FROM profils_mentor pm WHERE pm.domaine = cat.nom) as nb_mentors,
+              (SELECT COUNT(*) FROM profils_mentore pme WHERE pme.domaine = cat.nom) as nb_mentores
+       FROM categories cat
+       WHERE cat.id = $1`,
+      [req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Catégorie non trouvée' });
+    }
+    const row = result.rows[0];
+    res.json({
+      success: true,
+      categorie: { id: row.id, nom: row.nom },
+      nbCompetences: parseInt(row.nb_competences, 10),
+      nbMentors: parseInt(row.nb_mentors, 10),
+      nbMentores: parseInt(row.nb_mentores, 10),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const deleteCategory = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+
+    const current = await query('SELECT id, nom FROM categories WHERE id = $1', [id]);
+    if (current.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Catégorie non trouvée' });
+    }
+    const nom = current.rows[0].nom;
+
+    if (nom === 'Autre') {
+      return res.status(400).json({
+        success: false,
+        message: 'La catégorie "Autre" ne peut pas être supprimée (catégorie de repli)',
+      });
+    }
+
+    await client.query('BEGIN');
+
+    // Tout ce qui référence cette catégorie bascule vers "Autre" plutôt que
+    // de se retrouver avec une valeur orpheline : compétences ET profils
+    // mentor/mentoré (domaine).
+    const reassigned = await client.query(
+      "UPDATE competences SET categorie = 'Autre' WHERE categorie = $1 RETURNING id",
+      [nom]
+    );
+    const reassignedMentors = await client.query(
+      "UPDATE profils_mentor SET domaine = 'Autre' WHERE domaine = $1 RETURNING id",
+      [nom]
+    );
+    const reassignedMentores = await client.query(
+      "UPDATE profils_mentore SET domaine = 'Autre' WHERE domaine = $1 RETURNING id",
+      [nom]
+    );
+
+    await client.query('DELETE FROM categories WHERE id = $1', [id]);
+
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      message: 'Catégorie supprimée',
+      competencesReassignees: reassigned.rows.length,
+      profilsReassignes: reassignedMentors.rows.length + reassignedMentores.rows.length,
+    });
+  } catch (error) {
+    try { await client.query('ROLLBACK'); } catch (_) { /* pas de transaction ouverte */ }
+    res.status(500).json({ success: false, message: error.message });
+  } finally {
+    client.release();
+  }
+};
+
 // ═══ GESTION DES COMPÉTENCES (basique : ajout / suppression uniquement) ═══
 //
 // Volontairement pas d'édition/renommage : une compétence mal catégorisée
@@ -377,6 +582,11 @@ module.exports = {
   getUserDetail,
   toggleUser,
   deleteUser,
+  getAllCategoriesAdmin,
+  addCategory,
+  editCategory,
+  getCategoryUsage,
+  deleteCategory,
   getCompetenceUsage,
   addCompetence,
   editCompetence,

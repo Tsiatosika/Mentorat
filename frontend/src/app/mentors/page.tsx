@@ -24,9 +24,6 @@ interface Mentor {
 
 type SortKey = 'pertinence' | 'note' | 'experience' | 'popularite';
 
-// ═══════════════════════════════════════════
-// FONCTIONS UTILITAIRES POUR LES COMPÉTENCES
-// ═══════════════════════════════════════════
 function getCompName(comp: any): string {
   if (!comp) return '';
   if (typeof comp === 'string') return comp;
@@ -64,6 +61,7 @@ export default function MentorsPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [activeDomaineLabel, setActiveDomaineLabel] = useState<string | null>(null);
   const [hoveredMentor, setHoveredMentor] = useState<string | null>(null);
+  const [focusedSearch, setFocusedSearch] = useState(false);
 
   useEffect(() => {
     const domaineParam = searchParams.get('domaine');
@@ -93,7 +91,7 @@ export default function MentorsPage() {
   // Extraire les tags (noms de compétences) uniques
   const availableTags = useMemo(() => {
     const counts = new Map<string, number>();
-    
+
     mentors.forEach((m) => {
       const competences = m.competences || [];
       competences.forEach((c: any) => {
@@ -103,7 +101,7 @@ export default function MentorsPage() {
         }
       });
     });
-    
+
     return Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1])
       .map(([tag]) => tag);
@@ -127,12 +125,12 @@ export default function MentorsPage() {
   const filteredMentors = useMemo(() => {
     let result = mentors.filter((mentor) => {
       const fullName = `${mentor.prenom} ${mentor.nom}`.toLowerCase();
-      
+
       const matchesSearch =
         !searchTerm ||
         fullName.includes(searchTerm.toLowerCase()) ||
         (mentor.domaine || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (mentor.competences || []).some((c: any) => 
+        (mentor.competences || []).some((c: any) =>
           getCompName(c).toLowerCase().includes(searchTerm.toLowerCase())
         );
 
@@ -172,7 +170,6 @@ export default function MentorsPage() {
     return numNote.toFixed(1);
   };
 
-  // ═══ CORRECTION : Retourne string | undefined au lieu de string | null ═══
   const getPhotoUrl = (url: string | null | undefined): string | undefined => {
     if (!url) return undefined;
     if (url.startsWith('http')) return url;
@@ -194,11 +191,43 @@ export default function MentorsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div className="text-center">
-          <div className="w-12 h-12 rounded-full animate-spin mx-auto mb-4" style={{ border: '3px solid var(--accent-soft)', borderTop: '3px solid var(--accent)' }} />
-          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>{t('common.loading')}</p>
+      <div className="min-h-screen relative" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 pt-12 pb-8">
+          <div className="skeleton-block h-3 w-32 rounded-full mb-3" />
+          <div className="skeleton-block h-10 w-64 rounded-xl mb-8" />
+          <div className="skeleton-block h-14 w-full rounded-2xl mb-8" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="card p-5 skeleton-card" style={{ animationDelay: `${i * 0.05}s` }}>
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="skeleton-block w-14 h-14 rounded-xl flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="skeleton-block h-4 w-3/4 rounded-md" />
+                    <div className="skeleton-block h-3 w-1/2 rounded-md" />
+                  </div>
+                </div>
+                <div className="skeleton-block h-3 w-full rounded-md mb-2" />
+                <div className="skeleton-block h-8 w-full rounded-xl mt-4" />
+              </div>
+            ))}
+          </div>
         </div>
+        <style jsx global>{`
+          .skeleton-block {
+            background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border) 37%, var(--bg-tertiary) 63%);
+            background-size: 400% 100%;
+            animation: skeletonShimmer 1.6s ease-in-out infinite;
+          }
+          @keyframes skeletonShimmer {
+            0% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+          }
+          .skeleton-card {
+            opacity: 0;
+            animation: skeletonCardIn 0.4s ease forwards;
+          }
+          @keyframes skeletonCardIn { to { opacity: 1; } }
+        `}</style>
       </div>
     );
   }
@@ -208,6 +237,7 @@ export default function MentorsPage() {
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="mentors-orb mentors-orb-1" style={{ backgroundColor: 'var(--accent-soft)' }} />
         <div className="mentors-orb mentors-orb-2" style={{ backgroundColor: 'var(--warm-soft)' }} />
+        <div className="mentors-orb mentors-orb-3" style={{ backgroundColor: 'var(--accent-soft)' }} />
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 pt-12 pb-8">
@@ -218,24 +248,26 @@ export default function MentorsPage() {
           {t('nav.mentors')}
         </h1>
         {activeDomaineLabel && (
-          <div className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-full text-sm font-medium fade-in-up" style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)', animationDelay: '0.1s' }}>
+          <div className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-full text-sm font-medium domaine-chip-in" style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)' }}>
             Domaine : {activeDomaineLabel}
-            <button onClick={resetFilters} className="hover:opacity-70 font-bold">✕</button>
+            <button onClick={resetFilters} className="domaine-chip-close hover:opacity-70 font-bold">✕</button>
           </div>
         )}
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 mb-8 space-y-4 fade-in-up" style={{ animationDelay: '0.12s' }}>
         <div className="flex flex-col md:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
+          <div className="relative flex-1 search-wrap" data-focused={focusedSearch}>
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 search-icon" style={{ color: focusedSearch ? 'var(--accent)' : 'var(--text-tertiary)' }} />
             <input
               type="text"
               placeholder={t('mentors.search_placeholder')}
-              className="w-full pl-12 pr-4 py-3.5 rounded-2xl outline-none text-base"
-              style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', boxShadow: 'var(--shadow-card)' }}
+              className="search-input w-full pl-12 pr-4 py-3.5 rounded-2xl outline-none text-base"
+              style={{ backgroundColor: 'var(--card-bg)', border: `1px solid ${focusedSearch ? 'var(--accent)' : 'var(--border)'}`, color: 'var(--text-primary)', boxShadow: focusedSearch ? '0 0 0 4px var(--accent-soft)' : 'var(--shadow-card)' }}
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setActiveDomaineLabel(null); }}
+              onFocus={() => setFocusedSearch(true)}
+              onBlur={() => setFocusedSearch(false)}
             />
           </div>
 
@@ -243,7 +275,7 @@ export default function MentorsPage() {
             <select
               value={sortKey}
               onChange={(e) => setSortKey(e.target.value as SortKey)}
-              className="w-full md:w-56 h-full pl-11 pr-4 py-3.5 rounded-2xl outline-none appearance-none text-sm font-medium"
+              className="sort-select w-full md:w-56 h-full pl-11 pr-4 py-3.5 rounded-2xl outline-none appearance-none text-sm font-medium"
               style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', boxShadow: 'var(--shadow-card)' }}
             >
               {sortOptions.map((opt) => (
@@ -255,16 +287,16 @@ export default function MentorsPage() {
 
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl text-sm font-medium transition-all"
+            className="filters-btn flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl text-sm font-medium transition-all"
             style={showAdvanced ? { backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text-on-soft)', border: '1px solid var(--border)' } : { backgroundColor: 'var(--card-bg)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
           >
-            <SlidersHorizontal className="w-4 h-4" />
+            <SlidersHorizontal className="w-4 h-4" style={{ transform: showAdvanced ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.3s ease' }} />
             {t('mentors.advanced_filters')}
           </button>
         </div>
 
         {showAdvanced && (
-          <div className="card p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="card p-5 grid grid-cols-1 md:grid-cols-2 gap-6 advanced-panel-in">
             <div>
               <label className="flex justify-between text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                 <span>{t('mentors.min_rating')}</span>
@@ -286,34 +318,37 @@ export default function MentorsPage() {
         <div className="flex items-start gap-2 flex-wrap">
           <button
             onClick={() => setOnlyAvailable(!onlyAvailable)}
-            className="px-4 py-2 rounded-full text-sm font-medium transition-all"
+            className="tag-btn px-4 py-2 rounded-full text-sm font-medium transition-all"
             style={onlyAvailable ? { backgroundColor: 'var(--accent)', color: '#FFFFFF' } : { backgroundColor: 'var(--card-bg)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
           >
             <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: onlyAvailable ? '#FFFFFF' : 'var(--success)' }} />
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: onlyAvailable ? '#FFFFFF' : 'var(--success)', animation: onlyAvailable ? 'none' : 'availablePulse 2s ease-in-out infinite' }} />
               {t('mentors.available')}
             </span>
           </button>
 
           {visibleTags.length > 0 ? (
             <>
-              {visibleTags.map((tag) => {
+              {visibleTags.map((tag, ti) => {
                 const active = activeTags.includes(tag);
                 return (
                   <button
                     key={tag}
                     onClick={() => toggleTag(tag)}
-                    className="px-4 py-2 rounded-full text-sm font-medium transition-all"
-                    style={active ? { backgroundColor: 'var(--warm)', color: '#2A1700' } : { backgroundColor: 'var(--card-bg)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
+                    className="tag-btn tag-btn-in px-4 py-2 rounded-full text-sm font-medium transition-all"
+                    style={{
+                      ...(active ? { backgroundColor: 'var(--warm)', color: '#2A1700' } : { backgroundColor: 'var(--card-bg)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }),
+                      animationDelay: `${ti * 0.03}s`,
+                    }}
                   >
                     {tag}
                     {active && <X className="w-3 h-3 ml-1 inline" />}
                   </button>
                 );
               })}
-              
+
               {availableTags.length > 9 && (
-                <button onClick={() => setShowAllTags(!showAllTags)} className="px-4 py-2 rounded-full text-sm font-medium" style={{ color: 'var(--accent)' }}>
+                <button onClick={() => setShowAllTags(!showAllTags)} className="tag-more-btn px-4 py-2 rounded-full text-sm font-medium" style={{ color: 'var(--accent)' }}>
                   {showAllTags ? t('mentors.show_less') : `+${availableTags.length - 9} ${t('mentors.show_more_others')}`}
                 </button>
               )}
@@ -325,7 +360,7 @@ export default function MentorsPage() {
           )}
 
           {hasActiveFilters && (
-            <button onClick={resetFilters} className="px-4 py-2 rounded-full text-sm font-medium" style={{ color: 'var(--danger)' }}>
+            <button onClick={resetFilters} className="reset-btn px-4 py-2 rounded-full text-sm font-medium" style={{ color: 'var(--danger)' }}>
               {t('mentors.reset')}
             </button>
           )}
@@ -335,12 +370,20 @@ export default function MentorsPage() {
       {/* ─── LISTE DES MENTORS ─── */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 pb-12">
         {filteredMentors.length === 0 ? (
-          <div className="card p-12 text-center fade-in-up">
+          <div className="card p-12 text-center fade-in-up empty-state">
+            <div className="empty-icon-wrap mb-4">
+              <Search className="w-10 h-10 mx-auto" style={{ color: 'var(--text-tertiary)' }} />
+            </div>
             <p className="text-lg" style={{ color: 'var(--text-secondary)' }}>{t('mentors.no_results')}</p>
+            {hasActiveFilters && (
+              <button onClick={resetFilters} className="mt-4 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-90" style={{ backgroundColor: 'var(--accent)', color: '#FFFFFF' }}>
+                {t('mentors.reset')}
+              </button>
+            )}
           </div>
         ) : (
           <>
-            <p className="text-sm mb-4 fade-in-up" style={{ color: 'var(--text-tertiary)' }}>
+            <p className="text-sm mb-4 fade-in-up count-text" key={filteredMentors.length} style={{ color: 'var(--text-tertiary)' }}>
               {filteredMentors.length} {t('mentors.found_label')}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -350,14 +393,13 @@ export default function MentorsPage() {
                 return (
                   <div
                     key={mentor.id}
-                    className="card p-5 flex flex-col mentor-card-in"
-                    style={{ animationDelay: `${Math.min(idx, 12) * 0.04}s` }}
+                    className="card p-5 flex flex-col mentor-card-in mentor-card"
+                    style={{ animationDelay: `${Math.min(idx, 12) * 0.04}s`, transform: isHovered ? 'translateY(-5px)' : 'translateY(0)', boxShadow: isHovered ? '0 16px 32px rgba(0,0,0,0.12)' : 'var(--shadow-card)', borderColor: isHovered ? 'var(--accent)' : 'var(--border)' }}
                     onMouseEnter={() => setHoveredMentor(mentor.id)}
                     onMouseLeave={() => setHoveredMentor(null)}
                   >
-                    {/* ═══ AVATAR + NOM (CORRIGÉ) ═══ */}
                     <div className="flex items-start gap-3 mb-3">
-                      <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: 'var(--accent-soft)', border: '2px solid var(--accent-soft)' }}>
+                      <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center avatar-box" style={{ backgroundColor: 'var(--accent-soft)', border: '2px solid var(--accent-soft)', transform: isHovered ? 'scale(1.06) rotate(-2deg)' : 'scale(1) rotate(0deg)' }}>
                         {(() => {
                           const photoUrl = getPhotoUrl(mentor.photo_url);
                           return photoUrl ? (
@@ -370,7 +412,7 @@ export default function MentorsPage() {
                         })()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold leading-tight truncate" style={{ color: isHovered ? 'var(--accent)' : 'var(--text-primary)' }}>
+                        <h3 className="font-semibold leading-tight truncate transition-colors duration-200" style={{ color: isHovered ? 'var(--accent)' : 'var(--text-primary)' }}>
                           {mentor.prenom} {mentor.nom}
                         </h3>
                         <p className="text-sm truncate" style={{ color: 'var(--text-secondary)' }}>
@@ -385,19 +427,18 @@ export default function MentorsPage() {
                       </div>
                     </div>
 
-                    {/* ─── COMPÉTENCES ─── */}
                     {mentor.competences && mentor.competences.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mb-3">
                         {mentor.competences.slice(0, 4).map((comp: any, ci: number) => {
                           const compName = getCompName(comp);
                           const compNiveau = getCompNiveau(comp);
-                          
+
                           if (!compName) return null;
-                          
+
                           return (
                             <span
                               key={ci}
-                              className="text-xs px-2.5 py-1 rounded-full font-medium cursor-pointer"
+                              className="text-xs px-2.5 py-1 rounded-full font-medium cursor-pointer competence-mini-chip"
                               style={{ backgroundColor: 'var(--warm-soft)', color: 'var(--warm-text-on-soft)' }}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -417,27 +458,25 @@ export default function MentorsPage() {
                       </div>
                     )}
 
-                    {/* Stats */}
                     <div className="flex items-center justify-between text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
                       <span className="font-mono-data text-xs">{mentor.nb_sessions || 0} sessions</span>
                       <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: mentor.disponible ? 'var(--success)' : 'var(--text-tertiary)' }}>
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: mentor.disponible ? 'var(--success)' : 'var(--text-tertiary)' }} />
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: mentor.disponible ? 'var(--success)' : 'var(--text-tertiary)', animation: mentor.disponible ? 'availablePulse 2s ease-in-out infinite' : 'none' }} />
                         {mentor.disponible ? t('mentors.available') : t('mentors.unavailable')}
                       </span>
                     </div>
 
-                    {/* Actions */}
                     <div className="flex gap-2 mt-auto">
                       <Link
                         href={`/mentors/${mentor.id}`}
-                        className="flex-1 text-center px-3 py-2.5 rounded-xl font-medium text-sm transition-all hover:opacity-90"
+                        className="card-btn-primary flex-1 text-center px-3 py-2.5 rounded-xl font-medium text-sm"
                         style={{ backgroundColor: 'var(--text-primary)', color: 'var(--bg-primary)' }}
                       >
                         {t('mentors.view_profile')}
                       </Link>
                       <Link
                         href={`/sessions/new?mentor=${mentor.id}`}
-                        className="px-3 py-2.5 rounded-xl flex items-center justify-center transition-all"
+                        className="card-btn-secondary px-3 py-2.5 rounded-xl flex items-center justify-center"
                         style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--accent)' }}
                         title={t('mentors.book_session')}
                       >
@@ -462,6 +501,7 @@ export default function MentorsPage() {
         }
         .mentors-orb-1 { width: 22rem; height: 22rem; top: -8rem; right: -6rem; animation: mentorsFloat1 26s ease-in-out infinite; }
         .mentors-orb-2 { width: 18rem; height: 18rem; bottom: -6rem; left: -4rem; animation: mentorsFloat2 30s ease-in-out infinite; }
+        .mentors-orb-3 { width: 14rem; height: 14rem; top: 30%; left: 45%; animation: mentorsFloat3 34s ease-in-out infinite; opacity: 0.18; }
 
         @keyframes mentorsFloat1 {
           0%, 100% { transform: translate(0, 0) scale(1); }
@@ -470,6 +510,15 @@ export default function MentorsPage() {
         @keyframes mentorsFloat2 {
           0%, 100% { transform: translate(0, 0) scale(1); }
           50% { transform: translate(25px, -20px) scale(1.08); }
+        }
+        @keyframes mentorsFloat3 {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(20px, 20px) scale(1.1); }
+        }
+
+        @keyframes availablePulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+          50% { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0); }
         }
 
         .fade-in-up {
@@ -481,6 +530,53 @@ export default function MentorsPage() {
           to { opacity: 1; transform: translateY(0); }
         }
 
+        .domaine-chip-in {
+          opacity: 0;
+          transform: translateY(-6px) scale(0.95);
+          animation: domaineChipIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s forwards;
+        }
+        @keyframes domaineChipIn { to { opacity: 1; transform: translateY(0) scale(1); } }
+        .domaine-chip-close { transition: transform 0.2s ease; display: inline-block; }
+        .domaine-chip-close:hover { transform: rotate(90deg); }
+
+        .search-input { transition: border-color 0.25s ease, box-shadow 0.25s ease; }
+        .search-icon { transition: color 0.25s ease; }
+
+        .sort-select { transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+        .sort-select:hover { border-color: var(--accent) !important; }
+        .sort-select:focus { box-shadow: 0 0 0 4px var(--accent-soft); border-color: var(--accent) !important; }
+
+        .filters-btn { transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease; }
+        .filters-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.08); }
+        .filters-btn:active { transform: translateY(0) scale(0.97); }
+
+        .advanced-panel-in {
+          opacity: 0;
+          transform: translateY(-8px);
+          animation: advancedPanelIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes advancedPanelIn { to { opacity: 1; transform: translateY(0); } }
+
+        .tag-btn { transition: transform 0.18s ease, background-color 0.2s ease, box-shadow 0.2s ease; }
+        .tag-btn:hover { transform: translateY(-2px); }
+        .tag-btn:active { transform: translateY(0) scale(0.95); }
+        .tag-btn-in {
+          opacity: 0;
+          transform: translateY(6px);
+          animation: tagBtnIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes tagBtnIn { to { opacity: 1; transform: translateY(0); } }
+
+        .tag-more-btn { transition: opacity 0.2s ease; }
+        .tag-more-btn:hover { opacity: 0.7; text-decoration: underline; }
+
+        .reset-btn { transition: transform 0.18s ease, opacity 0.2s ease; }
+        .reset-btn:hover { transform: translateY(-2px); opacity: 0.8; }
+
+        .count-text {
+          animation: mentorsFadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
         .mentor-card-in {
           opacity: 0;
           transform: translateY(16px) scale(0.98);
@@ -489,12 +585,37 @@ export default function MentorsPage() {
         @keyframes mentorsCardIn {
           to { opacity: 1; transform: translateY(0) scale(1); }
         }
+        .mentor-card {
+          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+        }
+        .avatar-box { transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+        .competence-mini-chip { transition: transform 0.18s ease, filter 0.18s ease; }
+        .competence-mini-chip:hover { transform: translateY(-2px) scale(1.05); filter: brightness(1.08); }
+
+        .card-btn-primary, .card-btn-secondary { transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease; }
+        .card-btn-primary:hover { filter: brightness(1.15); box-shadow: 0 6px 14px rgba(0,0,0,0.15); }
+        .card-btn-primary:active { transform: scale(0.96); }
+        .card-btn-secondary:hover { transform: translateY(-2px) rotate(8deg); border-color: var(--accent) !important; }
+        .card-btn-secondary:active { transform: scale(0.92); }
+
+        .empty-state { animation-delay: 0.05s; }
+        .empty-icon-wrap {
+          animation: emptyIconFloat 3s ease-in-out infinite;
+        }
+        @keyframes emptyIconFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-6px); }
+        }
 
         @media (prefers-reduced-motion: reduce) {
-          .mentors-orb, .fade-in-up, .mentor-card-in {
+          .mentors-orb, .fade-in-up, .mentor-card-in, .domaine-chip-in,
+          .advanced-panel-in, .tag-btn-in, .empty-icon-wrap, .avatar-box,
+          .mentor-card, .card-btn-primary, .card-btn-secondary, .competence-mini-chip {
             animation: none !important;
             opacity: 1 !important;
             transform: none !important;
+            transition: none !important;
           }
         }
       `}</style>

@@ -13,7 +13,7 @@ import {
   Users, GraduationCap, Calendar, MessageCircle,
   FileText, TrendingUp, Star, Activity,
   CheckCircle, XCircle, Clock, ShieldCheck,
-  RefreshCw,
+  RefreshCw, UserPlus, AlertTriangle,
 } from 'lucide-react';
 
 const ACCENT = '#6366F1';
@@ -55,6 +55,30 @@ const arcPath = (s: number, e: number, r = 38, ir = 24) => {
     `A${r},${r},0,${large},1,${polarX(e, r)},${polarY(e, r)}`,
     `L${polarX(e, ir)},${polarY(e, ir)}`,
     `A${ir},${ir},0,${large},0,${polarX(s, ir)},${polarY(s, ir)}Z`,
+  ].join(' ');
+};
+
+// Jauge semi-circulaire pour le taux d'annulation (0-180°, gauche → droite)
+const gaugeArcPath = (pct: number, r = 40, ir = 26) => {
+  const clamped = Math.max(0, Math.min(100, pct));
+  const deg = (clamped / 100) * 180;
+  const s = -90, e = -90 + deg;
+  const large = deg > 180 ? 1 : 0;
+  return [
+    `M${polarX(s, r)},${polarY(s, r)}`,
+    `A${r},${r},0,${large},1,${polarX(e, r)},${polarY(e, r)}`,
+    `L${polarX(e, ir)},${polarY(e, ir)}`,
+    `A${ir},${ir},0,${large},0,${polarX(s, ir)},${polarY(s, ir)}Z`,
+  ].join(' ');
+};
+
+const gaugeTrackPath = (r = 40, ir = 26) => {
+  const s = -90, e = 90;
+  return [
+    `M${polarX(s, r)},${polarY(s, r)}`,
+    `A${r},${r},0,1,1,${polarX(e, r)},${polarY(e, r)}`,
+    `L${polarX(e, ir)},${polarY(e, ir)}`,
+    `A${ir},${ir},0,1,0,${polarX(s, ir)},${polarY(s, ir)}Z`,
   ].join(' ');
 };
 
@@ -121,6 +145,7 @@ export default function AdminPage() {
   const avgNote = stats?.avgNote || 0;
   const sessionsByStatus = stats?.sessionsByStatus || [];
   const sessionsByMonth = stats?.sessionsByMonth || [];
+  const usersByMonth = stats?.usersByMonth || [];
   const topMentors = stats?.topMentors || [];
   const topMentores = stats?.topMentores || [];
   const recentSessions = stats?.recentSessions || [];
@@ -145,6 +170,14 @@ export default function AdminPage() {
   const arcs = donut.map(d => { const start = cumul / dTotal * 360; cumul += d.val; return { ...d, start, end: cumul / dTotal * 360 }; });
   const barMax = Math.max(...donut.map(d => d.val), 1);
   const totalCount = useCountUp(totalSessions);
+
+  // ═══ TAUX D'ANNULATION ═══
+  const statusTotal = terminees + enCours + confirmees + enAttente + annulees;
+  const cancellationRate = statusTotal > 0 ? (annulees / statusTotal) * 100 : 0;
+  const cancellationRounded = useCountUp(Math.round(cancellationRate * 10)); // x10 pour une décimale animée
+  const cancellationDisplay = (cancellationRounded / 10).toFixed(1);
+  const cancellationColor = cancellationRate < 10 ? 'var(--success)' : cancellationRate <= 20 ? 'var(--warm)' : 'var(--danger)';
+  const cancellationLabel = cancellationRate < 10 ? 'Sain' : cancellationRate <= 20 ? 'À surveiller' : 'Élevé';
 
   const kpiCards = [
     { label: t('admin.kpi_mentors'), value: totalMentors, icon: GraduationCap, color: ACCENT, bg: 'var(--accent-soft)', isNumeric: true },
@@ -250,8 +283,75 @@ export default function AdminPage() {
               </div>
             </div>
 
+            {/* ═══ NOUVELLE RANGÉE : Inscriptions par mois + Taux d'annulation ═══ */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              {/* Inscriptions par mois */}
+              <div className="admin-fade-up" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: '16px', padding: '24px', ['--i' as any]: 8 }}>
+                <h3 className="admin-display font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                  <UserPlus size={16} style={{ color: '#10B981' }} /> Inscriptions par mois
+                </h3>
+                <div className="space-y-3">
+                  {usersByMonth.length > 0 ? usersByMonth.map((u, i) => {
+                    const maxVal = Math.max(...usersByMonth.map(x => x.total), 1);
+                    return (
+                      <div key={i} className="flex items-center gap-3">
+                        <span className="admin-mono text-xs w-12" style={{ color: 'var(--text-tertiary)' }}>{months[u.mois.split('-')[1]] || u.mois}</span>
+                        <div className="flex-1 h-6 rounded-full overflow-hidden" style={{ background: 'var(--bg-tertiary)' }}>
+                          <div
+                            className="h-full rounded-full flex items-center justify-end pr-2"
+                            style={{ width: `${(u.total / maxVal) * 100}%`, background: 'linear-gradient(90deg, #10B981, #34D399)', transition: 'width 1s cubic-bezier(.16,1,.3,1)' }}
+                          >
+                            <span className="text-[10px] font-bold text-white">{u.total}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }) : <p className="text-sm text-center py-8" style={{ color: 'var(--text-tertiary)' }}>{t('admin.no_data')}</p>}
+                </div>
+              </div>
+
+              {/* Taux d'annulation */}
+              <div className="admin-fade-up" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: '16px', padding: '24px', ['--i' as any]: 9 }}>
+                <h3 className="admin-display font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                  <AlertTriangle size={16} style={{ color: cancellationColor }} /> Taux d'annulation
+                </h3>
+                {statusTotal > 0 ? (
+                  <div className="flex items-center gap-6">
+                    <svg viewBox="0 0 100 60" width={160} height={96} style={{ flexShrink: 0, overflow: 'visible' }}>
+                      <path d={gaugeTrackPath()} fill="var(--bg-tertiary)" />
+                      <path d={gaugeArcPath(cancellationRate)} fill={cancellationColor} opacity={0.9} style={{ transition: 'd 1s cubic-bezier(.16,1,.3,1)' }} />
+                      <text x="50" y="48" textAnchor="middle" fontSize="16" fontWeight="800" fill="var(--text-primary)">{cancellationDisplay}%</text>
+                    </svg>
+                    <div className="flex-1 space-y-3">
+                      <div>
+                        <span
+                          className="text-xs font-bold px-2.5 py-1 rounded-full inline-block"
+                          style={{ backgroundColor: `${cancellationColor}20`, color: cancellationColor }}
+                        >
+                          {cancellationLabel}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span style={{ color: 'var(--text-secondary)' }}>Sessions annulées</span>
+                        <span className="admin-mono font-bold" style={{ color: 'var(--text-primary)' }}>{annulees}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span style={{ color: 'var(--text-secondary)' }}>Total sessions</span>
+                        <span className="admin-mono font-bold" style={{ color: 'var(--text-primary)' }}>{statusTotal}</span>
+                      </div>
+                      <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+                        &lt;10% : matching sain · 10-20% : à surveiller · &gt;20% : revoir le matching
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-center py-8" style={{ color: 'var(--text-tertiary)' }}>{t('admin.no_data')}</p>
+                )}
+              </div>
+            </div>
+
             {/* Table onglets */}
-            <div className="admin-fade-up" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden', ['--i' as any]: 8 }}>
+            <div className="admin-fade-up" style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden', ['--i' as any]: 10 }}>
               <div className="flex relative" style={{ borderBottom: '1px solid var(--border)' }}>
                 {tabs.map(tb => (
                   <button

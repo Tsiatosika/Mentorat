@@ -3,13 +3,21 @@
 import { useState, useEffect, Suspense, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Mail, Lock, Eye, EyeOff, LogIn, Sparkles, Target, Shield, FileText, AlertCircle } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react';
 import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Logo } from '@/components/ui/Logo';
 import { BACKEND_URL } from '@/services/api';
+
+// Photos de personnes en contexte de mentorat/apprentissage qui défilent (crossfade) à gauche.
+// Images libres d'utilisation (Unsplash License) — remplacez-les par vos propres photos quand vous en aurez.
+const AUTH_IMAGES = [
+  'https://images.unsplash.com/photo-1573164574048-f968d7ee9f20?w=900&h=1100&fit=crop&auto=format&q=80',
+  'https://images.unsplash.com/photo-1527689368864-3a821dbccc34?w=900&h=1100&fit=crop&auto=format&q=80',
+  'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=900&h=1100&fit=crop&auto=format&q=80',
+];
 
 function LoginFormContent() {
   const router = useRouter();
@@ -20,6 +28,7 @@ function LoginFormContent() {
   
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [imgIndex, setImgIndex] = useState(0);
   const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
   const [formData, setFormData] = useState({
     email: '',
@@ -38,6 +47,14 @@ function LoginFormContent() {
       router.push(redirectTo);
     }
   }, [user, router, redirectTo]);
+
+  // Fait défiler les images de la colonne gauche une par une (crossfade)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setImgIndex((prev) => (prev + 1) % AUTH_IMAGES.length);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -172,46 +189,29 @@ function LoginFormContent() {
     setErrors({ general: "Connexion Google annulée" });
   };
 
-  const features = [
-    { icon: Sparkles, title: "Trouvez le mentor idéal", desc: "Notre IA vous met en relation avec les meilleurs mentors" },
-    { icon: Target, title: "Objectifs personnalisés", desc: "Des sessions adaptées à vos besoins spécifiques" },
-    { icon: Shield, title: "Paiement sécurisé", desc: "Transactions protégées et garanties" },
-    { icon: FileText, title: "Suivi de progression", desc: "Suivez votre évolution en temps réel" },
-  ];
-
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-          <div className="space-y-6 order-2 md:order-1">
-            <div>
-              <Logo size={56} />
-              <h1 className="font-display text-4xl md:text-5xl font-semibold mt-6 mb-4" style={{ color: 'var(--text-primary)' }}>
-                Bienvenue sur MentorPath
-              </h1>
-              <p className="text-lg" style={{ color: 'var(--text-secondary)' }}>
-                Connectez-vous pour accéder à votre espace d'apprentissage
-              </p>
+          <div className="space-y-4 order-2 md:order-1">
+            {/* Image qui défile (crossfade), au-dessus du texte de bienvenue */}
+            <div className="mp-auth-image-card">
+              {AUTH_IMAGES.map((src, i) => (
+                <img
+                  key={src}
+                  src={src}
+                  alt=""
+                  loading="lazy"
+                  className={`mp-auth-image-img ${i === imgIndex ? 'is-active' : ''}`}
+                />
+              ))}
             </div>
 
-            <div className="space-y-3">
-              {features.map((feature, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-start gap-3 p-3 rounded-xl transition-colors"
-                  style={{ backgroundColor: 'transparent' }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                >
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--accent-soft)' }}>
-                    <feature.icon className="w-5 h-5" style={{ color: 'var(--accent)' }} />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>{feature.title}</h3>
-                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{feature.desc}</p>
-                  </div>
-                </div>
-              ))}
+            <div>
+              <Logo size={56} />
+              <h1 className="font-display text-4xl md:text-5xl font-semibold mt-4" style={{ color: 'var(--text-primary)' }}>
+                Bienvenue sur MentorPath
+              </h1>
             </div>
           </div>
 
@@ -354,6 +354,34 @@ function LoginFormContent() {
           </div>
         </div>
       </div>
+
+      <style jsx global>{`
+        .mp-auth-image-card {
+          position: relative;
+          width: 100%;
+          aspect-ratio: 4 / 3;
+          max-height: 400px;
+          border-radius: 24px;
+          overflow: hidden;
+          background: var(--card-bg);
+          box-shadow: 0 20px 50px rgba(0,0,0,0.16), 0 0 0 1px var(--border);
+        }
+        .mp-auth-image-img {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          opacity: 0;
+          transform: scale(1.04);
+          transition: opacity 1.1s ease, transform 5s ease;
+        }
+        .mp-auth-image-img.is-active { opacity: 1; transform: scale(1); }
+
+        @media (prefers-reduced-motion: reduce) {
+          .mp-auth-image-img { transition: none !important; }
+        }
+      `}</style>
     </div>
   );
 }

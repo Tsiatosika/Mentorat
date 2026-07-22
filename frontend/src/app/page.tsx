@@ -19,6 +19,14 @@ const fraunces = Fraunces({
   display: 'swap',
 });
 
+// Photos de personnes en contexte de mentorat/coaching qui défilent (crossfade) dans le hero.
+// Images libres d'utilisation (Unsplash License) — remplacez-les par vos propres photos quand vous en aurez.
+const HERO_IMAGES = [
+  'https://images.unsplash.com/photo-1527689368864-3a821dbccc34?w=900&h=700&fit=crop&auto=format&q=80',
+  'https://images.unsplash.com/photo-1573164574048-f968d7ee9f20?w=900&h=700&fit=crop&auto=format&q=80',
+  'https://images.unsplash.com/photo-1758270705518-b61b40527e76?w=900&h=700&fit=crop&auto=format&q=80',
+];
+
 export default function Home() {
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -26,6 +34,7 @@ export default function Home() {
   const [stats, setStats] = useState({ mentors: 0, sessions: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [hoveredMentor, setHoveredMentor] = useState<string | null>(null);
+  const [heroImgIndex, setHeroImgIndex] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -37,6 +46,14 @@ export default function Home() {
       finally { setIsLoading(false); }
     };
     fetchData();
+  }, []);
+
+  // Fait défiler les images du hero une par une (crossfade)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setHeroImgIndex((prev) => (prev + 1) % HERO_IMAGES.length);
+    }, 3500);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -124,54 +141,70 @@ export default function Home() {
           <circle cx="1260" cy="40" r="6" fill="var(--mp-gold)" className="mp-node mp-node-b" />
         </svg>
 
-        <div className="relative z-10 max-w-6xl mx-auto px-4 py-24 lg:py-32">
-          <div className="text-center">
-            <div className="fade-up mp-logo-badge" style={{ animationDelay: '0s' }}>
-              <Logo size={52} />
-            </div>
+        <div className="relative z-10 max-w-6xl mx-auto px-4 py-24 lg:py-28">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-10 items-center">
+            {/* ---- Colonne gauche : tout le texte ---- */}
+            <div className="text-center lg:text-left">
+              <div className="fade-up mp-logo-badge mx-auto lg:mx-0" style={{ animationDelay: '0s' }}>
+                <Logo size={52} />
+              </div>
 
-            <div className="inline-flex items-center px-3 py-1.5 rounded-full mt-7 mb-7 fade-up mp-eyebrow" style={{ animationDelay: '0.08s' }}>
-              <Sparkles className="w-3.5 h-3.5 mr-2" style={{ color: 'var(--mp-gold)' }} />
-              <span className="text-xs tracking-wide" style={{ color: 'var(--mp-text-soft)' }}>{t('home.badge')}</span>
-            </div>
+              <div className="inline-flex items-center px-3 py-1.5 rounded-full mt-7 mb-7 fade-up mp-eyebrow" style={{ animationDelay: '0.08s' }}>
+                <Sparkles className="w-3.5 h-3.5 mr-2" style={{ color: 'var(--mp-gold)' }} />
+                <span className="text-xs tracking-wide" style={{ color: 'var(--mp-text-soft)' }}>{t('home.badge')}</span>
+              </div>
 
-            <h1 className={`${fraunces.className} text-4xl md:text-6xl font-medium mb-6 leading-[1.08] fade-up mp-hero-title`} style={{ animationDelay: '0.16s' }}>
-              {t('home.hero_title')}
-              <br />
-              <em className="mp-hero-title-accent not-italic">{t('home.hero_subtitle')}</em>
-            </h1>
+              <h1 className={`${fraunces.className} text-4xl md:text-5xl font-medium mb-6 leading-[1.08] fade-up mp-hero-title`} style={{ animationDelay: '0.16s' }}>
+                {t('home.hero_title')}
+                <br />
+                <em className="mp-hero-title-accent not-italic">{t('home.hero_subtitle')}</em>
+              </h1>
 
-            <p className="text-lg mb-9 max-w-xl mx-auto fade-up" style={{ color: 'var(--mp-text-soft)', animationDelay: '0.24s' }}>
-              {t('home.hero_description')}
-            </p>
+              <p className="text-lg mb-9 max-w-xl mx-auto lg:mx-0 fade-up" style={{ color: 'var(--mp-text-soft)', animationDelay: '0.24s' }}>
+                {t('home.hero_description')}
+              </p>
 
-            <div className="flex flex-wrap gap-4 justify-center fade-up" style={{ animationDelay: '0.32s' }}>
-              <Link href="/mentors" className="mp-btn-primary inline-flex items-center gap-2 px-6 py-3 rounded-full font-semibold hover-lift">
-                <Search className="w-4.5 h-4.5" />
-                {t('home.find_mentor')}
-              </Link>
-              {!user ? (
-                <Link href="/register" className="mp-btn-ghost inline-flex items-center gap-2 px-6 py-3 rounded-full font-semibold hover-lift">
-                  {t('home.start_free')}
+              <div className="flex flex-wrap gap-4 justify-center lg:justify-start fade-up" style={{ animationDelay: '0.32s' }}>
+                <Link href="/mentors" className="mp-btn-primary inline-flex items-center gap-2 px-6 py-3 rounded-full font-semibold hover-lift">
+                  <Search className="w-4.5 h-4.5" />
+                  {t('home.find_mentor')}
                 </Link>
-              ) : (
-                <Link href="/dashboard" className="mp-btn-ghost inline-flex items-center gap-2 px-6 py-3 rounded-full font-semibold hover-lift">
-                  {t('nav.dashboard')}
-                </Link>
-              )}
+                {!user ? (
+                  <Link href="/register" className="mp-btn-ghost inline-flex items-center gap-2 px-6 py-3 rounded-full font-semibold hover-lift">
+                    {t('home.start_free')}
+                  </Link>
+                ) : (
+                  <Link href="/dashboard" className="mp-btn-ghost inline-flex items-center gap-2 px-6 py-3 rounded-full font-semibold hover-lift">
+                    {t('nav.dashboard')}
+                  </Link>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-6 mt-16 fade-up" style={{ animationDelay: '0.4s' }}>
+                {[
+                  { value: `${stats.mentors}+`, label: t('home.stats_mentors') },
+                  { value: `${stats.sessions}+`, label: t('home.stats_sessions') },
+                  { value: '98%', label: t('home.stats_satisfaction') },
+                  { value: '24/7', label: t('home.stats_support') },
+                ].map((stat, i) => (
+                  <div key={i} className="text-center lg:text-left stat-pop mp-stat" style={{ animationDelay: `${0.4 + i * 0.08}s` }}>
+                    <div className={`${fraunces.className} text-3xl font-medium mp-stat-value`}>{stat.value}</div>
+                    <div className="text-sm mt-1" style={{ color: 'var(--mp-text-faint)' }}>{stat.label}</div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-20 fade-up" style={{ animationDelay: '0.4s' }}>
-              {[
-                { value: `${stats.mentors}+`, label: t('home.stats_mentors') },
-                { value: `${stats.sessions}+`, label: t('home.stats_sessions') },
-                { value: '98%', label: t('home.stats_satisfaction') },
-                { value: '24/7', label: t('home.stats_support') },
-              ].map((stat, i) => (
-                <div key={i} className="text-center stat-pop mp-stat" style={{ animationDelay: `${0.4 + i * 0.08}s` }}>
-                  <div className={`${fraunces.className} text-3xl font-medium mp-stat-value`}>{stat.value}</div>
-                  <div className="text-sm mt-1" style={{ color: 'var(--mp-text-faint)' }}>{stat.label}</div>
-                </div>
+            {/* ---- Colonne droite : une seule image qui défile (crossfade) ---- */}
+            <div className="fade-up mp-hero-image-card" style={{ animationDelay: '0.2s' }}>
+              {HERO_IMAGES.map((src, i) => (
+                <img
+                  key={src}
+                  src={src}
+                  alt=""
+                  loading="lazy"
+                  className={`mp-hero-image-img ${i === heroImgIndex ? 'is-active' : ''}`}
+                />
               ))}
             </div>
           </div>
@@ -414,6 +447,28 @@ export default function Home() {
         .mp-hero-title { color: var(--mp-text); }
         .mp-hero-title-accent { color: var(--mp-gold-ink); }
 
+        /* ---- Image unique qui défile (crossfade) à droite du hero ---- */
+        .mp-hero-image-card {
+          position: relative;
+          width: 100%;
+          aspect-ratio: 9 / 7;
+          border-radius: 24px;
+          overflow: hidden;
+          background: var(--mp-card);
+          box-shadow: 0 20px 50px rgba(0,0,0,0.16), 0 0 0 1px var(--mp-border);
+        }
+        .mp-hero-image-img {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          opacity: 0;
+          transform: scale(1.04);
+          transition: opacity 1.1s ease, transform 5s ease;
+        }
+        .mp-hero-image-img.is-active { opacity: 1; transform: scale(1); }
+
         .mp-section-eyebrow { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mp-teal-ink); font-weight: 600; }
 
         .mp-btn-primary { background: var(--mp-gold); color: #1A1200; }
@@ -464,7 +519,7 @@ export default function Home() {
         .reveal-on-scroll.is-visible { opacity: 1; transform: translateY(0); }
 
         @media (prefers-reduced-motion: reduce) {
-          .mp-path-line, .mp-node, .fade-up, .stat-pop, .mp-feature-card, .mp-domain-card, .mp-mentor-card { animation: none !important; transition: none !important; }
+          .mp-path-line, .mp-node, .fade-up, .stat-pop, .mp-feature-card, .mp-domain-card, .mp-mentor-card, .mp-hero-image-img { animation: none !important; transition: none !important; }
           .reveal-on-scroll { opacity: 1; transform: none; transition: none; }
         }
       `}</style>

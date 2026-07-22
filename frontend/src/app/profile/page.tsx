@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { mentorAPI, mentoreAPI, uploadAPI, BACKEND_URL, competenceAPI, authAPI } from '@/services/api';
+import { mentorAPI, mentoreAPI, uploadAPI, BACKEND_URL, competenceAPI, authAPI, api } from '@/services/api';
 import toast from 'react-hot-toast';
 import { Avatar } from '@/components/ui/Avatar';
 
@@ -31,6 +31,10 @@ export default function ProfilePage() {
   const [selectedNiveau, setSelectedNiveau] = useState('intermediaire');
   const [addingCompetence, setAddingCompetence] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Domaines chargés dynamiquement depuis le référentiel de catégories
+  // (géré par l'admin), au lieu d'une liste codée en dur.
+  const [domaines, setDomaines] = useState<{ id: string; nom: string }[]>([]);
 
   const [formData, setFormData] = useState({
     nom: '',
@@ -59,10 +63,6 @@ export default function ProfilePage() {
     { value: 'expert', label: 'Expert' },
   ];
 
-  const DOMAINES = [
-    'Informatique', 'Gestion', 'Communication', 'Droit', 'Langue Anglophone', 'Médecine'
-  ];
-
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -76,13 +76,33 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!user) { router.push('/login'); return; }
     fetchProfile();
+    fetchDomaines();
     if (user?.role === 'mentor') fetchAvailableCompetences();
   }, [user, router]);
+
+  const fetchDomaines = async () => {
+    try {
+      const res = await api.get('/categories');
+      setDomaines(res.data.categories || []);
+    } catch {
+      // Non bloquant : le select restera simplement vide si ça échoue
+    }
+  };
 
   const fetchProfile = async () => {
     setLoading(true);
     try {
-      if (user?.role === 'mentor') {
+      if (user?.role === 'admin') {
+        // Un admin n'a pas de profil mentor/mentoré en base : on ne charge
+        // que ses infos de base (nom/prénom/photo), déjà présentes sur `user`.
+        setProfile(null);
+        setPhotoUrl(user?.photo_url || null);
+        setFormData(prev => ({
+          ...prev,
+          nom: user?.nom || '',
+          prenom: user?.prenom || '',
+        }));
+      } else if (user?.role === 'mentor') {
         const res = await mentorAPI.getProfile();
         const p = res.data.profile;
         setProfile(p);
@@ -266,9 +286,10 @@ export default function ProfilePage() {
     try {
       const res = await authAPI.updateProfile({ nom: formData.nom.trim(), prenom: formData.prenom.trim() });
       if (user) updateUser({ ...user, nom: res.data.user.nom, prenom: res.data.user.prenom } as any);
+      // Un admin n'a pas de profil mentor/mentoré : rien de plus à sauvegarder.
       if (user?.role === 'mentor') {
         await mentorAPI.updateProfile({ bio: formData.bio, domaine: formData.domaine, annees_experience: formData.annees_experience, disponible: formData.disponible });
-      } else {
+      } else if (user?.role === 'mentore') {
         await mentoreAPI.updateProfile({ domaine: formData.domaine, niveau_etude: formData.niveau_etude, objectifs: formData.objectifs, objectifs_tags: formData.objectifs_tags });
       }
       toast.success(t('common.success'));
@@ -309,21 +330,26 @@ export default function ProfilePage() {
   }
 
   const isMentor = user?.role === 'mentor';
+  const isAdmin = user?.role === 'admin';
 
-  // Complétude
-  const completionChecks = isMentor
+  // Complétude — non pertinente pour un admin (pas de champs métier à remplir)
+  const completionChecks = isAdmin
+    ? []
+    : isMentor
     ? [!!photoUrl, !!formData.bio.trim(), !!formData.domaine, formData.annees_experience > 0, formData.competences.length > 0]
     : [!!photoUrl, !!formData.domaine, !!formData.niveau_etude.trim(), !!formData.objectifs.trim(), formData.objectifs_tags.length > 0];
   const completionDone = completionChecks.filter(Boolean).length;
-  const completionPercent = Math.round((completionDone / completionChecks.length) * 100);
+  const completionPercent = completionChecks.length > 0 ? Math.round((completionDone / completionChecks.length) * 100) : 100;
 
   const inputCls = "w-full px-4 py-2.5 rounded-xl outline-none transition-all text-sm pf-input";
   const inputStyle = { backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' };
   const labelCls = "block text-xs font-semibold uppercase tracking-wide mb-1.5";
 
+  // Pas d'onglet "Profil/Expérience" pour un admin : rien à y afficher (pas de
+  // domaine, bio, compétences, etc. côté admin).
   const tabs = [
     { key: 'info' as const,     label: t('profile.info'),                      icon: User },
-    { key: 'profil' as const,   label: isMentor ? t('profile.experience') : 'Parcours', icon: isMentor ? Briefcase : BookOpen },
+    ...(!isAdmin ? [{ key: 'profil' as const, label: isMentor ? t('profile.experience') : 'Parcours', icon: isMentor ? Briefcase : BookOpen }] : []),
     { key: 'securite' as const, label: 'Sécurité',                             icon: Shield },
   ];
 
@@ -364,16 +390,18 @@ export default function ProfilePage() {
             <div className="pf-avatar-wrapper">
               <div className="pf-avatar-ring">
                 <Avatar photoUrl={photoUrl || user?.photo_url} prenom={user?.prenom} nom={user?.nom} size={88} />
-                {/* Cercle de progression */}
-                <svg className="pf-ring-svg" viewBox="0 0 104 104">
-                  <circle cx="52" cy="52" r="48" fill="none" stroke="var(--border)" strokeWidth="3" />
-                  <circle cx="52" cy="52" r="48" fill="none" stroke="var(--accent)" strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeDasharray={`${2 * Math.PI * 48}`}
-                    strokeDashoffset={`${2 * Math.PI * 48 * (1 - completionPercent / 100)}`}
-                    className="pf-ring-progress"
-                  />
-                </svg>
+                {/* Cercle de progression (masqué pour l'admin, sans complétude à afficher) */}
+                {!isAdmin && (
+                  <svg className="pf-ring-svg" viewBox="0 0 104 104">
+                    <circle cx="52" cy="52" r="48" fill="none" stroke="var(--border)" strokeWidth="3" />
+                    <circle cx="52" cy="52" r="48" fill="none" stroke="var(--accent)" strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeDasharray={`${2 * Math.PI * 48}`}
+                      strokeDashoffset={`${2 * Math.PI * 48 * (1 - completionPercent / 100)}`}
+                      className="pf-ring-progress"
+                    />
+                  </svg>
+                )}
               </div>
               <label className="pf-avatar-upload-btn" title={t('profile.photo')}>
                 <Upload className="w-3.5 h-3.5" />
@@ -392,8 +420,8 @@ export default function ProfilePage() {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap ml-auto">
                   <span className="pf-role-badge">
-                    {isMentor ? <Briefcase className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
-                    {isMentor ? 'Mentor' : 'Mentoré(e)'}
+                    {isAdmin ? <Shield className="w-3 h-3" /> : isMentor ? <Briefcase className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
+                    {isAdmin ? 'Administrateur' : isMentor ? 'Mentor' : 'Mentoré(e)'}
                   </span>
                   {isMentor && (
                     <button
@@ -411,57 +439,61 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Barre de complétion */}
-              <div className="pf-completion">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>Profil complété</span>
-                  <span className="text-xs font-bold font-mono-data" style={{ color: completionPercent === 100 ? 'var(--success)' : 'var(--accent)' }}>
-                    {completionPercent}%
-                  </span>
+              {/* Barre de complétion — masquée pour l'admin */}
+              {!isAdmin && (
+                <div className="pf-completion">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>Profil complété</span>
+                    <span className="text-xs font-bold font-mono-data" style={{ color: completionPercent === 100 ? 'var(--success)' : 'var(--accent)' }}>
+                      {completionPercent}%
+                    </span>
+                  </div>
+                  <div className="pf-progress-track">
+                    <div className="pf-progress-fill" style={{ width: `${completionPercent}%`, backgroundColor: completionPercent === 100 ? 'var(--success)' : 'var(--accent)' }} />
+                  </div>
                 </div>
-                <div className="pf-progress-track">
-                  <div className="pf-progress-fill" style={{ width: `${completionPercent}%`, backgroundColor: completionPercent === 100 ? 'var(--success)' : 'var(--accent)' }} />
-                </div>
-              </div>
+              )}
 
-              {/* Mini stats */}
-              <div className="pf-stats">
-                {isMentor ? (
-                  <>
-                    <div className="pf-stat-item">
-                      <span className="pf-stat-value">{formData.annees_experience}</span>
-                      <span className="pf-stat-label">ans exp.</span>
-                    </div>
-                    <div className="pf-stat-divider" />
-                    <div className="pf-stat-item">
-                      <span className="pf-stat-value">{formData.competences.length}</span>
-                      <span className="pf-stat-label">compétences</span>
-                    </div>
-                    <div className="pf-stat-divider" />
-                    <div className="pf-stat-item">
-                      <span className="pf-stat-value">{profile?.nb_sessions || 0}</span>
-                      <span className="pf-stat-label">sessions</span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="pf-stat-item">
-                      <span className="pf-stat-value">{formData.objectifs_tags.length}</span>
-                      <span className="pf-stat-label">objectifs</span>
-                    </div>
-                    <div className="pf-stat-divider" />
-                    <div className="pf-stat-item">
-                      <span className="pf-stat-value">{formData.niveau_etude || '—'}</span>
-                      <span className="pf-stat-label">niveau</span>
-                    </div>
-                    <div className="pf-stat-divider" />
-                    <div className="pf-stat-item">
-                      <span className="pf-stat-value">{profile?.progression || 0}%</span>
-                      <span className="pf-stat-label">progression</span>
-                    </div>
-                  </>
-                )}
-              </div>
+              {/* Mini stats — masquées pour l'admin (pas de sessions/objectifs) */}
+              {!isAdmin && (
+                <div className="pf-stats">
+                  {isMentor ? (
+                    <>
+                      <div className="pf-stat-item">
+                        <span className="pf-stat-value">{formData.annees_experience}</span>
+                        <span className="pf-stat-label">ans exp.</span>
+                      </div>
+                      <div className="pf-stat-divider" />
+                      <div className="pf-stat-item">
+                        <span className="pf-stat-value">{formData.competences.length}</span>
+                        <span className="pf-stat-label">compétences</span>
+                      </div>
+                      <div className="pf-stat-divider" />
+                      <div className="pf-stat-item">
+                        <span className="pf-stat-value">{profile?.nb_sessions || 0}</span>
+                        <span className="pf-stat-label">sessions</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="pf-stat-item">
+                        <span className="pf-stat-value">{formData.objectifs_tags.length}</span>
+                        <span className="pf-stat-label">objectifs</span>
+                      </div>
+                      <div className="pf-stat-divider" />
+                      <div className="pf-stat-item">
+                        <span className="pf-stat-value">{formData.niveau_etude || '—'}</span>
+                        <span className="pf-stat-label">niveau</span>
+                      </div>
+                      <div className="pf-stat-divider" />
+                      <div className="pf-stat-item">
+                        <span className="pf-stat-value">{profile?.progression || 0}%</span>
+                        <span className="pf-stat-label">progression</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -529,8 +561,8 @@ export default function ProfilePage() {
           </form>
         )}
 
-        {/* ── Onglet : Profil / Expérience ── */}
-        {activeTab === 'profil' && (
+        {/* ── Onglet : Profil / Expérience (absent pour un admin) ── */}
+        {activeTab === 'profil' && !isAdmin && (
           <form onSubmit={handleSubmit} className="pf-tab-content">
             <div className="pf-section">
               <div className="pf-section-header">
@@ -542,13 +574,13 @@ export default function ProfilePage() {
               </div>
 
               <div className="space-y-5">
-                {/* Domaine */}
+                {/* Domaine — chargé dynamiquement depuis le référentiel de catégories */}
                 <div>
                   <label className={labelCls} style={{ color: 'var(--text-tertiary)' }}>{t('profile.domaine')}</label>
                   <select value={formData.domaine} onChange={e => setFormData({ ...formData, domaine: e.target.value })}
                     className={inputCls} style={inputStyle}>
                     <option value="">Sélectionner un domaine…</option>
-                    {DOMAINES.map(d => <option key={d} value={d}>{d}</option>)}
+                    {domaines.map(d => <option key={d.id} value={d.nom}>{d.nom}</option>)}
                   </select>
                 </div>
 
@@ -613,14 +645,16 @@ export default function ProfilePage() {
                           <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
                             <input type="text" placeholder="Rechercher ou créer une compétence…"
-                              className={`${inputCls} pl-10`} style={inputStyle}
+                              className={`${inputCls} pl-10`}
+                              style={{ ...inputStyle, color: 'var(--text-primary, #111827)', caretColor: 'var(--text-primary, #111827)' }}
                               value={competenceSearch}
                               onChange={e => { setCompetenceSearch(e.target.value); setShowCompetenceDropdown(true); }}
                               onFocus={() => setShowCompetenceDropdown(true)}
                               onKeyDown={handleCompetenceKeyDown} />
                           </div>
                           <select value={selectedNiveau} onChange={e => setSelectedNiveau(e.target.value)}
-                            className={`${inputCls} w-36`} style={inputStyle}>
+                            className={`${inputCls} w-24 text-xs`}
+                            style={{ ...inputStyle, paddingLeft: '8px', paddingRight: '20px' }}>
                             {NIVEAUX.map(n => <option key={n.value} value={n.value}>{n.label}</option>)}
                           </select>
                         </div>

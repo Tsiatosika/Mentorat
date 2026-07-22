@@ -24,6 +24,13 @@ router.get('/users/:id', adminController.getUserDetail);
 router.put('/users/:id/toggle', adminController.toggleUser);
 router.delete('/users/:id', adminController.deleteUser);
 
+// ── Catégories (référentiel : nom + icône + couleur) ──
+router.get('/categories', adminController.getAllCategoriesAdmin);
+router.post('/categories', adminController.addCategory);
+router.get('/categories/:id/usage', adminController.getCategoryUsage);
+router.put('/categories/:id', adminController.editCategory);
+router.delete('/categories/:id', adminController.deleteCategory);
+
 // ── Compétences (ajout / édition / suppression) ──
 router.post('/competences', adminController.addCompetence);
 router.get('/competences/:id/usage', adminController.getCompetenceUsage);

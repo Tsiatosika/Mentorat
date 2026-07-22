@@ -17,6 +17,8 @@ interface SidebarProps {
   onCollapseChange?: (collapsed: boolean) => void;
 }
 
+const MOBILE_DRAWER_WIDTH = 280;
+
 export default function Sidebar({ onCollapseChange }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
@@ -64,6 +66,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
 
   if (!mounted) return null;
 
+  // ═══ ADMIN MENUS ═══
   let adminItems: { label: string; href: string; icon: any }[] = [];
   if (isAdmin) {
     adminItems = [
@@ -72,9 +75,11 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
       { label: 'Sessions', href: '/admin/sessions', icon: Calendar },
       { label: 'Compétences', href: '/admin/competences', icon: Wrench },
       { label: 'Rapports', href: '/admin/reports', icon: ScrollText },
+      { label: 'Mon profil', href: '/profile', icon: UserCircle },
     ];
   }
 
+  // ═══ MENUS NORMAUX ═══
   let menuItems = [
     { label: t('nav.home'), href: '/', icon: Home },
     { label: t('nav.dashboard'), href: '/dashboard', icon: LayoutDashboard },
@@ -291,7 +296,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
         @media (max-width: 640px) {
           .sidebar-burger { display: flex !important; }
           .sidebar-overlay { display: block !important; }
-          .sidebar-aside { width: 280px !important; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(.4,0,.2,1) !important; }
+          .sidebar-aside { width: ${MOBILE_DRAWER_WIDTH}px !important; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(.4,0,.2,1) !important; }
           .sidebar-aside.is-open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,0.18); }
         }
       `}</style>
