@@ -5,7 +5,6 @@ const createAvis = async (req, res, next) => {
   const utilisateurId = req.user.id;
 
   try {
-    // Récupérer la session avec les utilisateur_id réels (via jointure sur les profils)
     const sessionResult = await query(
       `SELECT 
          s.id, 
@@ -51,8 +50,8 @@ const createAvis = async (req, res, next) => {
          RETURNING *`,
         [
           session_id,
-          session.mentor_utilisateur_id,   // utilisateurs.id du mentor
-          session.mentore_utilisateur_id,  // utilisateurs.id du mentoré
+          session.mentor_utilisateur_id,
+          session.mentore_utilisateur_id,
           noteGlobale,
           note_ponctualite,
           note_pedagogie,
@@ -61,14 +60,15 @@ const createAvis = async (req, res, next) => {
         ]
       );
 
+      // Moyenne calculée uniquement sur les avis visibles (non masqués par un admin)
       const avgResult = await client.query(
-        `SELECT AVG(note_globale) as moyenne, COUNT(*) as total FROM avis WHERE mentor_id = $1`,
+        `SELECT AVG(note_globale) as moyenne FROM avis WHERE mentor_id = $1 AND visible = true`,
         [session.mentor_utilisateur_id]
       );
 
       await client.query(
         `UPDATE profils_mentor SET note_moyenne = $1 WHERE utilisateur_id = $2`,
-        [avgResult.rows[0].moyenne, session.mentor_utilisateur_id]
+        [avgResult.rows[0].moyenne || 0, session.mentor_utilisateur_id]
       );
 
       return insert.rows[0];
@@ -87,7 +87,7 @@ const getAvisByMentor = async (req, res, next) => {
       `SELECT a.*, u.nom, u.prenom
        FROM avis a
        JOIN utilisateurs u ON u.id = a.mentore_id
-       WHERE a.mentor_id = $1
+       WHERE a.mentor_id = $1 AND a.visible = true
        ORDER BY a.created_at DESC`,
       [mentorId]
     );

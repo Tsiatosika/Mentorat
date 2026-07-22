@@ -8,7 +8,7 @@ import { useState, useEffect } from 'react';
 import {
   Home, LayoutDashboard, Users, Calendar, MessageCircle, FileText,
   Brain, UserCircle, Clock, LogOut, ChevronLeft, ChevronRight,
-  Menu, X, BarChart3, Wrench, ScrollText
+  Menu, X, BarChart3, Wrench, ScrollText, Star
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { Avatar } from '@/components/ui/Avatar';
@@ -73,6 +73,7 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
       { label: 'Dashboard Admin', href: '/admin', icon: BarChart3 },
       { label: 'Utilisateurs', href: '/admin/users', icon: Users },
       { label: 'Sessions', href: '/admin/sessions', icon: Calendar },
+      { label: 'Avis', href: '/admin/avis', icon: Star },
       { label: 'Compétences', href: '/admin/competences', icon: Wrench },
       { label: 'Rapports', href: '/admin/reports', icon: ScrollText },
       { label: 'Mon profil', href: '/profile', icon: UserCircle },

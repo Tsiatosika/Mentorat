@@ -157,6 +157,10 @@ export const adminAPI = {
   getDashboard: () => api.get('/admin/dashboard'),
   getUsers: (params?: any) => api.get('/admin/users', { params }),
   getSessions: (params?: any) => api.get('/admin/sessions', { params }),
+  getAvis: (params?: any) => api.get('/admin/avis', { params }),
+  toggleAvisVisibility: (id: string, visible: boolean, motif?: string) =>
+    api.put(`/admin/avis/${id}/toggle-visibility`, { visible, motif }),
+  deleteAvis: (id: string) => api.delete(`/admin/avis/${id}`),
 };
 
 export default api;

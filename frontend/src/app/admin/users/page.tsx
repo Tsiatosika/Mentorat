@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, UserCheck, UserX, RefreshCw, Users as UsersIcon, X, Trash2, Star, MessageCircle, Calendar, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Search, UserCheck, UserX, RefreshCw, Users as UsersIcon, X, Trash2, Calendar, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { api, BACKEND_URL } from '@/services/api';
@@ -25,8 +25,6 @@ interface UserRow {
 interface UserDetail {
   user: UserRow;
   sessions: any[];
-  avisRecus: any[];
-  avisDonnes: any[];
 }
 
 export default function AdminUsersPage() {
@@ -67,7 +65,6 @@ export default function AdminUsersPage() {
     fetchUsers();
   }, [filter, filterActif, dateFrom, dateTo, page]);
 
-  // Debounce recherche texte
   useEffect(() => {
     const timeout = setTimeout(() => fetchUsers(), 350);
     return () => clearTimeout(timeout);
@@ -381,46 +378,6 @@ export default function AdminUsersPage() {
                     </div>
                   )}
                 </div>
-
-                {detail.user.role === 'mentor' && (
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>
-                      Avis reçus ({detail.avisRecus.length})
-                    </p>
-                    {detail.avisRecus.length === 0 ? (
-                      <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Aucun avis reçu</p>
-                    ) : (
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {detail.avisRecus.map((a: any) => (
-                          <div key={a.id} className="px-3 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                            <div className="flex items-center gap-1 mb-1"><Star className="w-3.5 h-3.5" style={{ color: '#F59E0B' }} /><span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{a.note}/5</span></div>
-                            {a.commentaire && <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{a.commentaire}</p>}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {detail.user.role === 'mentore' && (
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>
-                      Avis donnés ({detail.avisDonnes.length})
-                    </p>
-                    {detail.avisDonnes.length === 0 ? (
-                      <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Aucun avis donné</p>
-                    ) : (
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {detail.avisDonnes.map((a: any) => (
-                          <div key={a.id} className="px-3 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                            <div className="flex items-center gap-1 mb-1"><Star className="w-3.5 h-3.5" style={{ color: '#F59E0B' }} /><span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{a.note}/5</span></div>
-                            {a.commentaire && <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{a.commentaire}</p>}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 <div className="flex justify-end pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
                   <button onClick={() => setDeleteTarget(detail.user)} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium" style={{ backgroundColor: 'var(--danger-soft)', color: 'var(--danger)' }}>

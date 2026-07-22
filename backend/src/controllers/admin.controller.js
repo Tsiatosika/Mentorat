@@ -99,6 +99,8 @@ const getUsers = async (req, res) => {
   }
 };
 
+// ═══ DÉTAIL D'UN UTILISATEUR (sessions uniquement — les avis sont gérés
+// désormais via la page de modération dédiée, plus dans ce détail) ═══
 const getUserDetail = async (req, res) => {
   try {
     const { id } = req.params;
@@ -128,42 +130,10 @@ const getUserDetail = async (req, res) => {
       [id]
     );
 
-    let avisRecus = [];
-    if (targetUser.role === 'mentor') {
-      const avisResult = await query(
-        `SELECT a.id, a.note_globale AS note, a.commentaire, a.created_at, s.sujet
-         FROM avis a
-         JOIN profils_mentor pm ON pm.id = a.mentor_id
-         JOIN sessions        s  ON s.id  = a.session_id
-         WHERE pm.utilisateur_id = $1
-         ORDER BY a.created_at DESC
-         LIMIT 20`,
-        [id]
-      );
-      avisRecus = avisResult.rows;
-    }
-
-    let avisDonnes = [];
-    if (targetUser.role === 'mentore') {
-      const avisResult = await query(
-        `SELECT a.id, a.note_globale AS note, a.commentaire, a.created_at, s.sujet
-         FROM avis a
-         JOIN profils_mentore pme ON pme.id = a.mentore_id
-         JOIN sessions         s   ON s.id  = a.session_id
-         WHERE pme.utilisateur_id = $1
-         ORDER BY a.created_at DESC
-         LIMIT 20`,
-        [id]
-      );
-      avisDonnes = avisResult.rows;
-    }
-
     res.json({
       success: true,
       user: targetUser,
       sessions: sessionsResult.rows,
-      avisRecus,
-      avisDonnes,
     });
   } catch (error) {
     console.error('Erreur getUserDetail:', error);
@@ -226,13 +196,6 @@ const deleteUser = async (req, res) => {
 };
 
 // ═══ GESTION DES CATÉGORIES (référentiel : nom + icône + couleur) ═══
-//
-// competences.categorie reste un champ texte (pas de FK vers categories.id).
-// Renommer une catégorie répercute donc le nouveau nom sur toutes les
-// compétences qui l'utilisaient (UPDATE ciblé, dans une transaction).
-// Supprimer une catégorie réassigne ses compétences vers "Autre" plutôt
-// que de les laisser sans catégorie.
-
 const getAllCategoriesAdmin = async (req, res) => {
   try {
     const result = await query(
@@ -312,9 +275,6 @@ const editCategory = async (req, res) => {
       [trimmedNom, icone || 'Wrench', couleur || '#6B7280', id]
     );
 
-    // Si le nom a changé, on répercute sur tout ce qui référence l'ancien nom :
-    // les compétences (categorie) ET les profils mentor/mentoré (domaine),
-    // puisque ProfilePage.tsx utilise désormais ce même référentiel.
     let competencesMisesAJour = 0;
     let profilsMisAJour = 0;
     if (oldNom !== trimmedNom) {
@@ -345,8 +305,6 @@ const editCategory = async (req, res) => {
   }
 };
 
-// Vérifie combien de compétences ET de profils (mentor/mentoré) utilisent
-// une catégorie, SANS rien supprimer.
 const getCategoryUsage = async (req, res) => {
   try {
     const result = await query(
@@ -394,9 +352,6 @@ const deleteCategory = async (req, res) => {
 
     await client.query('BEGIN');
 
-    // Tout ce qui référence cette catégorie bascule vers "Autre" plutôt que
-    // de se retrouver avec une valeur orpheline : compétences ET profils
-    // mentor/mentoré (domaine).
     const reassigned = await client.query(
       "UPDATE competences SET categorie = 'Autre' WHERE categorie = $1 RETURNING id",
       [nom]
@@ -427,7 +382,7 @@ const deleteCategory = async (req, res) => {
   }
 };
 
-// ═══ GESTION DES COMPÉTENCES (basique : ajout / suppression uniquement) ═══
+// ═══ GESTION DES COMPÉTENCES ═══
 const getCompetenceUsage = async (req, res) => {
   try {
     const result = await query(
@@ -553,6 +508,159 @@ const getAllReports = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// ═══ MODÉRATION DES AVIS ═══
+
+const getAllAvisAdmin = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      visible = '',
+      search = '',
+      noteMax = '',
+    } = req.query;
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const conditions = [];
+    const params = [];
+    let idx = 1;
+
+    if (visible !== '') {
+      conditions.push(`a.visible = $${idx++}`);
+      params.push(visible === 'true');
+    }
+    if (search) {
+      conditions.push(`a.commentaire ILIKE $${idx++}`);
+      params.push(`%${search}%`);
+    }
+    if (noteMax) {
+      conditions.push(`a.note_globale <= $${idx++}`);
+      params.push(noteMax);
+    }
+
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const countResult = await query(
+      `SELECT COUNT(*) FROM avis a ${whereClause}`,
+      params
+    );
+    const total = parseInt(countResult.rows[0].count);
+
+    const result = await query(
+      `SELECT a.id, a.note_globale, a.note_ponctualite, a.note_pedagogie, a.note_disponibilite,
+              a.commentaire, a.visible, a.motif_masquage, a.created_at,
+              um.id  AS mentor_id,  um.nom  AS mentor_nom,  um.prenom  AS mentor_prenom,
+              ume.id AS mentore_id, ume.nom AS mentore_nom, ume.prenom AS mentore_prenom,
+              s.sujet AS session_sujet
+       FROM avis a
+       JOIN utilisateurs um  ON um.id  = a.mentor_id
+       JOIN utilisateurs ume ON ume.id = a.mentore_id
+       LEFT JOIN sessions s ON s.id = a.session_id
+       ${whereClause}
+       ORDER BY a.created_at DESC
+       LIMIT $${idx++} OFFSET $${idx++}`,
+      [...params, limit, offset]
+    );
+
+    res.json({
+      success: true,
+      avis: result.rows,
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil(total / parseInt(limit)),
+    });
+  } catch (error) {
+    console.error('Erreur getAllAvisAdmin:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Recalcule la note_moyenne d'un mentor à partir des avis visibles uniquement.
+// Appelé après tout masquage/démasquage/suppression.
+const recalculerNoteMentor = async (client, mentorId) => {
+  const avgResult = await client.query(
+    `SELECT AVG(note_globale) as moyenne FROM avis WHERE mentor_id = $1 AND visible = true`,
+    [mentorId]
+  );
+  await client.query(
+    `UPDATE profils_mentor SET note_moyenne = $1 WHERE utilisateur_id = $2`,
+    [avgResult.rows[0].moyenne || 0, mentorId]
+  );
+};
+
+// ═══ MASQUER / DÉMASQUER UN AVIS (réversible) ═══
+const toggleAvisVisibility = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+    const { visible, motif } = req.body;
+
+    const current = await client.query('SELECT id, mentor_id FROM avis WHERE id = $1', [id]);
+    if (current.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Avis non trouvé' });
+    }
+    const mentorId = current.rows[0].mentor_id;
+
+    await client.query('BEGIN');
+
+    const result = await client.query(
+      `UPDATE avis
+       SET visible = $1,
+           masque_par = $2,
+           masque_le = CASE WHEN $1 = false THEN NOW() ELSE NULL END,
+           motif_masquage = CASE WHEN $1 = false THEN $3 ELSE NULL END
+       WHERE id = $4
+       RETURNING *`,
+      [visible, visible ? null : req.user.id, motif || null, id]
+    );
+
+    await recalculerNoteMentor(client, mentorId);
+
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      message: visible ? 'Avis rendu visible' : 'Avis masqué',
+      avis: result.rows[0],
+    });
+  } catch (error) {
+    try { await client.query('ROLLBACK'); } catch (_) { /* pas de transaction ouverte */ }
+    console.error('Erreur toggleAvisVisibility:', error);
+    res.status(500).json({ success: false, message: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+// ═══ SUPPRESSION DÉFINITIVE D'UN AVIS ═══
+const deleteAvisAdmin = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+
+    const current = await client.query('SELECT id, mentor_id FROM avis WHERE id = $1', [id]);
+    if (current.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Avis non trouvé' });
+    }
+    const mentorId = current.rows[0].mentor_id;
+
+    await client.query('BEGIN');
+
+    await client.query('DELETE FROM avis WHERE id = $1', [id]);
+    await recalculerNoteMentor(client, mentorId);
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Avis supprimé définitivement' });
+  } catch (error) {
+    try { await client.query('ROLLBACK'); } catch (_) { /* pas de transaction ouverte */ }
+    console.error('Erreur deleteAvisAdmin:', error);
+    res.status(500).json({ success: false, message: error.message });
+  } finally {
+    client.release();
+  }
+};
+
 
 // ═══ LISTE DE TOUTES LES SESSIONS (vue admin, sans filtre par utilisateur) ═══
 const getAllSessionsAdmin = async (req, res) => {
@@ -695,7 +803,6 @@ const adminCancelSession = async (req, res) => {
       [motif || null, req.user.id, id]
     );
 
-    // Notifier les deux participants
     const notifMessage = motif
       ? `Un administrateur a annulé cette session. Motif : ${motif}`
       : 'Un administrateur a annulé cette session.';
@@ -738,4 +845,7 @@ module.exports = {
   getAllSessionsAdmin,
   getAdminSessionDetail,
   adminCancelSession,
+  getAllAvisAdmin,
+  toggleAvisVisibility,
+  deleteAvisAdmin,
 };
