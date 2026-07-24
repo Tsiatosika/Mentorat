@@ -8,9 +8,9 @@ import Link from 'next/link';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import {
   Calendar, MessageCircle, FileText, Users, TrendingUp, Clock,
-  Mail, Award, ArrowRight, BookOpen, Pencil, Save, X, ChevronDown, CheckCircle
+  Mail, Award, ArrowRight, BookOpen, Pencil, Save, X, ChevronDown, CheckCircle, Star, PieChart
 } from 'lucide-react';
-import { mentorAPI, mentoreAPI, sessionAPI } from '@/services/api';
+import { mentorAPI, mentoreAPI, sessionAPI, avisAPI } from '@/services/api';
 import toast from 'react-hot-toast';
 
 /** Anime un nombre de 0 jusqu'à sa valeur finale */
@@ -112,7 +112,6 @@ function ProgressChart({ sessions, language }: ProgressChartProps) {
             <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35" />
             <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.02" />
           </linearGradient>
-          {/* Ligne de grille horizontale */}
         </defs>
 
         {/* Grille légère */}
@@ -122,27 +121,180 @@ function ProgressChart({ sessions, language }: ProgressChartProps) {
         })}
 
         {/* Aire sous la courbe */}
-        <path d={areaD} fill="url(#chartGrad)" />
+        <path d={areaD} fill="url(#chartGrad)" className="chart-area-in" />
 
         {/* Courbe */}
-        <path d={pathD} fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={pathD} fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="chart-line-in" />
 
         {/* Points + tooltips */}
         {points.map((pt, i) => (
           <g key={i}>
-            <circle cx={xs[i]} cy={ys[i]} r="5" fill="var(--card-bg)" stroke="var(--accent)" strokeWidth="2.5" />
+            <circle cx={xs[i]} cy={ys[i]} r="5" fill="var(--card-bg)" stroke="var(--accent)" strokeWidth="2.5" className="chart-point-in" style={{ animationDelay: `${0.3 + i * 0.08}s` }} />
             <circle cx={xs[i]} cy={ys[i]} r="2.5" fill="var(--accent)" />
-            {/* Valeur au-dessus */}
             <text x={xs[i]} y={ys[i] - 9} textAnchor="middle" fontSize="10" fontFamily="var(--font-mono)" fill="var(--accent)" fontWeight="700">
               {pt.cumulative}
             </text>
-            {/* Label mois en bas */}
             <text x={xs[i]} y={H - 2} textAnchor="middle" fontSize="9" fontFamily="var(--font-mono)" fill="var(--text-tertiary)">
               {pt.label}
             </text>
           </g>
         ))}
       </svg>
+    </div>
+  );
+}
+
+// ─── Donut SVG : répartition des statuts de session ─────────────────────────
+interface SessionStatusDonutProps {
+  sessions: any[];
+  language: string;
+}
+
+function SessionStatusDonut({ sessions, language }: SessionStatusDonutProps) {
+  const STATUS_META: Record<string, { label_fr: string; label_en: string; color: string }> = {
+    terminee:   { label_fr: 'Terminées',   label_en: 'Completed',  color: 'var(--success)' },
+    en_cours:   { label_fr: 'En cours',    label_en: 'In progress', color: 'var(--info)' },
+    confirmee:  { label_fr: 'Confirmées',  label_en: 'Confirmed',  color: 'var(--warm)' },
+    en_attente: { label_fr: 'En attente',  label_en: 'Pending',    color: 'var(--text-tertiary)' },
+    annulee:    { label_fr: 'Annulées',    label_en: 'Cancelled',  color: 'var(--danger)' },
+  };
+
+  const total = sessions.length;
+
+  const segments = useMemo(() => {
+    const counts: Record<string, number> = {};
+    sessions.forEach(s => { counts[s.statut] = (counts[s.statut] || 0) + 1; });
+    return Object.entries(counts)
+      .filter(([, count]) => count > 0)
+      .map(([statut, count]) => ({ statut, count, meta: STATUS_META[statut] || STATUS_META.en_attente }));
+  }, [sessions]);
+
+  if (total === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-40 gap-3">
+        <PieChart className="w-10 h-10 opacity-20" style={{ color: 'var(--accent)' }} />
+        <p className="text-sm text-center" style={{ color: 'var(--text-tertiary)' }}>
+          {language === 'fr' ? 'Aucune session pour l\'instant' : 'No sessions yet'}
+        </p>
+      </div>
+    );
+  }
+
+  const R = 46;
+  const CIRC = 2 * Math.PI * R;
+  let cumulative = 0;
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center gap-6">
+      <div className="relative flex-shrink-0" style={{ width: 132, height: 132 }}>
+        <svg viewBox="0 0 120 120" width="132" height="132" style={{ transform: 'rotate(-90deg)' }}>
+          <circle cx="60" cy="60" r={R} fill="none" stroke="var(--bg-tertiary)" strokeWidth="14" />
+          {segments.map((seg, i) => {
+            const len = (seg.count / total) * CIRC;
+            const offset = -cumulative;
+            cumulative += len;
+            return (
+              <circle
+                key={seg.statut}
+                cx="60" cy="60" r={R}
+                fill="none"
+                stroke={seg.meta.color}
+                strokeWidth="14"
+                strokeDasharray={`${len} ${CIRC - len}`}
+                strokeDashoffset={offset}
+                strokeLinecap="butt"
+                className="donut-seg-in"
+                style={{ animationDelay: `${i * 0.1}s` }}
+              />
+            );
+          })}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="font-display text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>{total}</span>
+          <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+            {language === 'fr' ? 'sessions' : 'sessions'}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex-1 w-full space-y-2 min-w-0">
+        {segments.map((seg, i) => (
+          <div key={seg.statut} className="flex items-center justify-between gap-2 donut-legend-in" style={{ animationDelay: `${0.15 + i * 0.05}s` }}>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: seg.meta.color }} />
+              <span className="text-sm truncate" style={{ color: 'var(--text-secondary)' }}>
+                {language === 'fr' ? seg.meta.label_fr : seg.meta.label_en}
+              </span>
+            </div>
+            <span className="font-mono-data text-sm font-semibold flex-shrink-0" style={{ color: 'var(--text-primary)' }}>
+              {seg.count} <span className="text-xs font-normal" style={{ color: 'var(--text-tertiary)' }}>({Math.round((seg.count / total) * 100)}%)</span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Barres SVG/HTML : répartition des notes par critère (mentor) ───────────
+interface RatingBreakdownProps {
+  avis: any[];
+  language: string;
+}
+
+function RatingBreakdown({ avis, language }: RatingBreakdownProps) {
+  const criteria = [
+    { key: 'note_ponctualite', label_fr: 'Ponctualité', label_en: 'Punctuality' },
+    { key: 'note_pedagogie', label_fr: 'Pédagogie', label_en: 'Teaching quality' },
+    { key: 'note_disponibilite', label_fr: 'Disponibilité', label_en: 'Availability' },
+  ];
+
+  const avgOf = (key: string) => {
+    if (avis.length === 0) return 0;
+    const sum = avis.reduce((acc, a) => acc + Number(a[key] || 0), 0);
+    return sum / avis.length;
+  };
+
+  const overall = avis.length > 0 ? avis.reduce((acc, a) => acc + Number(a.note_globale || 0), 0) / avis.length : 0;
+
+  if (avis.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-40 gap-3">
+        <Star className="w-10 h-10 opacity-20" style={{ color: 'var(--warm)' }} />
+        <p className="text-sm text-center" style={{ color: 'var(--text-tertiary)' }}>
+          {language === 'fr' ? 'Aucun avis reçu pour l\'instant' : 'No reviews yet'}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex items-baseline gap-2 mb-4">
+        <span className="font-display text-3xl font-semibold" style={{ color: 'var(--text-primary)' }}>{overall.toFixed(1)}</span>
+        <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+          / 5 · {avis.length} {language === 'fr' ? 'avis' : 'reviews'}
+        </span>
+      </div>
+      <div className="space-y-3">
+        {criteria.map((c, ci) => {
+          const value = avgOf(c.key);
+          const widthPct = Math.min(100, (value / 5) * 100);
+          return (
+            <div key={c.key} className="rb-row" style={{ animationDelay: `${0.1 + ci * 0.08}s` }}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  {language === 'fr' ? c.label_fr : c.label_en}
+                </span>
+                <span className="font-mono-data text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{value.toFixed(1)}</span>
+              </div>
+              <div className="rb-track rounded-full" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                <div className="rb-fill rounded-full" style={{ width: `${widthPct}%`, backgroundColor: 'var(--warm)', transitionDelay: `${0.15 + ci * 0.1}s` }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -213,7 +365,6 @@ function SessionNotes({ sessions, language }: SessionNotesProps) {
 
         return (
           <div key={session.id} className="note-accordion" style={{ backgroundColor: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border)' }}>
-            {/* En-tête de la session */}
             <button
               type="button"
               className="w-full flex items-center justify-between gap-3 px-4 py-3"
@@ -221,7 +372,6 @@ function SessionNotes({ sessions, language }: SessionNotesProps) {
               style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
             >
               <div className="flex items-center gap-3 min-w-0">
-                {/* Pastille statut */}
                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: sc.dot }} />
                 <span className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                   {session.sujet}
@@ -242,7 +392,6 @@ function SessionNotes({ sessions, language }: SessionNotesProps) {
               </div>
             </button>
 
-            {/* Contenu dépliable */}
             {isOpen && (
               <div className="px-4 pb-4 note-content-in">
                 {isEditing ? (
@@ -326,6 +475,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<any>(null);
   const [sessions, setSessions] = useState<any[]>([]);
+  const [avis, setAvis] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
@@ -353,6 +503,11 @@ export default function DashboardPage() {
         if (user.role === 'mentor') {
           const r = await mentorAPI.getProfile();
           setProfile(r.data.profile);
+          const mentorId = r.data.profile?.id;
+          if (mentorId) {
+            const avisRes = await avisAPI.getByMentor(mentorId).catch(() => ({ data: { avis: [] } }));
+            setAvis(avisRes.data.avis || []);
+          }
         } else {
           const r = await mentoreAPI.getProfile();
           setProfile(r.data.profile);
@@ -506,54 +661,79 @@ export default function DashboardPage() {
           })}
         </div>
 
-        {/* ── SECTIONS EXCLUSIVES MENTORÉ : graphique + bloc-notes ── */}
-        {!isMentor && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* ── SECTIONS STATISTIQUES : graphiques ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
 
-            {/* ── Graphique de progression ── */}
-            <div className="card p-6 fade-in-up" style={{ animationDelay: '0.28s' }}>
+          {/* ── Graphique de progression (les deux rôles) ── */}
+          <div className="card p-6 fade-in-up" style={{ animationDelay: '0.28s' }}>
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <p className="font-mono-data text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--accent)' }}>
+                  {isMentor
+                    ? (language === 'fr' ? 'Votre activité' : 'Your activity')
+                    : (language === 'fr' ? 'Votre parcours' : 'Your journey')}
+                </p>
+                <h2 className="font-display text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  {language === 'fr' ? 'Courbe de progression' : 'Progress curve'}
+                </h2>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+                style={{ backgroundColor: 'var(--accent-soft)' }}>
+                <TrendingUp className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+                <span className="font-mono-data text-xs font-semibold" style={{ color: 'var(--accent-text-on-soft)' }}>
+                  {sessionsTerminees} {language === 'fr' ? 'terminée(s)' : 'done'}
+                </span>
+              </div>
+            </div>
+
+            <ProgressChart sessions={sessions} language={language} />
+
+            {sessionsTerminees > 0 && (
+              <div className="mt-4 flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-0.5 rounded-full" style={{ backgroundColor: 'var(--accent)' }} />
+                  <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                    {language === 'fr' ? 'Sessions terminées (cumulées)' : 'Completed sessions (cumulative)'}
+                  </span>
+                </div>
+                {!isMentor && progression > 0 && (
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <CheckCircle className="w-3.5 h-3.5" style={{ color: 'var(--success)' }} />
+                    <span className="text-xs font-semibold" style={{ color: 'var(--success)' }}>
+                      {progression}% {language === 'fr' ? 'progression' : 'progress'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── Mentor : répartition des notes par critère ── */}
+          {isMentor && (
+            <div className="card p-6 fade-in-up" style={{ animationDelay: '0.34s' }}>
               <div className="flex items-center justify-between mb-5">
                 <div>
-                  <p className="font-mono-data text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--accent)' }}>
-                    {language === 'fr' ? 'Votre parcours' : 'Your journey'}
+                  <p className="font-mono-data text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--warm)' }}>
+                    {language === 'fr' ? 'Retours mentorés' : 'Mentee feedback'}
                   </p>
                   <h2 className="font-display text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
-                    {language === 'fr' ? 'Courbe de progression' : 'Progress curve'}
+                    {language === 'fr' ? 'Répartition des notes' : 'Rating breakdown'}
                   </h2>
                 </div>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-                  style={{ backgroundColor: 'var(--accent-soft)' }}>
-                  <TrendingUp className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
-                  <span className="font-mono-data text-xs font-semibold" style={{ color: 'var(--accent-text-on-soft)' }}>
-                    {sessionsTerminees} {language === 'fr' ? 'terminée(s)' : 'done'}
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ backgroundColor: 'var(--warm-soft)' }}>
+                  <Star className="w-3.5 h-3.5" style={{ color: 'var(--warm)' }} />
+                  <span className="font-mono-data text-xs font-semibold" style={{ color: 'var(--warm-text-on-soft)' }}>
+                    {avis.length} {language === 'fr' ? 'avis' : 'reviews'}
                   </span>
                 </div>
               </div>
 
-              <ProgressChart sessions={sessions} language={language} />
-
-              {/* Légende */}
-              {sessionsTerminees > 0 && (
-                <div className="mt-4 flex items-center gap-4 flex-wrap">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-0.5 rounded-full" style={{ backgroundColor: 'var(--accent)' }} />
-                    <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                      {language === 'fr' ? 'Sessions terminées (cumulées)' : 'Completed sessions (cumulative)'}
-                    </span>
-                  </div>
-                  {progression > 0 && (
-                    <div className="flex items-center gap-1.5 ml-auto">
-                      <CheckCircle className="w-3.5 h-3.5" style={{ color: 'var(--success)' }} />
-                      <span className="text-xs font-semibold" style={{ color: 'var(--success)' }}>
-                        {progression}% {language === 'fr' ? 'progression' : 'progress'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
+              <RatingBreakdown avis={avis} language={language} />
             </div>
+          )}
 
-            {/* ── Bloc-notes par session ── */}
+          {/* ── Mentoré : bloc-notes par session ── */}
+          {!isMentor && (
             <div className="card p-6 fade-in-up" style={{ animationDelay: '0.34s' }}>
               <div className="flex items-center justify-between mb-5">
                 <div>
@@ -580,12 +760,32 @@ export default function DashboardPage() {
                   : '💡 Notes stored on this device only — not shared'}
               </p>
             </div>
+          )}
+        </div>
+
+        {/* ── Donut de répartition des statuts (les deux rôles) ── */}
+        {sessions.length > 0 && (
+          <div className="card p-6 fade-in-up mb-8" style={{ animationDelay: '0.4s' }}>
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <p className="font-mono-data text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--info)' }}>
+                  {language === 'fr' ? 'Vue d\'ensemble' : 'Overview'}
+                </p>
+                <h2 className="font-display text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  {language === 'fr' ? 'Répartition des statuts' : 'Status breakdown'}
+                </h2>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ backgroundColor: 'var(--info-soft)' }}>
+                <PieChart className="w-3.5 h-3.5" style={{ color: 'var(--info)' }} />
+              </div>
+            </div>
+            <SessionStatusDonut sessions={sessions} language={language} />
           </div>
         )}
 
         {/* ── Sessions récentes ── */}
         {sessions.length > 0 && (
-          <div className="mb-8 fade-in-up" style={{ animationDelay: '0.32s' }}>
+          <div className="mb-8 fade-in-up" style={{ animationDelay: '0.44s' }}>
             <h2 className="font-display text-xl font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
               {t('dashboard.recent_sessions')}
             </h2>
@@ -598,7 +798,7 @@ export default function DashboardPage() {
                   <div key={session.id}
                     className="card p-4 flex justify-between items-center session-row-in transition-all duration-300 cursor-pointer"
                     style={{
-                      animationDelay: `${0.4 + i * 0.06}s`,
+                      animationDelay: `${0.48 + i * 0.06}s`,
                       transform: isSessionHovered ? 'translateX(6px)' : 'none',
                       borderLeft: isSessionHovered ? '3px solid var(--accent)' : '3px solid transparent',
                     }}
@@ -629,7 +829,7 @@ export default function DashboardPage() {
 
         {/* ── Accès rapide ── */}
         <h2 className="font-display text-xl font-semibold mb-4 fade-in-up"
-          style={{ color: 'var(--text-primary)', animationDelay: '0.46s' }}>
+          style={{ color: 'var(--text-primary)', animationDelay: '0.52s' }}>
           {t('dashboard.quick_access')}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -638,7 +838,7 @@ export default function DashboardPage() {
             const isMenuHovered = hoveredCard === item.id;
             return (
               <Link key={index} href={item.href} className="block menu-card-wrapper"
-                style={{ animationDelay: `${0.5 + index * 0.06}s` }}
+                style={{ animationDelay: `${0.56 + index * 0.06}s` }}
                 onMouseEnter={() => setHoveredCard(item.id)}
                 onMouseLeave={() => setHoveredCard(null)}>
                 <div className="card menu-card p-6 h-full menu-card-in relative overflow-hidden transition-all duration-500"
@@ -700,18 +900,15 @@ export default function DashboardPage() {
         .stat-card-wrapper,.menu-card-wrapper { transition:transform 0.3s ease; }
         .card { transition:all 0.4s cubic-bezier(0.4,0,0.2,1); }
 
-        /* Titre dégradé hover */
         .hover-gradient-title { display:inline-block; transition:all 0.3s ease; }
         .hover-gradient-title:hover {
           background: linear-gradient(135deg,#3B82F6,#8B5CF6);
           -webkit-background-clip: text; background-clip: text; color: transparent;
         }
 
-        /* Pastille en cours */
         .live-dot { display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:5px; animation:dashPulseDot 1.6s ease-in-out infinite; }
         @keyframes dashPulseDot { 0%,100%{opacity:1} 50%{opacity:0.35} }
 
-        /* Accordéon notes */
         .note-content-in { animation: noteIn 0.2s ease; }
         @keyframes noteIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
 
@@ -721,9 +918,39 @@ export default function DashboardPage() {
         .note-add-btn { transition: filter 0.15s ease, transform 0.15s ease; }
         .note-add-btn:hover { filter: brightness(1.05); transform: translateY(-1px); }
 
+        /* ── Graphique de progression ── */
+        .chart-area-in { opacity: 0; animation: chartAreaIn 0.8s ease 0.15s forwards; }
+        @keyframes chartAreaIn { to { opacity: 1; } }
+        .chart-line-in {
+          stroke-dasharray: 600;
+          stroke-dashoffset: 600;
+          animation: chartLineIn 1.1s cubic-bezier(0.16,1,0.3,1) 0.1s forwards;
+        }
+        @keyframes chartLineIn { to { stroke-dashoffset: 0; } }
+        .chart-point-in { opacity: 0; transform-origin: center; animation: chartPointIn 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+        @keyframes chartPointIn { to { opacity: 1; } }
+
+        /* ── Donut statuts ── */
+        .donut-seg-in {
+          stroke-dasharray-init: 0;
+          animation: donutSegIn 0.7s cubic-bezier(0.16,1,0.3,1) both;
+          transform-origin: 60px 60px;
+        }
+        @keyframes donutSegIn { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
+        .donut-legend-in { opacity: 0; transform: translateX(-6px); animation: donutLegendIn 0.4s cubic-bezier(0.16,1,0.3,1) forwards; }
+        @keyframes donutLegendIn { to { opacity: 1; transform: translateX(0); } }
+
+        /* ── Répartition des notes (mentor) ── */
+        .rb-row { opacity: 0; transform: translateX(-8px); animation: rbRowIn 0.4s ease forwards; }
+        @keyframes rbRowIn { to { opacity: 1; transform: translateX(0); } }
+        .rb-track { height: 8px; overflow: hidden; }
+        .rb-fill { height: 100%; width: 0%; transition: width 1s cubic-bezier(0.16,1,0.3,1); animation: rbFillTrigger 0.01s forwards; }
+        @keyframes rbFillTrigger { to { width: inherit; } }
+
         @media (prefers-reduced-motion:reduce) {
           .dash-orb,.dash-particle,.fade-in-up,.stat-card-in,.icon-pop,.session-row-in,
-          .menu-card-in,.live-dot,.card,.note-content-in {
+          .menu-card-in,.live-dot,.card,.note-content-in,.chart-area-in,.chart-line-in,
+          .chart-point-in,.donut-seg-in,.donut-legend-in,.rb-row,.rb-fill {
             animation:none!important; transition:none!important; opacity:1!important; transform:none!important;
           }
         }

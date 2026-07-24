@@ -81,12 +81,14 @@ export default function Sidebar({ onCollapseChange }: SidebarProps) {
   }
 
   // ═══ MENUS NORMAUX ═══
-  let menuItems = [
-    { label: t('nav.home'), href: '/', icon: Home },
+  // "Accueil" n'est plus affiché pour les mentors : ils démarrent
+  // directement sur leur Dashboard (voir aussi homeLink ci-dessus).
+  let menuItems: { label: string; href: string; icon: any }[] = [
     { label: t('nav.dashboard'), href: '/dashboard', icon: LayoutDashboard },
   ];
 
   if (!isAdmin) {
+    if (!isMentor) menuItems.unshift({ label: t('nav.home'), href: '/', icon: Home });
     if (isMentore) menuItems.push({ label: t('nav.mentors'), href: '/mentors', icon: Users });
     if (isMentor) menuItems.push({ label: t('tools.disponibilites'), href: '/disponibilites', icon: Clock });
     menuItems = [

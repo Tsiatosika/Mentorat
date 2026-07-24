@@ -1,6 +1,8 @@
 const { query } = require('../config/db');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
+const https = require('https');
+const http = require('http');
 const path = require('path');
 
 const reportsDir = path.join(__dirname, '../../uploads/reports');
@@ -42,6 +44,62 @@ const formatDateOnly = (date) => {
 
 const getInitials = (prenom, nom) => `${(prenom || '?')[0] || ''}${(nom || '?')[0] || ''}`.toUpperCase();
 
+// ═══════════════════════════════════════
+// TÉLÉCHARGEMENT DES PHOTOS DE PROFIL
+// ═══════════════════════════════════════
+// Accepte soit une URL distante (ex: photo Google OAuth), soit un chemin
+// local du type "/uploads/avatars/xxx.jpg". Retourne un Buffer, ou null
+// si la photo est absente / inaccessible (repli sur les initiales assuré
+// par drawAvatar plus bas).
+function fetchImageBuffer(source) {
+  return new Promise((resolve) => {
+    if (!source || typeof source !== 'string') return resolve(null);
+
+    // Photo stockée localement sur le serveur
+    if (source.startsWith('/uploads/')) {
+      const localPath = path.join(__dirname, '../..', source);
+      return fs.readFile(localPath, (err, data) => resolve(err ? null : data));
+    }
+    if (!source.startsWith('http://') && !source.startsWith('https://')) {
+      // Chemin relatif inconnu : on tente quand même en local
+      const localPath = path.join(__dirname, '../..', 'uploads', source);
+      return fs.readFile(localPath, (err, data) => resolve(err ? null : data));
+    }
+
+    // Photo distante
+    const client = source.startsWith('https://') ? https : http;
+    const req = client.get(source, { timeout: 5000 }, (response) => {
+      if (response.statusCode !== 200) { response.resume(); return resolve(null); }
+      const chunks = [];
+      response.on('data', (chunk) => chunks.push(chunk));
+      response.on('end', () => resolve(Buffer.concat(chunks)));
+      response.on('error', () => resolve(null));
+    });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+  });
+}
+
+// ═══ AVATAR (photo réelle découpée en cercle, repli sur initiales) ═══
+function drawAvatar(doc, cx, cy, r, photoBuffer, prenom, nom, accentColor) {
+  if (photoBuffer) {
+    try {
+      doc.save();
+      doc.circle(cx, cy, r).clip();
+      doc.image(photoBuffer, cx - r, cy - r, { width: r * 2, height: r * 2 });
+      doc.restore();
+      doc.circle(cx, cy, r).lineWidth(1.5).strokeColor(COLORS.white).stroke();
+      return;
+    } catch (error) {
+      console.error('Erreur rendu photo de profil, repli sur initiales:', error.message);
+      // on continue vers le repli ci-dessous
+    }
+  }
+  doc.circle(cx, cy, r).fill(accentColor);
+  doc.fontSize(13).font('Helvetica-Bold').fillColor(COLORS.white)
+     .text(getInitials(prenom, nom), cx - r, cy - 7, { width: r * 2, align: 'center' });
+}
+
 // ═══ EN-TÊTE DE PAGE (bandeau coloré + logo texte + titre) ═══
 function drawHeader(doc, title) {
   const pageWidth = doc.page.width;
@@ -49,7 +107,6 @@ function drawHeader(doc, title) {
   doc.rect(0, 0, pageWidth, 118).fill(COLORS.primary);
   doc.rect(0, 112, pageWidth, 6).fill(COLORS.primaryDark);
 
-  // Logo (cercle + initiale, à défaut d'une image de logo)
   doc.circle(PAGE_MARGIN + 20, 46, 20).fill(COLORS.white);
   doc.fontSize(20).font('Helvetica-Bold').fillColor(COLORS.primary)
      .text('M', PAGE_MARGIN + 8, 34, { width: 24, align: 'center' });
@@ -63,23 +120,38 @@ function drawHeader(doc, title) {
      .text(title, PAGE_MARGIN, 78, { width: pageWidth - PAGE_MARGIN * 2 });
 
   doc.fontSize(8.5).font('Helvetica').fillColor('#E0E7FF')
-     .text(`Généré le ${formatDate(new Date())}`, PAGE_MARGIN, pageWidth > 0 ? 100 : 100);
+     .text(`Généré le ${formatDate(new Date())}`, PAGE_MARGIN, 100);
 
   return 150; // position Y de départ du contenu
 }
 
 // ═══ PIED DE PAGE ═══
+// FIX (bug des pages fantômes) : la marge basse du document (PAGE_MARGIN)
+// limite la zone "écrivable" par PDFKit à `page.height - margins.bottom`.
+// Le pied de page voulait écrire au-delà de cette limite, ce qui forçait
+// PDFKit à créer automatiquement des pages supplémentaires à chaque appel
+// à .text(). On neutralise temporairement la marge basse le temps de
+// dessiner le pied de page, puis on la restaure.
 function drawFooter(doc, pageNumber) {
   const pageWidth = doc.page.width;
   const pageHeight = doc.page.height;
-  const y = pageHeight - 45;
+  const y = pageHeight - 40;
+
+  const originalBottomMargin = doc.page.margins.bottom;
+  doc.page.margins.bottom = 0;
 
   doc.moveTo(PAGE_MARGIN, y).lineTo(pageWidth - PAGE_MARGIN, y).lineWidth(0.5).strokeColor(COLORS.border).stroke();
 
   doc.fontSize(8).font('Helvetica').fillColor(COLORS.muted)
-     .text('MentorIPath — Plateforme de mentorat académique', PAGE_MARGIN, y + 10, { width: pageWidth - PAGE_MARGIN * 2 - 60, align: 'left' });
+     .text('MentorIPath — Plateforme de mentorat académique', PAGE_MARGIN, y + 10, {
+       width: pageWidth - PAGE_MARGIN * 2 - 60, align: 'left', lineBreak: false,
+     });
   doc.fontSize(8).font('Helvetica').fillColor(COLORS.muted)
-     .text(`Page ${pageNumber}`, pageWidth - PAGE_MARGIN - 60, y + 10, { width: 60, align: 'right' });
+     .text(`Page ${pageNumber}`, pageWidth - PAGE_MARGIN - 60, y + 10, {
+       width: 60, align: 'right', lineBreak: false,
+     });
+
+  doc.page.margins.bottom = originalBottomMargin;
 }
 
 // ═══ TITRE DE SECTION (barre colorée + libellé) ═══
@@ -101,14 +173,12 @@ function infoCard(doc, x, y, width, label, value) {
   return y + height + 10;
 }
 
-// ═══ CARTE PARTICIPANT (avatar initiales + infos) ═══
-function participantCard(doc, x, y, width, roleLabel, prenom, nom, email, meta, accentColor) {
+// ═══ CARTE PARTICIPANT (photo réelle ou repli initiales + infos) ═══
+function participantCard(doc, x, y, width, roleLabel, prenom, nom, email, meta, accentColor, photoBuffer) {
   const height = 100;
   doc.roundedRect(x, y, width, height, 8).fill(COLORS.white).strokeColor(COLORS.border).lineWidth(1).stroke();
 
-  doc.circle(x + 32, y + 32, 20).fill(accentColor);
-  doc.fontSize(13).font('Helvetica-Bold').fillColor(COLORS.white)
-     .text(getInitials(prenom, nom), x + 12, y + 25, { width: 40, align: 'center' });
+  drawAvatar(doc, x + 32, y + 32, 20, photoBuffer, prenom, nom, accentColor);
 
   doc.fontSize(8).font('Helvetica-Bold').fillColor(accentColor)
      .text(roleLabel.toUpperCase(), x + 62, y + 14, { characterSpacing: 0.5 });
@@ -159,10 +229,15 @@ const generateSessionRapport = async (req, res, next) => {
   const { session_id } = req.params;
 
   try {
+    // NOTE : "um.photo_url" / "ume.photo_url" supposent une colonne
+    // `photo_url` dans la table `utilisateurs`. Adaptez le nom de la
+    // colonne (ex: photo, avatar_url, picture...) si le vôtre diffère.
     const sessionResult = await query(
       `SELECT s.*,
               um.nom as mentor_nom, um.prenom as mentor_prenom, um.email as mentor_email,
+              um.photo_url as mentor_photo,
               ume.nom as mentore_nom, ume.prenom as mentore_prenom, ume.email as mentore_email,
+              ume.photo_url as mentore_photo,
               pm.domaine as mentor_domaine,
               pme.niveau_etude
        FROM sessions s
@@ -179,6 +254,14 @@ const generateSessionRapport = async (req, res, next) => {
     }
 
     const session = sessionResult.rows[0];
+
+    // Téléchargement des photos AVANT de construire le PDF, car le
+    // rendu PDFKit est synchrone une fois lancé.
+    const [mentorPhotoBuffer, mentorePhotoBuffer] = await Promise.all([
+      fetchImageBuffer(session.mentor_photo),
+      fetchImageBuffer(session.mentore_photo),
+    ]);
+
     const fileName = `rapport_session_${session_id}_${Date.now()}.pdf`;
     const filePath = path.join(reportsDir, fileName);
 
@@ -200,8 +283,8 @@ const generateSessionRapport = async (req, res, next) => {
 
     // ── Participants ──
     y = sectionTitle(doc, y, 'Participants');
-    y = participantCard(doc, PAGE_MARGIN, y, doc.page.width - PAGE_MARGIN * 2, 'Mentor', session.mentor_prenom, session.mentor_nom, session.mentor_email, `Domaine : ${session.mentor_domaine || 'Non spécifié'}`, COLORS.primary);
-    y = participantCard(doc, PAGE_MARGIN, y, doc.page.width - PAGE_MARGIN * 2, 'Mentoré', session.mentore_prenom, session.mentore_nom, session.mentore_email, `Niveau : ${session.niveau_etude || 'Non spécifié'}`, COLORS.accent);
+    y = participantCard(doc, PAGE_MARGIN, y, doc.page.width - PAGE_MARGIN * 2, 'Mentor', session.mentor_prenom, session.mentor_nom, session.mentor_email, `Domaine : ${session.mentor_domaine || 'Non spécifié'}`, COLORS.primary, mentorPhotoBuffer);
+    y = participantCard(doc, PAGE_MARGIN, y, doc.page.width - PAGE_MARGIN * 2, 'Mentoré', session.mentore_prenom, session.mentore_nom, session.mentore_email, `Niveau : ${session.niveau_etude || 'Non spécifié'}`, COLORS.accent, mentorePhotoBuffer);
     y += 6;
 
     // ── Évaluations ──
@@ -209,7 +292,7 @@ const generateSessionRapport = async (req, res, next) => {
     y = ratingCard(doc, PAGE_MARGIN, y, doc.page.width - PAGE_MARGIN * 2, 'Note attribuée par le mentor', session.note_du_mentor, session.notes_mentor);
     y = ratingCard(doc, PAGE_MARGIN, y, doc.page.width - PAGE_MARGIN * 2, 'Note attribuée par le mentoré', session.note_du_mentore, session.notes_mentore);
 
-    // Pied de page sur toutes les pages générées
+    // Pied de page sur toutes les pages réellement générées
     const pageRange = doc.bufferedPageRange();
     for (let i = 0; i < pageRange.count; i++) {
       doc.switchToPage(i);
@@ -329,13 +412,11 @@ const generateProgressRapport = async (req, res, next) => {
 
     // ── Progression : jauge circulaire simplifiée + statistiques ──
     y = sectionTitle(doc, y, 'Progression');
-    const gaugeSize = 90;
     const cardHeight = 110;
     doc.roundedRect(PAGE_MARGIN, y, doc.page.width - PAGE_MARGIN * 2, cardHeight, 8).fill(COLORS.light);
 
     const cx = PAGE_MARGIN + 65, cy = y + cardHeight / 2, r = 38;
     doc.circle(cx, cy, r).lineWidth(10).strokeColor(COLORS.border).stroke();
-    // Arc de progression (approximation via un cercle plein coloré overlay si 100%, sinon simple anneau partiel non trivial en pdfkit — on affiche le chiffre en grand à la place)
     doc.circle(cx, cy, r).lineWidth(10).strokeColor(stats.taux_completion >= 70 ? COLORS.success : stats.taux_completion >= 40 ? COLORS.warning : COLORS.muted)
        .stroke();
     doc.fontSize(20).font('Helvetica-Bold').fillColor(COLORS.text)

@@ -1,0 +1,14 @@
+# env files (never commit these)
+.env
+.env.*
+!.env.example
+
+# uploads
+/uploads
+/backend/uploads
+
+# node_modules (si présents à la racine ou dans d'autres sous-dossiers)
+node_modules
+/ia_service/venv
+/ia_service/__pycache__
+*.pyc
